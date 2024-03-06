@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 async-trait = "0.1.77"
 bb8 = "0.8.3"
+bb8-postgres = "0.8.1"
 derive_more = "0.99.17"
 diesel = { version = "2.1.4", features = ["postgres", "mysql", "r2d2"] }
 diesel-async = { version = "0.4.1", features = ["postgres", "bb8"] }
