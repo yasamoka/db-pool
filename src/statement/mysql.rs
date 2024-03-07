@@ -18,6 +18,7 @@ pub fn grant_privileges(db_name: &str, host: &str) -> String {
     format!("GRANT SELECT, INSERT, UPDATE, DELETE ON {db_name}.* TO {db_name}@{host}")
 }
 
+#[allow(dead_code)]
 pub fn get_table_names(db_name: &str) -> String {
     format!("SELECT table_name FROM information_schema.tables WHERE table_schema = '{db_name}'")
 }
@@ -26,6 +27,7 @@ pub fn truncate_table(table_name: &str, db_name: &str) -> String {
     format!("TRUNCATE TABLE {db_name}.{table_name}")
 }
 
+#[allow(dead_code)]
 pub fn get_database_connection_ids(db_name: &str, host: &str) -> String {
     format!("SELECT id FROM information_schema.processlist WHERE user = {db_name}@{host}")
 }

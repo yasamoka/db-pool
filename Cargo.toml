@@ -6,17 +6,66 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-async-trait = "0.1.77"
-bb8 = "0.8.3"
-bb8-postgres = "0.8.1"
-derive_more = "0.99.17"
-diesel = { version = "2.1.4", features = ["postgres", "mysql", "r2d2"] }
-diesel-async = { version = "0.4.1", features = ["postgres", "mysql", "bb8"] }
-futures = "0.3.30"
 parking_lot = "0.12.1"
-postgres = "0.19.7"
-r2d2 = "0.8.10"
-r2d2_mysql = "24.0.0"
-r2d2_postgres = "0.18.1"
-tokio = { version = "1.36.0", features = ["rt-multi-thread", "macros"] }
 uuid = { version = "1.7.0", features = ["v4"] }
+
+async-trait = { version = "0.1.77", optional = true }
+bb8 = { version = "0.8.3", optional = true }
+bb8-postgres = { version = "0.8.1", optional = true }
+diesel = { version = "2.1.4", optional = true }
+diesel-async = { version = "0.4.1", optional = true }
+futures = { version = "0.3.30", optional = true }
+r2d2 = { version = "0.8.10", optional = true }
+r2d2_mysql = { version = "24.0.0", optional = true }
+r2d2_postgres = { version = "0.18.1", optional = true }
+tokio = { version = "1.36.0", optional = true }
+
+[dev-dependencies]
+diesel = { version = "2.1.4", features = ["mysql", "postgres"] }
+futures = "0.3.30"
+tokio = { version = "1.36.0", features = ["macros"] }
+
+[features]
+# Sync
+_sync = ["dep:r2d2"]
+
+# Sync backends
+_sync-mysql = ["_sync"]
+_sync-postgres = ["_sync"]
+
+# Sync Diesel backends
+_diesel = ["_sync", "dep:diesel", "diesel/r2d2"]
+diesel-mysql = ["_sync-mysql", "_diesel", "diesel/mysql"]
+diesel-postgres = ["_sync-postgres", "_diesel", "diesel/postgres"]
+
+# Other sync MySQL backends
+mysql = ["_sync-mysql", "dep:r2d2_mysql"]
+
+# Other sync Postgres backends
+postgres = ["_sync-postgres", "dep:r2d2_postgres"]
+
+
+# Async
+_async = [
+    "dep:async-trait",
+    "dep:bb8",
+    "dep:futures",
+    "dep:tokio",
+    "tokio/rt-multi-thread",
+]
+
+# Async backends
+_async-mysql = ["_async"]
+_async-postgres = ["_async"]
+
+# Async Diesel backends
+_diesel-async = ["_async", "dep:diesel", "dep:diesel-async", "diesel-async/bb8"]
+diesel-async-mysql = ["_async-mysql", "_diesel-async", "diesel-async/mysql"]
+diesel-async-postgres = [
+    "_async-postgres",
+    "_diesel-async",
+    "diesel-async/postgres",
+]
+
+# Other async Postgres backends
+tokio-postgres = ["_async-postgres", "dep:bb8-postgres"]

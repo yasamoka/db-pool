@@ -1,15 +1,15 @@
 use std::thread;
 
-use postgres::{Client, NoTls};
 use r2d2::{Builder, Pool};
-use r2d2_postgres::PostgresConnectionManager;
+use r2d2_postgres::{
+    postgres::{Client, Config, NoTls},
+    PostgresConnectionManager,
+};
 
 use db_pool::{DatabasePoolBuilder, PostgresBackend, ReusableConnectionPool};
 
 fn main() {
-    let privileged_config = "host=localhost user=postgres"
-        .parse::<postgres::Config>()
-        .unwrap();
+    let privileged_config = "host=localhost user=postgres".parse::<Config>().unwrap();
 
     let create_entities_stmt = r#"
         CREATE TABLE author(
