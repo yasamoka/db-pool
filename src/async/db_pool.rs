@@ -1,29 +1,30 @@
-use std::{future::Future, pin::Pin, sync::Arc};
+use std::{ops::Deref, sync::Arc};
 
-use super::{
-    backend::AsyncBackend, conn_pool::ReusableAsyncConnectionPool, object_pool::AsyncObjectPool,
-};
+use super::{backend::AsyncBackend, conn_pool::AsyncConnectionPool, object_pool::AsyncObjectPool};
+
+#[derive(Clone)]
+pub struct AsyncDatabasePool<B>(Arc<AsyncObjectPool<AsyncConnectionPool<B>>>)
+where
+    B: AsyncBackend;
+
+impl<B> Deref for AsyncDatabasePool<B>
+where
+    B: AsyncBackend,
+{
+    type Target = Arc<AsyncObjectPool<AsyncConnectionPool<B>>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 pub trait AsyncDatabasePoolBuilder: AsyncBackend {
-    fn create_database_pool(
-        self,
-    ) -> Arc<
-        AsyncObjectPool<
-            ReusableAsyncConnectionPool<Self>,
-            impl Fn()
-                -> Pin<Box<dyn Future<Output = ReusableAsyncConnectionPool<Self>> + Send + 'static>>,
-            impl Fn(
-                ReusableAsyncConnectionPool<Self>,
-            )
-                -> Pin<Box<dyn Future<Output = ReusableAsyncConnectionPool<Self>> + Send + 'static>>,
-        >,
-    > {
+    fn create_database_pool(self) -> AsyncDatabasePool<Self> {
         let backend = Arc::new(self);
-
-        Arc::new(AsyncObjectPool::new(
+        let object_pool = Arc::new(AsyncObjectPool::new(
             move || {
                 let backend = backend.clone();
-                Box::pin(async { ReusableAsyncConnectionPool::new(backend).await })
+                Box::pin(async { AsyncConnectionPool::new(backend).await })
             },
             |mut conn_pool| {
                 Box::pin(async {
@@ -31,7 +32,8 @@ pub trait AsyncDatabasePoolBuilder: AsyncBackend {
                     conn_pool
                 })
             },
-        ))
+        ));
+        AsyncDatabasePool(object_pool)
     }
 }
 

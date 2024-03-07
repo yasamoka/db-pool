@@ -5,28 +5,25 @@ use std::mem::{forget, ManuallyDrop};
 use std::ops::{Deref, DerefMut};
 
 pub type Stack<T> = Vec<T>;
+type Init<T> = Box<dyn Fn() -> T + Send + Sync + 'static>;
+type Reset<T> = Box<dyn Fn(&mut T) + Send + Sync + 'static>;
 
-pub struct ObjectPool<T, I, R>
-where
-    I: Fn() -> T,
-    R: Fn(&mut T),
-{
+pub struct ObjectPool<T> {
     objects: Mutex<Stack<T>>,
-    init: I,
-    reset: R,
+    init: Init<T>,
+    reset: Reset<T>,
 }
 
-impl<T, I, R> ObjectPool<T, I, R>
-where
-    I: Fn() -> T,
-    R: Fn(&mut T),
-{
+impl<T> ObjectPool<T> {
     #[inline]
-    pub fn new(init: I, reset: R) -> ObjectPool<T, I, R> {
+    pub fn new(
+        init: impl Fn() -> T + Send + Sync + 'static,
+        reset: impl Fn(&mut T) + Send + Sync + 'static,
+    ) -> ObjectPool<T> {
         ObjectPool {
             objects: Mutex::new(Vec::new()),
-            init,
-            reset,
+            init: Box::new(init),
+            reset: Box::new(reset),
         }
     }
 
@@ -41,7 +38,7 @@ where
     }
 
     #[inline]
-    pub fn pull(&self) -> Reusable<T, I, R> {
+    pub fn pull(&self) -> Reusable<T> {
         self.objects
             .lock()
             .pop()
@@ -56,22 +53,14 @@ where
     }
 }
 
-pub struct Reusable<'a, T, I, R>
-where
-    I: Fn() -> T,
-    R: Fn(&mut T),
-{
-    pool: &'a ObjectPool<T, I, R>,
+pub struct Reusable<'a, T> {
+    pool: &'a ObjectPool<T>,
     data: ManuallyDrop<T>,
 }
 
-impl<'a, T, I, R> Reusable<'a, T, I, R>
-where
-    I: Fn() -> T,
-    R: Fn(&mut T),
-{
+impl<'a, T> Reusable<'a, T> {
     #[inline]
-    pub fn new(pool: &'a ObjectPool<T, I, R>, t: T) -> Self {
+    pub fn new(pool: &'a ObjectPool<T>, t: T) -> Self {
         Self {
             pool,
             data: ManuallyDrop::new(t),
@@ -79,7 +68,7 @@ where
     }
 
     #[inline]
-    pub fn detach(mut self) -> (&'a ObjectPool<T, I, R>, T) {
+    pub fn detach(mut self) -> (&'a ObjectPool<T>, T) {
         let ret = unsafe { (self.pool, self.take()) };
         forget(self);
         ret
@@ -90,11 +79,7 @@ where
     }
 }
 
-impl<'a, T, I, R> Deref for Reusable<'a, T, I, R>
-where
-    I: Fn() -> T,
-    R: Fn(&mut T),
-{
+impl<'a, T> Deref for Reusable<'a, T> {
     type Target = T;
 
     #[inline]
@@ -103,22 +88,14 @@ where
     }
 }
 
-impl<'a, T, I, R> DerefMut for Reusable<'a, T, I, R>
-where
-    I: Fn() -> T,
-    R: Fn(&mut T),
-{
+impl<'a, T> DerefMut for Reusable<'a, T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.data
     }
 }
 
-impl<'a, T, I, R> Drop for Reusable<'a, T, I, R>
-where
-    I: Fn() -> T,
-    R: Fn(&mut T),
-{
+impl<'a, T> Drop for Reusable<'a, T> {
     #[inline]
     fn drop(&mut self) {
         unsafe { self.pool.attach(self.take()) }
@@ -151,7 +128,7 @@ mod tests {
     #[test]
     fn len() {
         {
-            let pool = ObjectPool::<Vec<u8>, _, _>::new(|| Vec::new(), |_| {});
+            let pool = ObjectPool::<Vec<u8>>::new(|| Vec::new(), |_| {});
 
             let object1 = pool.pull();
             drop(object1);
@@ -162,7 +139,7 @@ mod tests {
         }
 
         {
-            let pool = ObjectPool::<Vec<u8>, _, _>::new(|| Vec::new(), |_| {});
+            let pool = ObjectPool::<Vec<u8>>::new(|| Vec::new(), |_| {});
 
             let object1 = pool.pull();
             let object2 = pool.pull();

@@ -17,41 +17,39 @@ use super::r#trait::{impl_async_backend_for_async_pg_backend, AsyncPgBackend};
 
 type Manager = AsyncDieselConnectionManager<AsyncPgConnection>;
 
-pub struct DieselAsyncPgBackend<CE, CPB>
-where
-    CE: Fn(AsyncPgConnection) -> Pin<Box<dyn Future<Output = AsyncPgConnection> + Send + 'static>>
-        + Send
-        + Sync
-        + 'static,
-    CPB: Fn() -> Builder<Manager> + Send + Sync + 'static,
-{
+pub struct DieselAsyncPgBackend {
     username: String,
     password: String,
     host: String,
     port: u16,
     default_pool: Pool<Manager>,
     db_conns: Mutex<HashMap<Uuid, AsyncPgConnection>>,
-    create_entities: CE,
-    create_pool_builder: CPB,
+    create_entities: Box<
+        dyn Fn(
+                AsyncPgConnection,
+            ) -> Pin<Box<dyn Future<Output = AsyncPgConnection> + Send + 'static>>
+            + Send
+            + Sync
+            + 'static,
+    >,
+    create_pool_builder: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
     terminate_connections_before_drop: bool,
 }
 
-impl<CE, CPB> DieselAsyncPgBackend<CE, CPB>
-where
-    CE: Fn(AsyncPgConnection) -> Pin<Box<dyn Future<Output = AsyncPgConnection> + Send + 'static>>
-        + Send
-        + Sync
-        + 'static,
-    CPB: Fn() -> Builder<Manager> + Send + Sync + 'static,
-{
+impl DieselAsyncPgBackend {
     pub fn new(
         username: String,
         password: String,
         host: String,
         port: u16,
         default_pool: Pool<Manager>,
-        create_entities: CE,
-        create_pool_builder: CPB,
+        create_entities: impl Fn(
+                AsyncPgConnection,
+            ) -> Pin<Box<dyn Future<Output = AsyncPgConnection> + Send + 'static>>
+            + Send
+            + Sync
+            + 'static,
+        create_pool_builder: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
         terminate_connections_before_drop: bool,
     ) -> Self {
         Self {
@@ -61,8 +59,8 @@ where
             port,
             default_pool,
             db_conns: Mutex::new(HashMap::new()),
-            create_entities,
-            create_pool_builder,
+            create_entities: Box::new(create_entities),
+            create_pool_builder: Box::new(create_pool_builder),
             terminate_connections_before_drop,
         }
     }
@@ -76,14 +74,7 @@ where
 }
 
 #[async_trait]
-impl<CE, CPB> AsyncPgBackend for DieselAsyncPgBackend<CE, CPB>
-where
-    CE: Fn(AsyncPgConnection) -> Pin<Box<dyn Future<Output = AsyncPgConnection> + Send + 'static>>
-        + Send
-        + Sync
-        + 'static,
-    CPB: Fn() -> Builder<Manager> + Send + Sync + 'static,
-{
+impl AsyncPgBackend for DieselAsyncPgBackend {
     type ConnectionManager = Manager;
 
     async fn execute_stmt(&self, query: &str, conn: &mut AsyncPgConnection) {

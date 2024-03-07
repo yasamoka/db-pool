@@ -8,27 +8,27 @@ use std::pin::Pin;
 
 pub type Stack<T> = Vec<T>;
 
-pub struct AsyncObjectPool<T, I, R>
-where
-    I: Fn() -> Pin<Box<dyn Future<Output = T> + Send + 'static>>,
-    R: Fn(T) -> Pin<Box<dyn Future<Output = T> + Send + 'static>>,
-{
+type Init<T> =
+    Box<dyn Fn() -> Pin<Box<dyn Future<Output = T> + Send + 'static>> + Send + Sync + 'static>;
+type Reset<T> =
+    Box<dyn Fn(T) -> Pin<Box<dyn Future<Output = T> + Send + 'static>> + Send + Sync + 'static>;
+
+pub struct AsyncObjectPool<T> {
     objects: Mutex<Stack<T>>,
-    init: I,
-    reset: R,
+    init: Init<T>,
+    reset: Reset<T>,
 }
 
-impl<T, I, R> AsyncObjectPool<T, I, R>
-where
-    I: Fn() -> Pin<Box<dyn Future<Output = T> + Send + 'static>>,
-    R: Fn(T) -> Pin<Box<dyn Future<Output = T> + Send + 'static>>,
-{
+impl<T> AsyncObjectPool<T> {
     #[inline]
-    pub fn new(init: I, reset: R) -> AsyncObjectPool<T, I, R> {
+    pub fn new(
+        init: impl Fn() -> Pin<Box<dyn Future<Output = T> + Send + 'static>> + Send + Sync + 'static,
+        reset: impl Fn(T) -> Pin<Box<dyn Future<Output = T> + Send + 'static>> + Send + Sync + 'static,
+    ) -> AsyncObjectPool<T> {
         AsyncObjectPool {
             objects: Mutex::new(Vec::new()),
-            init,
-            reset,
+            init: Box::new(init),
+            reset: Box::new(reset),
         }
     }
 
@@ -43,14 +43,14 @@ where
     }
 
     #[inline]
-    pub async fn pull(&self) -> Reusable<T, I, R> {
+    pub async fn pull(&self) -> AsyncReusable<T> {
         let object = self.objects.lock().pop();
         let object = if let Some(object) = object {
             (self.reset)(object).await
         } else {
             (self.init)().await
         };
-        Reusable::new(self, object).await
+        AsyncReusable::new(self, object).await
     }
 
     #[inline]
@@ -59,22 +59,14 @@ where
     }
 }
 
-pub struct Reusable<'b, T, I, R>
-where
-    I: Fn() -> Pin<Box<dyn Future<Output = T> + Send + 'static>>,
-    R: Fn(T) -> Pin<Box<dyn Future<Output = T> + Send + 'static>>,
-{
-    pool: &'b AsyncObjectPool<T, I, R>,
+pub struct AsyncReusable<'a, T> {
+    pool: &'a AsyncObjectPool<T>,
     data: ManuallyDrop<T>,
 }
 
-impl<'b, T, I, R> Reusable<'b, T, I, R>
-where
-    I: Fn() -> Pin<Box<dyn Future<Output = T> + Send + 'static>>,
-    R: Fn(T) -> Pin<Box<dyn Future<Output = T> + Send + 'static>>,
-{
+impl<'a, T> AsyncReusable<'a, T> {
     #[inline]
-    pub async fn new(pool: &'b AsyncObjectPool<T, I, R>, t: T) -> Self {
+    pub async fn new(pool: &'a AsyncObjectPool<T>, t: T) -> Self {
         Self {
             pool,
             data: ManuallyDrop::new(t),
@@ -82,7 +74,7 @@ where
     }
 
     #[inline]
-    pub fn detach(mut self) -> (&'b AsyncObjectPool<T, I, R>, T) {
+    pub fn detach(mut self) -> (&'a AsyncObjectPool<T>, T) {
         let ret = unsafe { (self.pool, self.take()) };
         forget(self);
         ret
@@ -93,11 +85,7 @@ where
     }
 }
 
-impl<'b, T, I, R> Deref for Reusable<'b, T, I, R>
-where
-    I: Fn() -> Pin<Box<dyn Future<Output = T> + Send + 'static>>,
-    R: Fn(T) -> Pin<Box<dyn Future<Output = T> + Send + 'static>>,
-{
+impl<'a, T> Deref for AsyncReusable<'a, T> {
     type Target = T;
 
     #[inline]
@@ -106,22 +94,14 @@ where
     }
 }
 
-impl<'b, T, I, R> DerefMut for Reusable<'b, T, I, R>
-where
-    I: Fn() -> Pin<Box<dyn Future<Output = T> + Send + 'static>>,
-    R: Fn(T) -> Pin<Box<dyn Future<Output = T> + Send + 'static>>,
-{
+impl<'a, T> DerefMut for AsyncReusable<'a, T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.data
     }
 }
 
-impl<'b, T, I, R> Drop for Reusable<'b, T, I, R>
-where
-    I: Fn() -> Pin<Box<dyn Future<Output = T> + Send + 'static>>,
-    R: Fn(T) -> Pin<Box<dyn Future<Output = T> + Send + 'static>>,
-{
+impl<'a, T> Drop for AsyncReusable<'a, T> {
     #[inline]
     fn drop(&mut self) {
         unsafe { self.pool.attach(self.take()) }

@@ -1,26 +1,33 @@
-use std::sync::Arc;
+use std::{ops::Deref, sync::Arc};
 
-use super::{backend::Backend, conn_pool::ReusableConnectionPool, object_pool::ObjectPool};
+use super::{backend::Backend, conn_pool::ConnectionPool, object_pool::ObjectPool};
 
-pub trait DatabasePoolBuilder: Backend + Sized {
-    fn create_database_pool(
-        self,
-    ) -> Arc<
-        ObjectPool<
-            ReusableConnectionPool<Self>,
-            impl Fn() -> ReusableConnectionPool<Self>,
-            impl Fn(&mut ReusableConnectionPool<Self>),
-        >,
-    > {
+pub struct DatabasePool<B>(Arc<ObjectPool<ConnectionPool<B>>>)
+where
+    B: Backend;
+
+impl<B> Deref for DatabasePool<B>
+where
+    B: Backend,
+{
+    type Target = Arc<ObjectPool<ConnectionPool<B>>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+pub trait DatabasePoolBuilder: Backend {
+    fn create_database_pool(self) -> DatabasePool<Self> {
         let backend = Arc::new(self);
-
-        Arc::new(ObjectPool::new(
+        let object_pool = Arc::new(ObjectPool::new(
             move || {
                 let backend = backend.clone();
-                ReusableConnectionPool::new(backend)
+                ConnectionPool::new(backend)
             },
             |conn_pool| conn_pool.clean(),
-        ))
+        ));
+        DatabasePool(object_pool)
     }
 }
 

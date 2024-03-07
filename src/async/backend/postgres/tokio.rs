@@ -16,57 +16,44 @@ use super::r#trait::{impl_async_backend_for_async_pg_backend, AsyncPgBackend};
 
 type Manager = PostgresConnectionManager<NoTls>;
 
-pub struct TokioPostgresBackend<CE, CPB>
-where
-    CE: Fn(Client) -> Pin<Box<dyn Future<Output = Client> + Send + 'static>>
-        + Send
-        + Sync
-        + 'static,
-    CPB: Fn() -> Builder<Manager> + Send + Sync + 'static,
-{
+pub struct TokioPostgresBackend {
     privileged_config: Config,
     default_pool: Pool<Manager>,
     db_conns: Mutex<HashMap<Uuid, Client>>,
-    create_entities: CE,
-    create_pool_builder: CPB,
+    create_entities: Box<
+        dyn Fn(Client) -> Pin<Box<dyn Future<Output = Client> + Send + 'static>>
+            + Send
+            + Sync
+            + 'static,
+    >,
+    create_pool_builder: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
     terminate_connections_before_drop: bool,
 }
 
-impl<CE, CPB> TokioPostgresBackend<CE, CPB>
-where
-    CE: Fn(Client) -> Pin<Box<dyn Future<Output = Client> + Send + 'static>>
-        + Send
-        + Sync
-        + 'static,
-    CPB: Fn() -> Builder<Manager> + Send + Sync + 'static,
-{
+impl TokioPostgresBackend {
     pub fn new(
         privileged_config: Config,
         default_pool: Pool<Manager>,
-        create_entities: CE,
-        create_pool_builder: CPB,
+        create_entities: impl Fn(Client) -> Pin<Box<dyn Future<Output = Client> + Send + 'static>>
+            + Send
+            + Sync
+            + 'static,
+        create_pool_builder: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
         terminate_connections_before_drop: bool,
     ) -> Self {
         Self {
             privileged_config,
             default_pool,
             db_conns: Mutex::new(HashMap::new()),
-            create_entities,
-            create_pool_builder,
+            create_entities: Box::new(create_entities),
+            create_pool_builder: Box::new(create_pool_builder),
             terminate_connections_before_drop,
         }
     }
 }
 
 #[async_trait]
-impl<CE, CPB> AsyncPgBackend for TokioPostgresBackend<CE, CPB>
-where
-    CE: Fn(Client) -> Pin<Box<dyn Future<Output = Client> + Send + 'static>>
-        + Send
-        + Sync
-        + 'static,
-    CPB: Fn() -> Builder<Manager> + Send + Sync + 'static,
-{
+impl AsyncPgBackend for TokioPostgresBackend {
     type ConnectionManager = Manager;
 
     async fn execute_stmt(&self, query: &str, conn: &mut Client) {

@@ -10,38 +10,30 @@ use super::r#trait::{impl_backend_for_mysql_backend, MySQLBackend};
 
 type Manager = ConnectionManager<MysqlConnection>;
 
-pub struct DieselMysqlBackend<CE, CPB>
-where
-    CE: Fn(&mut MysqlConnection),
-    CPB: Fn() -> Builder<Manager>,
-{
+pub struct DieselMysqlBackend {
     host: String,
     port: u16,
     default_pool: Pool<Manager>,
-    create_entities: CE,
-    create_pool_builder: CPB,
+    create_entities: Box<dyn Fn(&mut MysqlConnection) + Send + Sync + 'static>,
+    create_pool_builder: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
     terminate_connections_before_drop: bool,
 }
 
-impl<CE, CPB> DieselMysqlBackend<CE, CPB>
-where
-    CE: Fn(&mut MysqlConnection),
-    CPB: Fn() -> Builder<Manager>,
-{
+impl DieselMysqlBackend {
     pub fn new(
         host: String,
         port: u16,
         default_pool: Pool<Manager>,
-        create_entities: CE,
-        create_pool_builder: CPB,
+        create_entities: impl Fn(&mut MysqlConnection) + Send + Sync + 'static,
+        create_pool_builder: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
         terminate_connections_before_drop: bool,
     ) -> Self {
         Self {
             host,
             port,
             default_pool,
-            create_entities,
-            create_pool_builder,
+            create_entities: Box::new(create_entities),
+            create_pool_builder: Box::new(create_pool_builder),
             terminate_connections_before_drop,
         }
     }
@@ -54,11 +46,7 @@ where
     }
 }
 
-impl<CE, CPB> MySQLBackend for DieselMysqlBackend<CE, CPB>
-where
-    CE: Fn(&mut MysqlConnection),
-    CPB: Fn() -> Builder<Manager>,
-{
+impl MySQLBackend for DieselMysqlBackend {
     type ConnectionManager = Manager;
 
     fn get_connection(&self) -> PooledConnection<Manager> {

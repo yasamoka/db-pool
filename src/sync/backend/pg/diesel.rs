@@ -11,35 +11,27 @@ use super::r#trait::{impl_backend_for_pg_backend, PgBackend};
 
 type Manager = ConnectionManager<PgConnection>;
 
-pub struct DieselPgBackend<CE, CPB>
-where
-    CE: Fn(&mut PgConnection),
-    CPB: Fn() -> Builder<Manager>,
-{
+pub struct DieselPgBackend {
     username: String,
     password: String,
     host: String,
     port: u16,
     default_pool: Pool<Manager>,
     db_conns: Mutex<HashMap<Uuid, PgConnection>>,
-    create_entities: CE,
-    create_pool_builder: CPB,
+    create_entities: Box<dyn Fn(&mut PgConnection) + Send + Sync + 'static>,
+    create_pool_builder: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
     terminate_connections_before_drop: bool,
 }
 
-impl<CE, CPB> DieselPgBackend<CE, CPB>
-where
-    CE: Fn(&mut PgConnection),
-    CPB: Fn() -> Builder<Manager>,
-{
+impl DieselPgBackend {
     pub fn new(
         username: String,
         password: String,
         host: String,
         port: u16,
         default_pool: Pool<Manager>,
-        create_entities: CE,
-        create_pool_builder: CPB,
+        create_entities: impl Fn(&mut PgConnection) + Send + Sync + 'static,
+        create_pool_builder: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
         terminate_connections_before_drop: bool,
     ) -> Self {
         Self {
@@ -49,8 +41,8 @@ where
             port,
             default_pool,
             db_conns: Mutex::new(HashMap::new()),
-            create_entities,
-            create_pool_builder,
+            create_entities: Box::new(create_entities),
+            create_pool_builder: Box::new(create_pool_builder),
             terminate_connections_before_drop,
         }
     }
@@ -63,11 +55,7 @@ where
     }
 }
 
-impl<CE, CPB> PgBackend for DieselPgBackend<CE, CPB>
-where
-    CE: Fn(&mut PgConnection),
-    CPB: Fn() -> Builder<Manager>,
-{
+impl PgBackend for DieselPgBackend {
     type ConnectionManager = Manager;
 
     fn execute(&self, query: &str, conn: &mut PgConnection) {

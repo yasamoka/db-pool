@@ -7,7 +7,7 @@ use crate::util::get_db_name;
 
 use super::backend::Backend;
 
-pub struct ReusableConnectionPool<B>
+pub struct ConnectionPool<B>
 where
     B: Backend,
 {
@@ -16,7 +16,7 @@ where
     conn_pool: Option<Pool<B::ConnectionManager>>,
 }
 
-impl<B> ReusableConnectionPool<B>
+impl<B> ConnectionPool<B>
 where
     B: Backend,
 {
@@ -40,7 +40,7 @@ where
     }
 }
 
-impl<B> Deref for ReusableConnectionPool<B>
+impl<B> Deref for ConnectionPool<B>
 where
     B: Backend,
 {
@@ -51,7 +51,7 @@ where
     }
 }
 
-impl<B> Drop for ReusableConnectionPool<B>
+impl<B> Drop for ConnectionPool<B>
 where
     B: Backend,
 {

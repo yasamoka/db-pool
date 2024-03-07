@@ -14,47 +14,35 @@ use super::r#trait::{impl_backend_for_pg_backend, PgBackend};
 
 type Manager = PostgresConnectionManager<NoTls>;
 
-pub struct PostgresBackend<CE, CPB>
-where
-    CE: Fn(&mut Client),
-    CPB: Fn() -> Builder<Manager>,
-{
+pub struct PostgresBackend {
     privileged_config: Config,
     default_pool: Pool<Manager>,
     db_conns: Mutex<HashMap<Uuid, Client>>,
-    create_entities: CE,
-    create_pool_builder: CPB,
+    create_entities: Box<dyn Fn(&mut Client) + Send + Sync + 'static>,
+    create_pool_builder: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
     terminate_connections_before_drop: bool,
 }
 
-impl<CE, CPB> PostgresBackend<CE, CPB>
-where
-    CE: Fn(&mut Client),
-    CPB: Fn() -> Builder<Manager>,
-{
+impl PostgresBackend {
     pub fn new(
         privileged_config: Config,
         default_pool: Pool<Manager>,
-        create_entities: CE,
-        create_pool_builder: CPB,
+        create_entities: impl Fn(&mut Client) + Send + Sync + 'static,
+        create_pool_builder: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
         terminate_connections_before_drop: bool,
     ) -> Self {
         Self {
             privileged_config,
             default_pool,
             db_conns: Mutex::new(HashMap::new()),
-            create_entities,
-            create_pool_builder,
+            create_entities: Box::new(create_entities),
+            create_pool_builder: Box::new(create_pool_builder),
             terminate_connections_before_drop,
         }
     }
 }
 
-impl<CE, CPB> PgBackend for PostgresBackend<CE, CPB>
-where
-    CE: Fn(&mut Client),
-    CPB: Fn() -> Builder<Manager>,
-{
+impl PgBackend for PostgresBackend {
     type ConnectionManager = Manager;
 
     fn execute(&self, query: &str, conn: &mut Client) {

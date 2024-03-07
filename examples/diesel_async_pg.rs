@@ -1,14 +1,37 @@
 use bb8::Pool;
 use diesel::{prelude::*, sql_query};
-use diesel_async::{
-    pooled_connection::AsyncDieselConnectionManager, AsyncPgConnection, RunQueryDsl,
-};
+use diesel_async::{pooled_connection::AsyncDieselConnectionManager, RunQueryDsl};
 
-use db_pool::{AsyncDatabasePoolBuilder, DieselAsyncPgBackend};
+use db_pool::{
+    AsyncConnectionPool, AsyncDatabasePool, AsyncDatabasePoolBuilder, AsyncReusable,
+    DieselAsyncPgBackend,
+};
 use futures::future::join_all;
 
 #[tokio::main]
 async fn main() {
+    let db_pool = create_database_pool().await;
+
+    {
+        for run in 0..2 {
+            dbg!(run);
+
+            let futures = (0..10)
+                .map(|_| {
+                    let db_pool = db_pool.clone();
+                    async move {
+                        let conn_pool = db_pool.pull().await;
+                        run_test(conn_pool).await;
+                    }
+                })
+                .collect::<Vec<_>>();
+
+            join_all(futures).await;
+        }
+    }
+}
+
+async fn create_database_pool() -> AsyncDatabasePool<DieselAsyncPgBackend> {
     let create_stmt = r#"
         CREATE TABLE author(
             id uuid NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -17,7 +40,7 @@ async fn main() {
         "#
     .to_owned();
 
-    let db_pool = DieselAsyncPgBackend::new(
+    DieselAsyncPgBackend::new(
         "postgres".to_owned(),
         "postgres".to_owned(),
         "localhost".to_owned(),
@@ -41,28 +64,10 @@ async fn main() {
         || Pool::builder().max_size(2),
         false,
     )
-    .create_database_pool();
-
-    {
-        for run in 0..2 {
-            dbg!(run);
-
-            let futures = (0..10)
-                .map(|_| {
-                    let db_pool = db_pool.clone();
-                    async move {
-                        let conn_pool = db_pool.pull().await;
-                        run_test(&conn_pool).await;
-                    }
-                })
-                .collect::<Vec<_>>();
-
-            join_all(futures).await;
-        }
-    }
+    .create_database_pool()
 }
 
-async fn run_test(conn_pool: &Pool<AsyncDieselConnectionManager<AsyncPgConnection>>) {
+async fn run_test(conn_pool: AsyncReusable<'_, AsyncConnectionPool<DieselAsyncPgBackend>>) {
     diesel::table! {
         author (id) {
             id -> Uuid,

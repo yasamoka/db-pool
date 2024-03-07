@@ -1,9 +1,9 @@
 use std::thread;
 
 use diesel::{prelude::*, r2d2::ConnectionManager, sql_query};
-use r2d2::{Builder, Pool};
+use r2d2::Pool;
 
-use db_pool::{DatabasePoolBuilder, DieselMysqlBackend, ReusableConnectionPool};
+use db_pool::{ConnectionPool, DatabasePoolBuilder, DieselMysqlBackend};
 
 diesel::table! {
     author (id) {
@@ -60,11 +60,7 @@ fn main() {
     }
 }
 
-fn run_test<CE, CPB>(conn_pool: &ReusableConnectionPool<DieselMysqlBackend<CE, CPB>>)
-where
-    CE: Fn(&mut MysqlConnection),
-    CPB: Fn() -> Builder<ConnectionManager<MysqlConnection>>,
-{
+fn run_test(conn_pool: &ConnectionPool<DieselMysqlBackend>) {
     #[derive(Insertable)]
     #[diesel(table_name = author)]
     struct NewAuthor<'a> {

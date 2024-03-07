@@ -7,7 +7,7 @@ use crate::util::get_db_name;
 
 use super::backend::AsyncBackend;
 
-pub struct ReusableAsyncConnectionPool<B>
+pub struct AsyncConnectionPool<B>
 where
     B: AsyncBackend,
 {
@@ -16,7 +16,7 @@ where
     conn_pool: Option<Pool<B::ConnectionManager>>,
 }
 
-impl<B> ReusableAsyncConnectionPool<B>
+impl<B> AsyncConnectionPool<B>
 where
     B: AsyncBackend,
 {
@@ -40,7 +40,7 @@ where
     }
 }
 
-impl<B> Deref for ReusableAsyncConnectionPool<B>
+impl<B> Deref for AsyncConnectionPool<B>
 where
     B: AsyncBackend,
 {
@@ -51,7 +51,7 @@ where
     }
 }
 
-impl<B> Drop for ReusableAsyncConnectionPool<B>
+impl<B> Drop for AsyncConnectionPool<B>
 where
     B: AsyncBackend,
 {

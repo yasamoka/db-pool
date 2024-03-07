@@ -1,7 +1,7 @@
 use r2d2::{ManageConnection, Pool};
 use uuid::Uuid;
 
-pub trait Backend {
+pub trait Backend: Sized + Send + Sync + 'static {
     type ConnectionManager: ManageConnection;
 
     fn create(&self, db_id: Uuid) -> Pool<Self::ConnectionManager>;

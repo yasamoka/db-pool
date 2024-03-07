@@ -16,40 +16,34 @@ use super::r#trait::{impl_async_backend_for_async_mysql_backend, AsyncMySQLBacke
 
 type Manager = AsyncDieselConnectionManager<AsyncMysqlConnection>;
 
-pub struct DieselAsyncMysqlBackend<CE, CPB>
-where
-    CE: Fn(AsyncMysqlConnection) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>>
-        + Send
-        + Sync
-        + 'static,
-    CPB: Fn() -> Builder<Manager> + Send + Sync + 'static,
-{
+pub struct DieselAsyncMysqlBackend {
     username: String,
     password: String,
     host: String,
     port: u16,
     default_pool: Pool<Manager>,
-    create_entities: CE,
-    create_pool_builder: CPB,
+    create_entities: Box<
+        dyn Fn(AsyncMysqlConnection) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>>
+            + Send
+            + Sync
+            + 'static,
+    >,
+    create_pool_builder: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
     terminate_connections_before_drop: bool,
 }
 
-impl<CE, CPB> DieselAsyncMysqlBackend<CE, CPB>
-where
-    CE: Fn(AsyncMysqlConnection) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>>
-        + Send
-        + Sync
-        + 'static,
-    CPB: Fn() -> Builder<Manager> + Send + Sync + 'static,
-{
+impl DieselAsyncMysqlBackend {
     pub fn new(
         username: String,
         password: String,
         host: String,
         port: u16,
         default_pool: Pool<Manager>,
-        create_entities: CE,
-        create_pool_builder: CPB,
+        create_entities: impl Fn(AsyncMysqlConnection) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>>
+            + Send
+            + Sync
+            + 'static,
+        create_pool_builder: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
         terminate_connections_before_drop: bool,
     ) -> Self {
         Self {
@@ -58,8 +52,8 @@ where
             host,
             port,
             default_pool,
-            create_entities,
-            create_pool_builder,
+            create_entities: Box::new(create_entities),
+            create_pool_builder: Box::new(create_pool_builder),
             terminate_connections_before_drop,
         }
     }
@@ -80,14 +74,7 @@ where
 }
 
 #[async_trait]
-impl<CE, CPB> AsyncMySQLBackend for DieselAsyncMysqlBackend<CE, CPB>
-where
-    CE: Fn(AsyncMysqlConnection) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>>
-        + Send
-        + Sync
-        + 'static,
-    CPB: Fn() -> Builder<Manager> + Send + Sync + 'static,
-{
+impl AsyncMySQLBackend for DieselAsyncMysqlBackend {
     type ConnectionManager = Manager;
 
     async fn get_connection(&self) -> PooledConnection<Manager> {

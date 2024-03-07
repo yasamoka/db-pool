@@ -1,12 +1,12 @@
 use std::thread;
 
-use r2d2::{Builder, Pool};
+use r2d2::Pool;
 use r2d2_mysql::{
-    mysql::{params, prelude::*, Conn, OptsBuilder},
+    mysql::{params, prelude::*, OptsBuilder},
     MySqlConnectionManager,
 };
 
-use db_pool::{DatabasePoolBuilder, MySQLBackend, ReusableConnectionPool};
+use db_pool::{ConnectionPool, DatabasePoolBuilder, MySQLBackend};
 
 fn main() {
     let privileged_opts = OptsBuilder::new()
@@ -55,11 +55,7 @@ fn main() {
     }
 }
 
-fn run_test<CE, CPB>(conn_pool: &ReusableConnectionPool<MySQLBackend<CE, CPB>>)
-where
-    CE: Fn(&mut Conn),
-    CPB: Fn() -> Builder<MySqlConnectionManager>,
-{
+fn run_test(conn_pool: &ConnectionPool<MySQLBackend>) {
     dbg!(conn_pool.db_name());
 
     let mut conn = conn_pool.get().unwrap();

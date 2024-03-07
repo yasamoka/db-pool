@@ -45,11 +45,7 @@ pub trait PgBackend {
 
 macro_rules! impl_backend_for_pg_backend {
     ($struct_name: ident, $manager: ident) => {
-        impl<CE, CPB> crate::sync::backend::r#trait::Backend for $struct_name<CE, CPB>
-        where
-            CE: Fn(&mut <$manager as r2d2::ManageConnection>::Connection),
-            CPB: Fn() -> Builder<$manager>,
-        {
+        impl crate::sync::backend::r#trait::Backend for $struct_name {
             type ConnectionManager = $manager;
 
             fn create(&self, db_id: uuid::Uuid) -> Pool<Self::ConnectionManager> {

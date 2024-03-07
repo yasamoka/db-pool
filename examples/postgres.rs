@@ -1,12 +1,12 @@
 use std::thread;
 
-use r2d2::{Builder, Pool};
+use r2d2::Pool;
 use r2d2_postgres::{
     postgres::{Client, Config, NoTls},
     PostgresConnectionManager,
 };
 
-use db_pool::{DatabasePoolBuilder, PostgresBackend, ReusableConnectionPool};
+use db_pool::{ConnectionPool, DatabasePoolBuilder, PostgresBackend};
 
 fn main() {
     let privileged_config = "host=localhost user=postgres".parse::<Config>().unwrap();
@@ -55,11 +55,7 @@ fn main() {
     }
 }
 
-fn run_test<CE, CPB>(conn_pool: &ReusableConnectionPool<PostgresBackend<CE, CPB>>)
-where
-    CE: Fn(&mut Client),
-    CPB: Fn() -> Builder<PostgresConnectionManager<NoTls>>,
-{
+fn run_test(conn_pool: &ConnectionPool<PostgresBackend>) {
     dbg!(conn_pool.db_name());
 
     let mut conn = conn_pool.get().unwrap();

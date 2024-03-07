@@ -13,48 +13,36 @@ use super::r#trait::{impl_backend_for_mysql_backend, MySQLBackend as MySQLBacken
 
 type Manager = MySqlConnectionManager;
 
-pub struct MySQLBackend<CE, CPB>
-where
-    CE: Fn(&mut Conn),
-    CPB: Fn() -> Builder<Manager>,
-{
+pub struct MySQLBackend {
     host: String,
     port: u16,
     default_pool: Pool<Manager>,
-    create_entities: CE,
-    create_pool_builder: CPB,
+    create_entities: Box<dyn Fn(&mut Conn) + Send + Sync + 'static>,
+    create_pool_builder: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
     terminate_connections_before_drop: bool,
 }
 
-impl<CE, CPB> MySQLBackend<CE, CPB>
-where
-    CE: Fn(&mut Conn),
-    CPB: Fn() -> Builder<Manager>,
-{
+impl MySQLBackend {
     pub fn new(
         host: String,
         port: u16,
         default_pool: Pool<Manager>,
-        create_entities: CE,
-        create_pool_builder: CPB,
+        create_entities: impl Fn(&mut Conn) + Send + Sync + 'static,
+        create_pool_builder: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
         terminate_connections_before_drop: bool,
     ) -> Self {
         Self {
             host,
             port,
             default_pool,
-            create_entities,
-            create_pool_builder,
+            create_entities: Box::new(create_entities),
+            create_pool_builder: Box::new(create_pool_builder),
             terminate_connections_before_drop,
         }
     }
 }
 
-impl<CE, CPB> MySQLBackendTrait for MySQLBackend<CE, CPB>
-where
-    CE: Fn(&mut Conn),
-    CPB: Fn() -> Builder<Manager>,
-{
+impl MySQLBackendTrait for MySQLBackend {
     type ConnectionManager = Manager;
 
     fn get_connection(&self) -> PooledConnection<Manager> {
