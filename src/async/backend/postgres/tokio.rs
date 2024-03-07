@@ -10,7 +10,7 @@ use futures::Future;
 use parking_lot::Mutex;
 use uuid::Uuid;
 
-use crate::{statement::pg, util::get_db_name, AsyncBackend};
+use crate::{statement::pg, util::get_db_name};
 
 use super::r#trait::{impl_async_backend_for_async_pg_backend, AsyncPgBackend};
 

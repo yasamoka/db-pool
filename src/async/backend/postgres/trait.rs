@@ -51,8 +51,7 @@ pub trait AsyncPgBackend: Sized + Send + Sync + 'static {
 macro_rules! impl_async_backend_for_async_pg_backend {
     ($struct_name: ident, $manager: ident) => {
         #[async_trait::async_trait]
-        #[async_trait]
-        impl<CE, CPB> AsyncBackend for $struct_name<CE, CPB>
+        impl<CE, CPB> crate::r#async::backend::r#trait::AsyncBackend for $struct_name<CE, CPB>
         where
             CE: Fn(
                     <$manager as bb8::ManageConnection>::Connection,
