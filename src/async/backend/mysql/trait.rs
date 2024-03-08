@@ -23,6 +23,10 @@ pub trait AsyncMySQLBackend {
 
     fn get_host(&self) -> &str;
 
+    async fn get_previous_database_names(
+        &self,
+        conn: &mut <Self::ConnectionManager as ManageConnection>::Connection,
+    ) -> Vec<String>;
     async fn create_entities(&self, db_name: &str);
     async fn create_connection_pool(&self, db_id: Uuid) -> Pool<Self::ConnectionManager>;
 
@@ -32,13 +36,7 @@ pub trait AsyncMySQLBackend {
         conn: &mut <Self::ConnectionManager as ManageConnection>::Connection,
     ) -> Vec<String>;
 
-    async fn get_database_connection_ids(
-        &self,
-        db_name: &str,
-        host: &str,
-        conn: &mut <Self::ConnectionManager as ManageConnection>::Connection,
-    ) -> Vec<i64>;
-    fn terminate_connections(&self) -> bool;
+    fn get_drop_previous_databases(&self) -> bool;
 }
 
 macro_rules! impl_async_backend_for_async_mysql_backend {
@@ -47,7 +45,31 @@ macro_rules! impl_async_backend_for_async_mysql_backend {
         impl crate::r#async::backend::r#trait::AsyncBackend for $struct_name {
             type ConnectionManager = $manager;
 
-            async fn init(&self) {}
+            async fn init(&self) {
+                // Drop previous databases if needed
+                if self.get_drop_previous_databases() {
+                    // Get privileged connection
+                    let conn = &mut self.get_connection().await;
+
+                    // Get previous database names
+                    self.execute_stmt(mysql::USE_DEFAULT_DATABASE, conn).await;
+                    let mut db_names = self.get_previous_database_names(conn).await;
+
+                    // Drop databases
+                    let futures = db_names
+                        .drain(..)
+                        .map(|db_name| async move {
+                            let conn = &mut self.get_connection().await;
+                            self.execute_stmt(
+                                crate::statement::mysql::drop_database(db_name.as_str()).as_str(),
+                                conn,
+                            )
+                            .await;
+                        })
+                        .collect::<Vec<_>>();
+                    futures::future::join_all(futures).await;
+                }
+            }
 
             async fn create(&self, db_id: uuid::Uuid) -> Pool<Self::ConnectionManager> {
                 // Get database name based on UUID
@@ -108,16 +130,6 @@ macro_rules! impl_async_backend_for_async_mysql_backend {
 
                 // Get privileged connection
                 let conn = &mut self.get_connection().await;
-
-                // Terminate all connections to database if needed
-                if self.terminate_connections() {
-                    let mut db_conn_ids =
-                        self.get_database_connection_ids(db_name, host, conn).await;
-                    let stmts = db_conn_ids
-                        .drain(..)
-                        .map(|conn_id| mysql::terminate_database_connection(conn_id).into());
-                    self.batch_execute_stmt(stmts, conn).await;
-                }
 
                 // Drop database
                 self.execute_stmt(mysql::drop_database(db_name).as_str(), conn)

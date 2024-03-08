@@ -21,6 +21,10 @@ pub trait MySQLBackend {
 
     fn get_host(&self) -> &str;
 
+    fn get_previous_database_names(
+        &self,
+        conn: &mut <Self::ConnectionManager as ManageConnection>::Connection,
+    ) -> Vec<String>;
     fn create_entities(&self, conn: &mut <Self::ConnectionManager as ManageConnection>::Connection);
     fn create_connection_pool(&self, db_id: Uuid) -> Pool<Self::ConnectionManager>;
 
@@ -30,19 +34,33 @@ pub trait MySQLBackend {
         conn: &mut <Self::ConnectionManager as ManageConnection>::Connection,
     ) -> Vec<String>;
 
-    fn get_database_connection_ids(
-        &self,
-        db_name: &str,
-        host: &str,
-        conn: &mut <Self::ConnectionManager as ManageConnection>::Connection,
-    ) -> Vec<i64>;
-    fn terminate_connections(&self) -> bool;
+    fn get_drop_previous_databases(&self) -> bool;
 }
 
 macro_rules! impl_backend_for_mysql_backend {
     ($struct_name: ident, $manager: ident) => {
         impl crate::sync::backend::r#trait::Backend for $struct_name {
             type ConnectionManager = $manager;
+
+            fn init(&self) {
+                // Drop previous databases if needed
+                if self.get_drop_previous_databases() {
+                    // Get privileged connection
+                    let conn = &mut self.get_connection();
+
+                    // Get previous database names
+                    self.execute(mysql::USE_DEFAULT_DATABASE, conn);
+                    let db_names = self.get_previous_database_names(conn);
+
+                    // Drop databases
+                    db_names.iter().for_each(|db_name| {
+                        self.execute(
+                            crate::statement::mysql::drop_database(db_name.as_str()).as_str(),
+                            conn,
+                        );
+                    });
+                }
+            }
 
             fn create(&self, db_id: uuid::Uuid) -> Pool<Self::ConnectionManager> {
                 // Get database name based on UUID
@@ -97,15 +115,6 @@ macro_rules! impl_backend_for_mysql_backend {
 
                 // Get privileged connection
                 let conn = &mut self.get_connection();
-
-                // Terminate all connections to database if needed
-                if self.terminate_connections() {
-                    let mut db_conn_ids = self.get_database_connection_ids(db_name, host, conn);
-                    let stmts = db_conn_ids
-                        .drain(..)
-                        .map(|conn_id| mysql::terminate_database_connection(conn_id).into());
-                    self.batch_execute(stmts, conn);
-                }
 
                 // Drop database
                 self.execute(mysql::drop_database(db_name).as_str(), conn);

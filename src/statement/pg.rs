@@ -24,10 +24,6 @@ pub fn truncate_table(table_name: &str) -> String {
     format!("TRUNCATE TABLE {table_name} RESTART IDENTITY CASCADE")
 }
 
-pub fn terminate_database_connections(db_name: &str) -> String {
-    format!("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = {db_name} AND leader_pid IS NULL")
-}
-
 pub fn drop_database(db_name: &str) -> String {
     format!("DROP DATABASE {}", db_name)
 }

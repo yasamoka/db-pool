@@ -19,7 +19,7 @@ pub struct MySQLBackend {
     default_pool: Pool<Manager>,
     create_entities: Box<dyn Fn(&mut Conn) + Send + Sync + 'static>,
     create_pool_builder: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
-    terminate_connections_before_drop: bool,
+    drop_previous_databases_flag: bool,
 }
 
 impl MySQLBackend {
@@ -29,7 +29,6 @@ impl MySQLBackend {
         default_pool: Pool<Manager>,
         create_entities: impl Fn(&mut Conn) + Send + Sync + 'static,
         create_pool_builder: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
-        terminate_connections_before_drop: bool,
     ) -> Self {
         Self {
             host,
@@ -37,7 +36,14 @@ impl MySQLBackend {
             default_pool,
             create_entities: Box::new(create_entities),
             create_pool_builder: Box::new(create_pool_builder),
-            terminate_connections_before_drop,
+            drop_previous_databases_flag: true,
+        }
+    }
+
+    pub fn drop_previous_databases(self, value: bool) -> Self {
+        Self {
+            drop_previous_databases_flag: value,
+            ..self
         }
     }
 }
@@ -60,6 +66,16 @@ impl MySQLBackendTrait for MySQLBackend {
 
     fn get_host(&self) -> &str {
         self.host.as_str()
+    }
+
+    fn get_previous_database_names(
+        &self,
+        conn: &mut <Self::ConnectionManager as r2d2::ManageConnection>::Connection,
+    ) -> Vec<String> {
+        conn.query(mysql::GET_DATABASE_NAMES)
+            .unwrap()
+            .drain(..)
+            .collect()
     }
 
     fn create_entities(&self, conn: &mut Conn) {
@@ -85,13 +101,8 @@ impl MySQLBackendTrait for MySQLBackend {
             .collect()
     }
 
-    fn get_database_connection_ids(&self, db_name: &str, host: &str, conn: &mut Conn) -> Vec<i64> {
-        conn.query(mysql::get_database_connection_ids(db_name, host))
-            .unwrap()
-    }
-
-    fn terminate_connections(&self) -> bool {
-        self.terminate_connections_before_drop
+    fn get_drop_previous_databases(&self) -> bool {
+        self.drop_previous_databases_flag
     }
 }
 

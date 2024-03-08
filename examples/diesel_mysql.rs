@@ -35,7 +35,6 @@ fn main() {
                 .unwrap();
         },
         || Pool::builder().max_size(2),
-        false,
     )
     .create_database_pool();
 

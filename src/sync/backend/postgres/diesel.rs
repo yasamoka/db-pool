@@ -7,11 +7,11 @@ use uuid::Uuid;
 
 use crate::util::get_db_name;
 
-use super::r#trait::{impl_backend_for_pg_backend, PgBackend};
+use super::r#trait::{impl_backend_for_pg_backend, PostgresBackend};
 
 type Manager = ConnectionManager<PgConnection>;
 
-pub struct DieselPgBackend {
+pub struct DieselPostgresBackend {
     username: String,
     password: String,
     host: String,
@@ -20,10 +20,10 @@ pub struct DieselPgBackend {
     db_conns: Mutex<HashMap<Uuid, PgConnection>>,
     create_entities: Box<dyn Fn(&mut PgConnection) + Send + Sync + 'static>,
     create_pool_builder: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
-    terminate_connections_before_drop: bool,
+    drop_previous_databases_flag: bool,
 }
 
-impl DieselPgBackend {
+impl DieselPostgresBackend {
     pub fn new(
         username: String,
         password: String,
@@ -32,7 +32,6 @@ impl DieselPgBackend {
         default_pool: Pool<Manager>,
         create_entities: impl Fn(&mut PgConnection) + Send + Sync + 'static,
         create_pool_builder: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
-        terminate_connections_before_drop: bool,
     ) -> Self {
         Self {
             username,
@@ -43,7 +42,14 @@ impl DieselPgBackend {
             db_conns: Mutex::new(HashMap::new()),
             create_entities: Box::new(create_entities),
             create_pool_builder: Box::new(create_pool_builder),
-            terminate_connections_before_drop,
+            drop_previous_databases_flag: true,
+        }
+    }
+
+    pub fn drop_previous_databases(self, value: bool) -> Self {
+        Self {
+            drop_previous_databases_flag: value,
+            ..self
         }
     }
 
@@ -55,7 +61,7 @@ impl DieselPgBackend {
     }
 }
 
-impl PgBackend for DieselPgBackend {
+impl PostgresBackend for DieselPostgresBackend {
     type ConnectionManager = Manager;
 
     fn execute(&self, query: &str, conn: &mut PgConnection) {
@@ -93,6 +99,21 @@ impl PgBackend for DieselPgBackend {
         self.db_conns.lock().remove(&db_id).unwrap()
     }
 
+    fn get_previous_database_names(&self, conn: &mut PgConnection) -> Vec<String> {
+        table! {
+            pg_database (oid) {
+                oid -> Int4,
+                datname -> Text
+            }
+        }
+
+        pg_database::table
+            .select(pg_database::datname)
+            .filter(pg_database::datname.like("db_pool_%"))
+            .load::<String>(conn)
+            .unwrap()
+    }
+
     fn create_entities(&self, conn: &mut PgConnection) {
         (self.create_entities)(conn);
     }
@@ -121,9 +142,9 @@ impl PgBackend for DieselPgBackend {
             .unwrap()
     }
 
-    fn terminate_connections(&self) -> bool {
-        self.terminate_connections_before_drop
+    fn get_drop_previous_databases(&self) -> bool {
+        self.drop_previous_databases_flag
     }
 }
 
-impl_backend_for_pg_backend!(DieselPgBackend, Manager);
+impl_backend_for_pg_backend!(DieselPostgresBackend, Manager);

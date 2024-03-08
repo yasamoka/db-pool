@@ -1,4 +1,8 @@
 pub const USE_DEFAULT_DATABASE: &str = "USE information_schema";
+
+pub const GET_DATABASE_NAMES: &'static str =
+    "SELECT schema_name FROM information_schema.schemata WHERE schema_name LIKE 'db_pool_%';";
+
 pub const TURN_OFF_FOREIGN_KEY_CHECKS: &str = "SET FOREIGN_KEY_CHECKS = 0";
 pub const TURN_ON_FOREIGN_KEY_CHECKS: &str = "SET FOREIGN_KEY_CHECKS = 1";
 
@@ -25,15 +29,6 @@ pub fn get_table_names(db_name: &str) -> String {
 
 pub fn truncate_table(table_name: &str, db_name: &str) -> String {
     format!("TRUNCATE TABLE {db_name}.{table_name}")
-}
-
-#[allow(dead_code)]
-pub fn get_database_connection_ids(db_name: &str, host: &str) -> String {
-    format!("SELECT id FROM information_schema.processlist WHERE user = {db_name}@{host}")
-}
-
-pub fn terminate_database_connection(id: i64) -> String {
-    format!("KILL {}", id)
 }
 
 pub fn drop_database(db_name: &str) -> String {

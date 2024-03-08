@@ -16,7 +16,7 @@ pub struct DieselMysqlBackend {
     default_pool: Pool<Manager>,
     create_entities: Box<dyn Fn(&mut MysqlConnection) + Send + Sync + 'static>,
     create_pool_builder: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
-    terminate_connections_before_drop: bool,
+    drop_previous_databases_flag: bool,
 }
 
 impl DieselMysqlBackend {
@@ -26,7 +26,6 @@ impl DieselMysqlBackend {
         default_pool: Pool<Manager>,
         create_entities: impl Fn(&mut MysqlConnection) + Send + Sync + 'static,
         create_pool_builder: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
-        terminate_connections_before_drop: bool,
     ) -> Self {
         Self {
             host,
@@ -34,7 +33,14 @@ impl DieselMysqlBackend {
             default_pool,
             create_entities: Box::new(create_entities),
             create_pool_builder: Box::new(create_pool_builder),
-            terminate_connections_before_drop,
+            drop_previous_databases_flag: true,
+        }
+    }
+
+    pub fn drop_previous_databases(self, value: bool) -> Self {
+        Self {
+            drop_previous_databases_flag: value,
+            ..self
         }
     }
 
@@ -70,6 +76,23 @@ impl MySQLBackend for DieselMysqlBackend {
         self.host.as_str()
     }
 
+    fn get_previous_database_names(
+        &self,
+        conn: &mut <Self::ConnectionManager as r2d2::ManageConnection>::Connection,
+    ) -> Vec<String> {
+        table! {
+            schemata (schema_name) {
+                schema_name -> Text
+            }
+        }
+
+        schemata::table
+            .select(schemata::schema_name)
+            .filter(schemata::schema_name.like("db_pool_%"))
+            .load::<String>(conn)
+            .unwrap()
+    }
+
     fn create_entities(&self, conn: &mut MysqlConnection) {
         (self.create_entities)(conn);
     }
@@ -101,31 +124,8 @@ impl MySQLBackend for DieselMysqlBackend {
             .unwrap()
     }
 
-    fn get_database_connection_ids(
-        &self,
-        db_name: &str,
-        host: &str,
-        conn: &mut MysqlConnection,
-    ) -> Vec<i64> {
-        table! {
-            processlist (id) {
-                id -> BigInt,
-                user -> Text
-            }
-        }
-
-        let user = format!("{db_name}@{host}");
-        let user = user.as_str();
-
-        processlist::table
-            .filter(processlist::user.eq(user))
-            .select(processlist::id)
-            .load::<i64>(conn)
-            .unwrap()
-    }
-
-    fn terminate_connections(&self) -> bool {
-        self.terminate_connections_before_drop
+    fn get_drop_previous_databases(&self) -> bool {
+        self.drop_previous_databases_flag
     }
 }
 

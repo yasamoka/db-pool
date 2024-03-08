@@ -161,7 +161,6 @@ mod tests {
                 })
             },
             || Pool::builder().max_size(1).test_on_check_out(true),
-            true,
         )
         .create_database_pool()
         .await

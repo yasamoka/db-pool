@@ -5,6 +5,6 @@ mod postgres;
 mod r#trait;
 
 #[cfg(feature = "diesel-postgres")]
-pub use diesel::DieselPgBackend;
+pub use diesel::DieselPostgresBackend;
 #[cfg(feature = "postgres")]
 pub use postgres::PostgresBackend;

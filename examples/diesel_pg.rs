@@ -3,7 +3,7 @@ use std::thread;
 use diesel::{prelude::*, r2d2::ConnectionManager, sql_query};
 use r2d2::Pool;
 
-use db_pool::{DatabasePoolBuilder, DieselPgBackend};
+use db_pool::{DatabasePoolBuilder, DieselPostgresBackend};
 
 fn main() {
     let create_stmt = r#"
@@ -14,7 +14,7 @@ fn main() {
         "#
     .to_owned();
 
-    let db_pool = DieselPgBackend::new(
+    let db_pool = DieselPostgresBackend::new(
         "postgres".to_owned(),
         "postgres".to_owned(),
         "localhost".to_owned(),
@@ -27,7 +27,6 @@ fn main() {
             sql_query(create_stmt.as_str()).execute(conn).unwrap();
         },
         || Pool::builder().max_size(2),
-        false,
     )
     .create_database_pool();
 

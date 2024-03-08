@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 use crate::{statement::pg, util::get_db_name};
 
-use super::r#trait::{impl_backend_for_pg_backend, PgBackend};
+use super::r#trait::{impl_backend_for_pg_backend, PostgresBackend as PostgresBackendTrait};
 
 type Manager = PostgresConnectionManager<NoTls>;
 
@@ -20,7 +20,7 @@ pub struct PostgresBackend {
     db_conns: Mutex<HashMap<Uuid, Client>>,
     create_entities: Box<dyn Fn(&mut Client) + Send + Sync + 'static>,
     create_pool_builder: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
-    terminate_connections_before_drop: bool,
+    drop_previous_databases_flag: bool,
 }
 
 impl PostgresBackend {
@@ -29,7 +29,6 @@ impl PostgresBackend {
         default_pool: Pool<Manager>,
         create_entities: impl Fn(&mut Client) + Send + Sync + 'static,
         create_pool_builder: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
-        terminate_connections_before_drop: bool,
     ) -> Self {
         Self {
             privileged_config,
@@ -37,12 +36,19 @@ impl PostgresBackend {
             db_conns: Mutex::new(HashMap::new()),
             create_entities: Box::new(create_entities),
             create_pool_builder: Box::new(create_pool_builder),
-            terminate_connections_before_drop,
+            drop_previous_databases_flag: true,
+        }
+    }
+
+    pub fn drop_previous_databases(self, value: bool) -> Self {
+        Self {
+            drop_previous_databases_flag: value,
+            ..self
         }
     }
 }
 
-impl PgBackend for PostgresBackend {
+impl PostgresBackendTrait for PostgresBackend {
     type ConnectionManager = Manager;
 
     fn execute(&self, query: &str, conn: &mut Client) {
@@ -73,6 +79,14 @@ impl PgBackend for PostgresBackend {
         self.db_conns.lock().remove(&db_id).unwrap()
     }
 
+    fn get_previous_database_names(&self, conn: &mut Client) -> Vec<String> {
+        conn.query(pg::GET_DATABASE_NAMES, &[])
+            .unwrap()
+            .drain(..)
+            .map(|row| row.get(0))
+            .collect()
+    }
+
     fn create_entities(&self, conn: &mut Client) {
         (self.create_entities)(conn);
     }
@@ -96,8 +110,8 @@ impl PgBackend for PostgresBackend {
             .collect()
     }
 
-    fn terminate_connections(&self) -> bool {
-        self.terminate_connections_before_drop
+    fn get_drop_previous_databases(&self) -> bool {
+        self.drop_previous_databases_flag
     }
 }
 

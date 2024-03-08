@@ -32,7 +32,6 @@ fn main() {
             conn.execute(create_entities_stmt.as_str(), &[]).unwrap();
         },
         || Pool::builder().max_size(2),
-        false,
     )
     .create_database_pool();
 

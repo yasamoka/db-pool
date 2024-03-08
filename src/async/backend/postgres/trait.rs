@@ -66,13 +66,11 @@ macro_rules! impl_async_backend_for_async_pg_backend {
 
                     // Get previous database names
                     let mut db_names = self.get_previous_database_names(conn).await;
-                    // dbg!(&db_names);
 
                     // Drop databases
                     let futures = db_names
                         .drain(..)
                         .map(|db_name| async move {
-                            // dbg!(db_name.as_str());
                             let conn = &mut self.get_default_connection().await;
                             self.execute_stmt(
                                 crate::statement::pg::drop_database(db_name.as_str()).as_str(),

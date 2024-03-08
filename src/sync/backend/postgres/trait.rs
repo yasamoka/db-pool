@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use r2d2::{ManageConnection, Pool, PooledConnection};
 use uuid::Uuid;
 
-pub trait PgBackend {
+pub trait PostgresBackend {
     type ConnectionManager: ManageConnection;
 
     fn execute(
@@ -32,6 +32,10 @@ pub trait PgBackend {
         db_id: Uuid,
     ) -> <Self::ConnectionManager as ManageConnection>::Connection;
 
+    fn get_previous_database_names(
+        &self,
+        conn: &mut <Self::ConnectionManager as ManageConnection>::Connection,
+    ) -> Vec<String>;
     fn create_entities(&self, conn: &mut <Self::ConnectionManager as ManageConnection>::Connection);
     fn create_connection_pool(&self, db_id: Uuid) -> Pool<Self::ConnectionManager>;
 
@@ -40,13 +44,32 @@ pub trait PgBackend {
         privileged_conn: &mut <Self::ConnectionManager as ManageConnection>::Connection,
     ) -> Vec<String>;
 
-    fn terminate_connections(&self) -> bool;
+    fn get_drop_previous_databases(&self) -> bool;
 }
 
 macro_rules! impl_backend_for_pg_backend {
     ($struct_name: ident, $manager: ident) => {
         impl crate::sync::backend::r#trait::Backend for $struct_name {
             type ConnectionManager = $manager;
+
+            fn init(&self) {
+                // Drop previous databases if needed
+                if self.get_drop_previous_databases() {
+                    // Get connection to default database as privileged user
+                    let conn = &mut self.get_default_connection();
+
+                    // Get previous database names
+                    let db_names = self.get_previous_database_names(conn);
+
+                    // Drop databases
+                    db_names.iter().for_each(|db_name| {
+                        self.execute(
+                            crate::statement::pg::drop_database(db_name.as_str()).as_str(),
+                            conn,
+                        );
+                    });
+                }
+            }
 
             fn create(&self, db_id: uuid::Uuid) -> Pool<Self::ConnectionManager> {
                 // Get database name based on UUID
@@ -114,14 +137,6 @@ macro_rules! impl_backend_for_pg_backend {
 
                 // Get connection to default database as privileged user
                 let conn = &mut self.get_default_connection();
-
-                // Terminate all connections to database if needed
-                if self.terminate_connections() {
-                    self.execute(
-                        crate::statement::pg::terminate_database_connections(db_name).as_str(),
-                        conn,
-                    );
-                }
 
                 // Drop database
                 self.execute(crate::statement::pg::drop_database(db_name).as_str(), conn);

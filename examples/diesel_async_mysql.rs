@@ -40,7 +40,6 @@ async fn main() {
             })
         },
         || Pool::builder().max_size(2),
-        false,
     )
     .create_database_pool()
     .await;

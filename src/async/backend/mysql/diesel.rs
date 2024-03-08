@@ -29,7 +29,7 @@ pub struct DieselAsyncMysqlBackend {
             + 'static,
     >,
     create_pool_builder: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
-    terminate_connections_before_drop: bool,
+    drop_previous_databases_flag: bool,
 }
 
 impl DieselAsyncMysqlBackend {
@@ -44,7 +44,6 @@ impl DieselAsyncMysqlBackend {
             + Sync
             + 'static,
         create_pool_builder: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
-        terminate_connections_before_drop: bool,
     ) -> Self {
         Self {
             username,
@@ -54,7 +53,14 @@ impl DieselAsyncMysqlBackend {
             default_pool,
             create_entities: Box::new(create_entities),
             create_pool_builder: Box::new(create_pool_builder),
-            terminate_connections_before_drop,
+            drop_previous_databases_flag: true,
+        }
+    }
+
+    pub fn drop_previous_databases(self, value: bool) -> Self {
+        Self {
+            drop_previous_databases_flag: value,
+            ..self
         }
     }
 
@@ -98,6 +104,21 @@ impl AsyncMySQLBackend for DieselAsyncMysqlBackend {
         self.host.as_str()
     }
 
+    async fn get_previous_database_names(&self, conn: &mut AsyncMysqlConnection) -> Vec<String> {
+        table! {
+            schemata (schema_name) {
+                schema_name -> Text
+            }
+        }
+
+        schemata::table
+            .select(schemata::schema_name)
+            .filter(schemata::schema_name.like("db_pool_%"))
+            .load::<String>(conn)
+            .await
+            .unwrap()
+    }
+
     async fn create_entities(&self, db_name: &str) {
         let database_url =
             self.create_database_url(self.username.as_str(), self.password.as_str(), db_name);
@@ -137,32 +158,8 @@ impl AsyncMySQLBackend for DieselAsyncMysqlBackend {
             .unwrap()
     }
 
-    async fn get_database_connection_ids(
-        &self,
-        db_name: &str,
-        host: &str,
-        conn: &mut AsyncMysqlConnection,
-    ) -> Vec<i64> {
-        table! {
-            processlist (id) {
-                id -> BigInt,
-                user -> Text
-            }
-        }
-
-        let user = format!("{db_name}@{host}");
-        let user = user.as_str();
-
-        processlist::table
-            .filter(processlist::user.eq(user))
-            .select(processlist::id)
-            .load::<i64>(conn)
-            .await
-            .unwrap()
-    }
-
-    fn terminate_connections(&self) -> bool {
-        self.terminate_connections_before_drop
+    fn get_drop_previous_databases(&self) -> bool {
+        self.drop_previous_databases_flag
     }
 }
 
