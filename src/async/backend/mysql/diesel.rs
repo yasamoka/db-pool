@@ -15,6 +15,10 @@ use crate::{statement::mysql, util::get_db_name};
 use super::r#trait::{impl_async_backend_for_async_mysql_backend, AsyncMySQLBackend};
 
 type Manager = AsyncDieselConnectionManager<AsyncMysqlConnection>;
+type CreateEntities = dyn Fn(AsyncMysqlConnection) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>>
+    + Send
+    + Sync
+    + 'static;
 
 pub struct DieselAsyncMysqlBackend {
     username: String,
@@ -22,12 +26,7 @@ pub struct DieselAsyncMysqlBackend {
     host: String,
     port: u16,
     default_pool: Pool<Manager>,
-    create_entities: Box<
-        dyn Fn(AsyncMysqlConnection) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>>
-            + Send
-            + Sync
-            + 'static,
-    >,
+    create_entities: Box<CreateEntities>,
     create_pool_builder: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
     drop_previous_databases_flag: bool,
 }
@@ -57,6 +56,7 @@ impl DieselAsyncMysqlBackend {
         }
     }
 
+    #[must_use]
     pub fn drop_previous_databases(self, value: bool) -> Self {
         Self {
             drop_previous_databases_flag: value,

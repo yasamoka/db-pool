@@ -50,12 +50,12 @@ impl<T> AsyncObjectPool<T> {
         } else {
             (self.init)().await
         };
-        AsyncReusable::new(self, object).await
+        AsyncReusable::new(self, object)
     }
 
     #[inline]
     pub fn attach(&self, t: T) {
-        self.objects.lock().push(t)
+        self.objects.lock().push(t);
     }
 }
 
@@ -66,7 +66,7 @@ pub struct AsyncReusable<'a, T> {
 
 impl<'a, T> AsyncReusable<'a, T> {
     #[inline]
-    pub async fn new(pool: &'a AsyncObjectPool<T>, t: T) -> Self {
+    pub fn new(pool: &'a AsyncObjectPool<T>, t: T) -> Self {
         Self {
             pool,
             data: ManuallyDrop::new(t),

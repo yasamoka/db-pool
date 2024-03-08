@@ -39,17 +39,16 @@ impl<T> ObjectPool<T> {
 
     #[inline]
     pub fn pull(&self) -> Reusable<T> {
-        self.objects
-            .lock()
-            .pop()
-            .map(|data| Reusable::new(self, data))
-            .unwrap_or_else(|| Reusable::new(self, (self.init)()))
+        self.objects.lock().pop().map_or_else(
+            || Reusable::new(self, (self.init)()),
+            |data| Reusable::new(self, data),
+        )
     }
 
     #[inline]
     pub fn attach(&self, mut t: T) {
         (self.reset)(&mut t);
-        self.objects.lock().push(t)
+        self.objects.lock().push(t);
     }
 }
 
@@ -109,16 +108,16 @@ mod tests {
 
     #[test]
     fn detach() {
-        let pool = ObjectPool::new(|| Vec::new(), |_| {});
+        let pool = ObjectPool::new(Vec::new, |_| {});
         let (pool, mut object) = pool.pull().detach();
         object.push(1);
-        Reusable::new(&pool, object);
+        Reusable::new(pool, object);
         assert_eq!(pool.pull()[0], 1);
     }
 
     #[test]
     fn detach_then_attach() {
-        let pool = ObjectPool::new(|| Vec::new(), |_| {});
+        let pool = ObjectPool::new(Vec::new, |_| {});
         let (pool, mut object) = pool.pull().detach();
         object.push(1);
         pool.attach(object);
@@ -128,7 +127,7 @@ mod tests {
     #[test]
     fn len() {
         {
-            let pool = ObjectPool::<Vec<u8>>::new(|| Vec::new(), |_| {});
+            let pool = ObjectPool::<Vec<u8>>::new(Vec::new, |_| {});
 
             let object1 = pool.pull();
             drop(object1);
@@ -139,7 +138,7 @@ mod tests {
         }
 
         {
-            let pool = ObjectPool::<Vec<u8>>::new(|| Vec::new(), |_| {});
+            let pool = ObjectPool::<Vec<u8>>::new(Vec::new, |_| {});
 
             let object1 = pool.pull();
             let object2 = pool.pull();
@@ -152,7 +151,7 @@ mod tests {
 
     #[test]
     fn e2e() {
-        let pool = ObjectPool::new(|| Vec::new(), |_| {});
+        let pool = ObjectPool::new(Vec::new, |_| {});
         let mut objects = Vec::new();
 
         for i in 0..10 {
@@ -163,7 +162,7 @@ mod tests {
 
         drop(objects);
 
-        for i in (10..0).rev() {
+        for i in (0..10).rev() {
             let mut object = pool.objects.lock().pop().unwrap();
             assert_eq!(object.pop(), Some(i));
         }
@@ -171,7 +170,7 @@ mod tests {
 
     #[test]
     fn reset() {
-        let pool = ObjectPool::new(|| Vec::new(), |v| v.clear());
+        let pool = ObjectPool::new(Vec::new, Vec::clear);
 
         let mut object = pool.pull();
         object.push(1);
@@ -182,7 +181,7 @@ mod tests {
 
     #[test]
     fn no_reset() {
-        let pool = ObjectPool::new(|| Vec::new(), |_| {});
+        let pool = ObjectPool::new(Vec::new, |_| {});
 
         let mut object = pool.pull();
         object.push(1);

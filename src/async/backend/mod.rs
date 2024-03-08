@@ -8,4 +8,5 @@ mod r#trait;
 pub use mysql::*;
 #[cfg(feature = "_async-postgres")]
 pub use postgres::*;
+
 pub use r#trait::AsyncBackend;

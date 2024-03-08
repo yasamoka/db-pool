@@ -1,3 +1,6 @@
+#![warn(clippy::cargo, clippy::pedantic)]
+#![allow(clippy::module_name_repetitions, clippy::module_inception)]
+
 #[cfg(feature = "_async")]
 mod r#async;
 mod statement;

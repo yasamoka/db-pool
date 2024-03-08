@@ -31,6 +31,7 @@ where
         }
     }
 
+    #[must_use]
     pub fn db_name(&self) -> String {
         get_db_name(self.db_id)
     }

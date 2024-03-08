@@ -62,12 +62,12 @@ macro_rules! impl_backend_for_pg_backend {
                     let db_names = self.get_previous_database_names(conn);
 
                     // Drop databases
-                    db_names.iter().for_each(|db_name| {
+                    for db_name in db_names.iter() {
                         self.execute(
                             crate::statement::pg::drop_database(db_name.as_str()).as_str(),
                             conn,
                         );
-                    });
+                    }
                 }
             }
 

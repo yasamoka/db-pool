@@ -16,6 +16,10 @@ use crate::util::get_db_name;
 use super::r#trait::{impl_async_backend_for_async_pg_backend, AsyncPgBackend};
 
 type Manager = AsyncDieselConnectionManager<AsyncPgConnection>;
+type CreateEntities = dyn Fn(AsyncPgConnection) -> Pin<Box<dyn Future<Output = AsyncPgConnection> + Send + 'static>>
+    + Send
+    + Sync
+    + 'static;
 
 pub struct DieselAsyncPgBackend {
     username: String,
@@ -24,14 +28,7 @@ pub struct DieselAsyncPgBackend {
     port: u16,
     default_pool: Pool<Manager>,
     db_conns: Mutex<HashMap<Uuid, AsyncPgConnection>>,
-    create_entities: Box<
-        dyn Fn(
-                AsyncPgConnection,
-            ) -> Pin<Box<dyn Future<Output = AsyncPgConnection> + Send + 'static>>
-            + Send
-            + Sync
-            + 'static,
-    >,
+    create_entities: Box<CreateEntities>,
     create_pool_builder: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
     drop_previous_databases_flag: bool,
 }
@@ -64,6 +61,7 @@ impl DieselAsyncPgBackend {
         }
     }
 
+    #[must_use]
     pub fn drop_previous_databases(self, value: bool) -> Self {
         Self {
             drop_previous_databases_flag: value,

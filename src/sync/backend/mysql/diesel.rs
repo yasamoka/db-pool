@@ -37,6 +37,7 @@ impl DieselMysqlBackend {
         }
     }
 
+    #[must_use]
     pub fn drop_previous_databases(self, value: bool) -> Self {
         Self {
             drop_previous_databases_flag: value,

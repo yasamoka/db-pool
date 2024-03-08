@@ -25,7 +25,7 @@ pub trait DatabasePoolBuilder: Backend {
                 let backend = backend.clone();
                 ConnectionPool::new(backend)
             },
-            |conn_pool| conn_pool.clean(),
+            ConnectionPool::clean,
         ));
         DatabasePool(object_pool)
     }

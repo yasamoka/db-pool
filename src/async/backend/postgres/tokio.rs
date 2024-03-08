@@ -15,17 +15,16 @@ use crate::{statement::pg, util::get_db_name};
 use super::r#trait::{impl_async_backend_for_async_pg_backend, AsyncPgBackend};
 
 type Manager = PostgresConnectionManager<NoTls>;
+type CreateEntities = dyn Fn(Client) -> Pin<Box<dyn Future<Output = Client> + Send + 'static>>
+    + Send
+    + Sync
+    + 'static;
 
 pub struct TokioPostgresBackend {
     privileged_config: Config,
     default_pool: Pool<Manager>,
     db_conns: Mutex<HashMap<Uuid, Client>>,
-    create_entities: Box<
-        dyn Fn(Client) -> Pin<Box<dyn Future<Output = Client> + Send + 'static>>
-            + Send
-            + Sync
-            + 'static,
-    >,
+    create_entities: Box<CreateEntities>,
     create_pool_builder: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
     drop_previous_databases_flag: bool,
 }
@@ -50,6 +49,7 @@ impl TokioPostgresBackend {
         }
     }
 
+    #[must_use]
     pub fn drop_previous_databases(self, value: bool) -> Self {
         Self {
             drop_previous_databases_flag: value,
@@ -84,7 +84,7 @@ impl AsyncPgBackend for TokioPostgresBackend {
         let db_name = get_db_name(db_id);
         config.dbname(db_name.as_str());
         let (client, connection) = config.connect(NoTls).await.unwrap();
-        tokio::spawn(async move { connection.await });
+        tokio::spawn(connection);
         client
     }
 
