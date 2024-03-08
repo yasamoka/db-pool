@@ -2,6 +2,24 @@
 name = "db-pool"
 version = "0.1.0"
 edition = "2021"
+description = "A thread-safe database pool for running database-tied tests in parallel"
+repository = "https://github.com/yasamoka/db-pool"
+license = "MIT"
+categories = ["development-tools::testing", "database", "web-programming"]
+keywords = [
+    "backend",
+    "connection pool",
+    "database",
+    "mariadb",
+    "mysql",
+    "pg",
+    "pool",
+    "postgres",
+    "postgresql",
+    "parallel",
+    "test",
+    "web",
+]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
