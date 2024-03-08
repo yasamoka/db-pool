@@ -23,7 +23,17 @@ tokio = { version = "1.36.0", optional = true }
 [dev-dependencies]
 diesel = { version = "2.1.4", features = ["mysql", "postgres"] }
 futures = "0.3.30"
-tokio = { version = "1.36.0", features = ["macros"] }
+tokio = { version = "1.36.0", features = ["macros", "rt-multi-thread"] }
+
+async-graphql = "7.0.2"
+async-graphql-poem = "7.0.2"
+bb8 = "0.8.3"
+diesel-async = { version = "0.4.1", features = ["bb8", "postgres"] }
+poem = "2.0.1"
+serde = "1.0.197"
+serde_json = "1.0.114"
+tokio-shared-rt = "0.1.0"
+
 
 [features]
 # Sync
