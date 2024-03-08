@@ -76,7 +76,11 @@ macro_rules! impl_backend_for_pg_backend {
 
                     // Grant privileges to CRUD role
                     self.execute(
-                        crate::statement::pg::grant_privileges(db_name).as_str(),
+                        crate::statement::pg::grant_table_privileges(db_name).as_str(),
+                        &mut conn,
+                    );
+                    self.execute(
+                        crate::statement::pg::grant_sequence_privileges(db_name).as_str(),
                         &mut conn,
                     );
 

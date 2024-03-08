@@ -9,8 +9,12 @@ pub fn create_role(name: &str) -> String {
     format!("CREATE ROLE {name} WITH LOGIN")
 }
 
-pub fn grant_privileges(role_name: &str) -> String {
+pub fn grant_table_privileges(role_name: &str) -> String {
     format!("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO {role_name}")
+}
+
+pub fn grant_sequence_privileges(role_name: &str) -> String {
+    format!("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO {role_name}")
 }
 
 pub fn truncate_table(table_name: &str) -> String {

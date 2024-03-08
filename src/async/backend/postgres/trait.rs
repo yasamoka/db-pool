@@ -84,7 +84,12 @@ macro_rules! impl_async_backend_for_async_pg_backend {
 
                     // Grant privileges to CRUD role
                     self.execute_stmt(
-                        crate::statement::pg::grant_privileges(db_name).as_str(),
+                        crate::statement::pg::grant_table_privileges(db_name).as_str(),
+                        &mut conn,
+                    )
+                    .await;
+                    self.execute_stmt(
+                        crate::statement::pg::grant_sequence_privileges(db_name).as_str(),
                         &mut conn,
                     )
                     .await;
