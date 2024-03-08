@@ -34,6 +34,10 @@ pub trait AsyncPgBackend: Sized + Send + Sync + 'static {
         db_id: Uuid,
     ) -> <Self::ConnectionManager as ManageConnection>::Connection;
 
+    async fn get_previous_database_names(
+        &self,
+        conn: &mut <Self::ConnectionManager as ManageConnection>::Connection,
+    ) -> Vec<String>;
     async fn create_entities(
         &self,
         conn: <Self::ConnectionManager as ManageConnection>::Connection,
@@ -45,7 +49,7 @@ pub trait AsyncPgBackend: Sized + Send + Sync + 'static {
         privileged_conn: &mut <Self::ConnectionManager as ManageConnection>::Connection,
     ) -> Vec<String>;
 
-    fn terminate_connections(&self) -> bool;
+    fn get_drop_previous_databases(&self) -> bool;
 }
 
 macro_rules! impl_async_backend_for_async_pg_backend {
@@ -53,6 +57,33 @@ macro_rules! impl_async_backend_for_async_pg_backend {
         #[async_trait::async_trait]
         impl crate::r#async::backend::r#trait::AsyncBackend for $struct_name {
             type ConnectionManager = $manager;
+
+            async fn init(&self) {
+                // Drop previous databases if needed
+                if self.get_drop_previous_databases() {
+                    // Get connection to default database as privileged user
+                    let conn = &mut self.get_default_connection().await;
+
+                    // Get previous database names
+                    let mut db_names = self.get_previous_database_names(conn).await;
+                    // dbg!(&db_names);
+
+                    // Drop databases
+                    let futures = db_names
+                        .drain(..)
+                        .map(|db_name| async move {
+                            // dbg!(db_name.as_str());
+                            let conn = &mut self.get_default_connection().await;
+                            self.execute_stmt(
+                                crate::statement::pg::drop_database(db_name.as_str()).as_str(),
+                                conn,
+                            )
+                            .await;
+                        })
+                        .collect::<Vec<_>>();
+                    futures::future::join_all(futures).await;
+                }
+            }
 
             async fn create(&self, db_id: uuid::Uuid) -> Pool<Self::ConnectionManager> {
                 // Get database name based on UUID
@@ -124,15 +155,6 @@ macro_rules! impl_async_backend_for_async_pg_backend {
 
                 // Get connection to default database as privileged user
                 let conn = &mut self.get_default_connection().await;
-
-                // Terminate all connections to database if needed
-                if self.terminate_connections() {
-                    self.execute_stmt(
-                        crate::statement::pg::terminate_database_connections(db_name).as_str(),
-                        conn,
-                    )
-                    .await;
-                }
 
                 // Drop database
                 self.execute_stmt(crate::statement::pg::drop_database(db_name).as_str(), conn)

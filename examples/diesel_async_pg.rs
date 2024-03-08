@@ -65,6 +65,7 @@ async fn create_database_pool() -> AsyncDatabasePool<DieselAsyncPgBackend> {
         false,
     )
     .create_database_pool()
+    .await
 }
 
 async fn run_test(conn_pool: AsyncReusable<'_, AsyncConnectionPool<DieselAsyncPgBackend>>) {

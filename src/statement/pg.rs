@@ -1,6 +1,9 @@
 #[allow(dead_code)]
 pub const GET_TABLE_NAMES: &'static str = "SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname != 'pg_catalog' AND schemaname != 'information_schema'";
 
+pub const GET_DATABASE_NAMES: &'static str =
+    "SELECT datname FROM pg_catalog.pg_database WHERE datname LIKE 'db_pool_%'";
+
 pub fn create_database(db_name: &str) -> String {
     format!("CREATE DATABASE {db_name}")
 }

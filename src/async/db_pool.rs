@@ -1,5 +1,7 @@
 use std::{ops::Deref, sync::Arc};
 
+use async_trait::async_trait;
+
 use super::{backend::AsyncBackend, conn_pool::AsyncConnectionPool, object_pool::AsyncObjectPool};
 
 #[derive(Clone)]
@@ -18,8 +20,10 @@ where
     }
 }
 
+#[async_trait]
 pub trait AsyncDatabasePoolBuilder: AsyncBackend {
-    fn create_database_pool(self) -> AsyncDatabasePool<Self> {
+    async fn create_database_pool(self) -> AsyncDatabasePool<Self> {
+        self.init().await;
         let backend = Arc::new(self);
         let object_pool = Arc::new(AsyncObjectPool::new(
             move || {

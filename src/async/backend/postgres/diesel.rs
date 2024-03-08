@@ -33,7 +33,7 @@ pub struct DieselAsyncPgBackend {
             + 'static,
     >,
     create_pool_builder: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
-    terminate_connections_before_drop: bool,
+    drop_previous_databases: bool,
 }
 
 impl DieselAsyncPgBackend {
@@ -50,7 +50,7 @@ impl DieselAsyncPgBackend {
             + Sync
             + 'static,
         create_pool_builder: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
-        terminate_connections_before_drop: bool,
+        drop_previous_databases: bool,
     ) -> Self {
         Self {
             username,
@@ -61,7 +61,7 @@ impl DieselAsyncPgBackend {
             db_conns: Mutex::new(HashMap::new()),
             create_entities: Box::new(create_entities),
             create_pool_builder: Box::new(create_pool_builder),
-            terminate_connections_before_drop,
+            drop_previous_databases,
         }
     }
 
@@ -114,6 +114,22 @@ impl AsyncPgBackend for DieselAsyncPgBackend {
         self.db_conns.lock().remove(&db_id).unwrap()
     }
 
+    async fn get_previous_database_names(&self, conn: &mut AsyncPgConnection) -> Vec<String> {
+        table! {
+            pg_database (oid) {
+                oid -> Int4,
+                datname -> Text
+            }
+        }
+
+        pg_database::table
+            .select(pg_database::datname)
+            .filter(pg_database::datname.like("db_pool_%"))
+            .load::<String>(conn)
+            .await
+            .unwrap()
+    }
+
     async fn create_entities(&self, conn: AsyncPgConnection) -> AsyncPgConnection {
         (self.create_entities)(conn).await
     }
@@ -143,8 +159,8 @@ impl AsyncPgBackend for DieselAsyncPgBackend {
             .unwrap()
     }
 
-    fn terminate_connections(&self) -> bool {
-        self.terminate_connections_before_drop
+    fn get_drop_previous_databases(&self) -> bool {
+        self.drop_previous_databases
     }
 }
 

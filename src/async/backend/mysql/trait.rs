@@ -47,6 +47,8 @@ macro_rules! impl_async_backend_for_async_mysql_backend {
         impl crate::r#async::backend::r#trait::AsyncBackend for $struct_name {
             type ConnectionManager = $manager;
 
+            async fn init(&self) {}
+
             async fn create(&self, db_id: uuid::Uuid) -> Pool<Self::ConnectionManager> {
                 // Get database name based on UUID
                 let db_name = crate::util::get_db_name(db_id);

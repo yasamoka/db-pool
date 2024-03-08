@@ -27,7 +27,7 @@ pub struct TokioPostgresBackend {
             + 'static,
     >,
     create_pool_builder: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
-    terminate_connections_before_drop: bool,
+    drop_previous_databases: bool,
 }
 
 impl TokioPostgresBackend {
@@ -39,7 +39,7 @@ impl TokioPostgresBackend {
             + Sync
             + 'static,
         create_pool_builder: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
-        terminate_connections_before_drop: bool,
+        drop_previous_databases: bool,
     ) -> Self {
         Self {
             privileged_config,
@@ -47,7 +47,7 @@ impl TokioPostgresBackend {
             db_conns: Mutex::new(HashMap::new()),
             create_entities: Box::new(create_entities),
             create_pool_builder: Box::new(create_pool_builder),
-            terminate_connections_before_drop,
+            drop_previous_databases,
         }
     }
 }
@@ -90,6 +90,15 @@ impl AsyncPgBackend for TokioPostgresBackend {
         self.db_conns.lock().remove(&db_id).unwrap()
     }
 
+    async fn get_previous_database_names(&self, conn: &mut Client) -> Vec<String> {
+        conn.query(pg::GET_DATABASE_NAMES, &[])
+            .await
+            .unwrap()
+            .drain(..)
+            .map(|row| row.get(0))
+            .collect()
+    }
+
     async fn create_entities(&self, conn: Client) -> Client {
         (self.create_entities)(conn).await
     }
@@ -114,8 +123,8 @@ impl AsyncPgBackend for TokioPostgresBackend {
             .collect()
     }
 
-    fn terminate_connections(&self) -> bool {
-        self.terminate_connections_before_drop
+    fn get_drop_previous_databases(&self) -> bool {
+        self.drop_previous_databases
     }
 }
 
