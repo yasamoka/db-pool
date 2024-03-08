@@ -1,5 +1,4 @@
 use diesel::{prelude::*, sql_query, PgConnection, RunQueryDsl};
-use uuid::Uuid;
 
 fn main() {
     let conn = &mut PgConnection::establish("postgres://postgres:postgres@localhost:5432").unwrap();
@@ -9,11 +8,7 @@ fn main() {
         .load::<String>(conn)
         .unwrap()
         .drain(..)
-        .filter(|db_name| {
-            db_name.split_once("_").is_some_and(|(first, second)| {
-                first == "db_pool" && second.replace("_", "-").parse::<Uuid>().is_ok()
-            })
-        })
+        .filter(|db_name| db_name.starts_with("db_pool"))
         .map(|db_name| format!("DROP DATABASE {db_name}"))
         .for_each(|stmt| {
             sql_query(stmt).execute(conn).unwrap();
