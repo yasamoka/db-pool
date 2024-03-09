@@ -1,5 +1,13 @@
 #![forbid(unsafe_code)]
-#![warn(clippy::cargo, clippy::pedantic)]
+#![warn(
+    clippy::cargo,
+    clippy::complexity,
+    clippy::correctness,
+    clippy::pedantic,
+    clippy::perf,
+    clippy::style,
+    clippy::suspicious
+)]
 #![allow(clippy::module_name_repetitions, clippy::module_inception)]
 
 #[cfg(feature = "_async")]
