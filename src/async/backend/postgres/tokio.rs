@@ -1,9 +1,9 @@
-use std::{borrow::Cow, collections::HashMap, pin::Pin};
+use std::{borrow::Cow, collections::HashMap, convert::Into, pin::Pin};
 
 use async_trait::async_trait;
-use bb8::{Builder, Pool};
+use bb8::{Builder, Pool, RunError};
 use bb8_postgres::{
-    tokio_postgres::{Client, Config, NoTls},
+    tokio_postgres::{Client, Config, Error, NoTls},
     PostgresConnectionManager,
 };
 use futures::Future;
@@ -12,7 +12,10 @@ use uuid::Uuid;
 
 use crate::{statement::pg, util::get_db_name};
 
-use super::r#trait::{impl_async_backend_for_async_pg_backend, AsyncPgBackend};
+use super::{
+    super::error::Error as BackendError,
+    r#trait::{impl_async_backend_for_async_pg_backend, AsyncPgBackend},
+};
 
 type Manager = PostgresConnectionManager<NoTls>;
 type CreateEntities = dyn Fn(Client) -> Pin<Box<dyn Future<Output = Client> + Send + 'static>>
@@ -61,31 +64,37 @@ impl TokioPostgresBackend {
 #[async_trait]
 impl AsyncPgBackend for TokioPostgresBackend {
     type ConnectionManager = Manager;
+    type ConnectionError = Error;
+    type QueryError = Error;
 
-    async fn execute_stmt(&self, query: &str, conn: &mut Client) {
-        conn.execute(query, &[]).await.unwrap();
+    async fn execute_stmt(&self, query: &str, conn: &mut Client) -> Result<(), Error> {
+        conn.execute(query, &[]).await?;
+        Ok(())
     }
 
     async fn batch_execute_stmt<'a>(
         &self,
         query: impl IntoIterator<Item = Cow<'a, str>> + Send,
         conn: &mut Client,
-    ) {
+    ) -> Result<(), Error> {
         let query = query.into_iter().collect::<Vec<_>>().join(";");
-        conn.batch_execute(query.as_str()).await.unwrap();
+        conn.batch_execute(query.as_str()).await?;
+        Ok(())
     }
 
-    async fn get_default_connection(&self) -> bb8::PooledConnection<Self::ConnectionManager> {
-        self.default_pool.get().await.unwrap()
+    async fn get_default_connection(
+        &self,
+    ) -> Result<bb8::PooledConnection<Self::ConnectionManager>, RunError<Error>> {
+        self.default_pool.get().await
     }
 
-    async fn establish_database_connection(&self, db_id: Uuid) -> Client {
+    async fn establish_database_connection(&self, db_id: Uuid) -> Result<Client, Error> {
         let mut config = self.privileged_config.clone();
         let db_name = get_db_name(db_id);
         config.dbname(db_name.as_str());
-        let (client, connection) = config.connect(NoTls).await.unwrap();
+        let (client, connection) = config.connect(NoTls).await?;
         tokio::spawn(connection);
-        client
+        Ok(client)
     }
 
     fn put_database_connection(&self, db_id: Uuid, conn: Client) {
@@ -93,40 +102,43 @@ impl AsyncPgBackend for TokioPostgresBackend {
     }
 
     fn get_database_connection(&self, db_id: Uuid) -> Client {
-        self.db_conns.lock().remove(&db_id).unwrap()
+        self.db_conns
+            .lock()
+            .remove(&db_id)
+            .unwrap_or_else(|| panic!("connection map must have a connection for {db_id}"))
     }
 
-    async fn get_previous_database_names(&self, conn: &mut Client) -> Vec<String> {
+    async fn get_previous_database_names(&self, conn: &mut Client) -> Result<Vec<String>, Error> {
         conn.query(pg::GET_DATABASE_NAMES, &[])
             .await
-            .unwrap()
-            .drain(..)
-            .map(|row| row.get(0))
-            .collect()
+            .map(|rows| rows.iter().map(|row| row.get(0)).collect())
     }
 
     async fn create_entities(&self, conn: Client) -> Client {
         (self.create_entities)(conn).await
     }
 
-    async fn create_connection_pool(&self, db_id: Uuid) -> Pool<Self::ConnectionManager> {
+    async fn create_connection_pool(
+        &self,
+        db_id: Uuid,
+    ) -> Result<Pool<Self::ConnectionManager>, RunError<Error>> {
         let mut config = self.privileged_config.clone();
         let db_name = get_db_name(db_id);
         let db_name = db_name.as_str();
         config.dbname(db_name);
         config.user(db_name);
         let manager = PostgresConnectionManager::new(config, NoTls);
-        (self.create_pool_builder)().build(manager).await.unwrap()
+        (self.create_pool_builder)()
+            .build(manager)
+            .await
+            .map_err(Into::into)
     }
 
-    async fn get_table_names(&self, privileged_conn: &mut Client) -> Vec<String> {
+    async fn get_table_names(&self, privileged_conn: &mut Client) -> Result<Vec<String>, Error> {
         privileged_conn
             .query(pg::GET_TABLE_NAMES, &[])
             .await
-            .unwrap()
-            .drain(..)
-            .map(|row| row.get(0))
-            .collect()
+            .map(|rows| rows.iter().map(|row| row.get(0)).collect())
     }
 
     fn get_drop_previous_databases(&self) -> bool {
@@ -134,4 +146,12 @@ impl AsyncPgBackend for TokioPostgresBackend {
     }
 }
 
-impl_async_backend_for_async_pg_backend!(TokioPostgresBackend, Manager);
+// TODO: separate connection error and query error
+
+impl From<Error> for BackendError<Error, Error, Error> {
+    fn from(value: Error) -> Self {
+        Self::Query(value)
+    }
+}
+
+impl_async_backend_for_async_pg_backend!(TokioPostgresBackend, Manager, Error, Error);

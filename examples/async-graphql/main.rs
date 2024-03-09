@@ -164,6 +164,7 @@ mod tests {
         )
         .create_database_pool()
         .await
+        .expect("db_pool creation must succeed")
     }
 
     async fn get_connection_pool(

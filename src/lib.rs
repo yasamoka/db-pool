@@ -6,9 +6,14 @@
     clippy::pedantic,
     clippy::perf,
     clippy::style,
-    clippy::suspicious
+    clippy::suspicious,
+    clippy::unwrap_used
 )]
-#![allow(clippy::module_name_repetitions, clippy::module_inception)]
+#![allow(
+    clippy::module_name_repetitions,
+    clippy::module_inception,
+    clippy::missing_errors_doc
+)]
 
 #[cfg(feature = "_async")]
 mod r#async;

@@ -33,7 +33,8 @@ fn main() {
         },
         || Pool::builder().max_size(2),
     )
-    .create_database_pool();
+    .create_database_pool()
+    .expect("db_pool creation must succeed");
 
     for run in 0..2 {
         dbg!(run);

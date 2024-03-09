@@ -1,11 +1,11 @@
-use std::{borrow::Cow, collections::HashMap, pin::Pin};
+use std::{borrow::Cow, collections::HashMap, convert::Into, pin::Pin};
 
 use async_trait::async_trait;
-use bb8::{Builder, Pool};
-use diesel::{prelude::*, sql_query, table};
+use bb8::{Builder, Pool, PooledConnection, RunError};
+use diesel::{prelude::*, result::Error, sql_query, table, ConnectionError};
 use diesel_async::{
-    pooled_connection::AsyncDieselConnectionManager, AsyncConnection as _, AsyncPgConnection,
-    RunQueryDsl,
+    pooled_connection::{AsyncDieselConnectionManager, PoolError},
+    AsyncConnection as _, AsyncPgConnection, RunQueryDsl,
 };
 use futures::Future;
 use parking_lot::Mutex;
@@ -80,34 +80,40 @@ impl DieselAsyncPgBackend {
 #[async_trait]
 impl AsyncPgBackend for DieselAsyncPgBackend {
     type ConnectionManager = Manager;
+    type ConnectionError = ConnectionError;
+    type QueryError = Error;
 
-    async fn execute_stmt(&self, query: &str, conn: &mut AsyncPgConnection) {
-        sql_query(query).execute(conn).await.unwrap();
+    async fn execute_stmt(&self, query: &str, conn: &mut AsyncPgConnection) -> QueryResult<()> {
+        sql_query(query).execute(conn).await?;
+        Ok(())
     }
 
     async fn batch_execute_stmt<'a>(
         &self,
         query: impl IntoIterator<Item = Cow<'a, str>> + Send,
         conn: &mut AsyncPgConnection,
-    ) {
+    ) -> QueryResult<()> {
         let query = query.into_iter().collect::<Vec<_>>().join(";");
-        self.execute_stmt(query.as_str(), conn).await;
+        self.execute_stmt(query.as_str(), conn).await
     }
 
-    async fn get_default_connection(&self) -> bb8::PooledConnection<Self::ConnectionManager> {
-        self.default_pool.get().await.unwrap()
+    async fn get_default_connection(
+        &self,
+    ) -> Result<PooledConnection<Manager>, RunError<PoolError>> {
+        self.default_pool.get().await
     }
 
-    async fn establish_database_connection(&self, db_id: Uuid) -> AsyncPgConnection {
+    async fn establish_database_connection(
+        &self,
+        db_id: Uuid,
+    ) -> ConnectionResult<AsyncPgConnection> {
         let db_name = get_db_name(db_id);
         let database_url = self.create_database_url(
             self.username.as_str(),
             self.password.as_str(),
             db_name.as_str(),
         );
-        AsyncPgConnection::establish(database_url.as_str())
-            .await
-            .unwrap()
+        AsyncPgConnection::establish(database_url.as_str()).await
     }
 
     fn put_database_connection(&self, db_id: Uuid, conn: AsyncPgConnection) {
@@ -115,10 +121,16 @@ impl AsyncPgBackend for DieselAsyncPgBackend {
     }
 
     fn get_database_connection(&self, db_id: Uuid) -> AsyncPgConnection {
-        self.db_conns.lock().remove(&db_id).unwrap()
+        self.db_conns
+            .lock()
+            .remove(&db_id)
+            .unwrap_or_else(|| panic!("connection map must have a connection for {db_id}"))
     }
 
-    async fn get_previous_database_names(&self, conn: &mut AsyncPgConnection) -> Vec<String> {
+    async fn get_previous_database_names(
+        &self,
+        conn: &mut AsyncPgConnection,
+    ) -> QueryResult<Vec<String>> {
         table! {
             pg_database (oid) {
                 oid -> Int4,
@@ -131,22 +143,30 @@ impl AsyncPgBackend for DieselAsyncPgBackend {
             .filter(pg_database::datname.like("db_pool_%"))
             .load::<String>(conn)
             .await
-            .unwrap()
     }
 
     async fn create_entities(&self, conn: AsyncPgConnection) -> AsyncPgConnection {
         (self.create_entities)(conn).await
     }
 
-    async fn create_connection_pool(&self, db_id: Uuid) -> Pool<Self::ConnectionManager> {
+    async fn create_connection_pool(
+        &self,
+        db_id: Uuid,
+    ) -> Result<Pool<Manager>, RunError<PoolError>> {
         let db_name = get_db_name(db_id);
         let db_name = db_name.as_str();
         let database_url = self.create_database_url(db_name, db_name, db_name);
         let manager = AsyncDieselConnectionManager::<AsyncPgConnection>::new(database_url.as_str());
-        (self.create_pool_builder)().build(manager).await.unwrap()
+        (self.create_pool_builder)()
+            .build(manager)
+            .await
+            .map_err(Into::into)
     }
 
-    async fn get_table_names(&self, privileged_conn: &mut AsyncPgConnection) -> Vec<String> {
+    async fn get_table_names(
+        &self,
+        privileged_conn: &mut AsyncPgConnection,
+    ) -> QueryResult<Vec<String>> {
         table! {
             pg_tables (tablename) {
                 #[sql_name = "schemaname"]
@@ -160,7 +180,6 @@ impl AsyncPgBackend for DieselAsyncPgBackend {
             .select(pg_tables::tablename)
             .load(privileged_conn)
             .await
-            .unwrap()
     }
 
     fn get_drop_previous_databases(&self) -> bool {
@@ -168,4 +187,4 @@ impl AsyncPgBackend for DieselAsyncPgBackend {
     }
 }
 
-impl_async_backend_for_async_pg_backend!(DieselAsyncPgBackend, Manager);
+impl_async_backend_for_async_pg_backend!(DieselAsyncPgBackend, Manager, ConnectionError, Error);

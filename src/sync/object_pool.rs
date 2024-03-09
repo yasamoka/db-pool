@@ -66,26 +66,29 @@ impl<'a, T> Reusable<'a, T> {
     }
 }
 
+const DATA_MUST_CONTAIN_SOME: &str = "data must always contain a [Some] value";
+
 impl<'a, T> Deref for Reusable<'a, T> {
     type Target = T;
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        self.data.as_ref().unwrap()
+        self.data.as_ref().expect(DATA_MUST_CONTAIN_SOME)
     }
 }
 
 impl<'a, T> DerefMut for Reusable<'a, T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.data.as_mut().unwrap()
+        self.data.as_mut().expect(DATA_MUST_CONTAIN_SOME)
     }
 }
 
 impl<'a, T> Drop for Reusable<'a, T> {
     #[inline]
     fn drop(&mut self) {
-        self.pool.attach(self.data.take().unwrap());
+        self.pool
+            .attach(self.data.take().expect(DATA_MUST_CONTAIN_SOME));
     }
 }
 
@@ -133,7 +136,7 @@ mod tests {
         drop(objects);
 
         for i in (0..10).rev() {
-            let mut object = pool.objects.lock().pop().unwrap();
+            let mut object = pool.objects.lock().pop().expect("pool must have objects");
             assert_eq!(object.pop(), Some(i));
         }
     }

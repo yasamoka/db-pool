@@ -1,6 +1,9 @@
 use std::{borrow::Cow, collections::HashMap};
 
-use diesel::{pg::PgConnection, prelude::*, r2d2::ConnectionManager, sql_query, RunQueryDsl};
+use diesel::{
+    pg::PgConnection, prelude::*, r2d2::ConnectionManager, result::Error, sql_query, QueryResult,
+    RunQueryDsl,
+};
 use parking_lot::Mutex;
 use r2d2::{Builder, Pool, PooledConnection};
 use uuid::Uuid;
@@ -64,32 +67,35 @@ impl DieselPostgresBackend {
 
 impl PostgresBackend for DieselPostgresBackend {
     type ConnectionManager = Manager;
+    type ConnectionError = ConnectionError;
+    type QueryError = Error;
 
-    fn execute(&self, query: &str, conn: &mut PgConnection) {
-        sql_query(query).execute(conn).unwrap();
+    fn execute(&self, query: &str, conn: &mut PgConnection) -> QueryResult<()> {
+        sql_query(query).execute(conn)?;
+        Ok(())
     }
 
     fn batch_execute<'a>(
         &self,
         query: impl IntoIterator<Item = Cow<'a, str>>,
         conn: &mut PgConnection,
-    ) {
+    ) -> QueryResult<()> {
         let query = query.into_iter().collect::<Vec<_>>().join(";");
-        self.execute(query.as_str(), conn);
+        self.execute(query.as_str(), conn)
     }
 
-    fn get_default_connection(&self) -> PooledConnection<Manager> {
-        self.default_pool.get().unwrap()
+    fn get_default_connection(&self) -> Result<PooledConnection<Manager>, r2d2::Error> {
+        self.default_pool.get()
     }
 
-    fn establish_database_connection(&self, db_id: Uuid) -> PgConnection {
+    fn establish_database_connection(&self, db_id: Uuid) -> ConnectionResult<PgConnection> {
         let db_name = get_db_name(db_id);
         let database_url = self.create_database_url(
             self.username.as_str(),
             self.password.as_str(),
             db_name.as_str(),
         );
-        PgConnection::establish(database_url.as_str()).unwrap()
+        PgConnection::establish(database_url.as_str())
     }
 
     fn put_database_connection(&self, db_id: Uuid, conn: PgConnection) {
@@ -97,10 +103,13 @@ impl PostgresBackend for DieselPostgresBackend {
     }
 
     fn get_database_connection(&self, db_id: Uuid) -> PgConnection {
-        self.db_conns.lock().remove(&db_id).unwrap()
+        self.db_conns
+            .lock()
+            .remove(&db_id)
+            .unwrap_or_else(|| panic!("connection map must have a connection for {db_id}"))
     }
 
-    fn get_previous_database_names(&self, conn: &mut PgConnection) -> Vec<String> {
+    fn get_previous_database_names(&self, conn: &mut PgConnection) -> QueryResult<Vec<String>> {
         table! {
             pg_database (oid) {
                 oid -> Int4,
@@ -112,22 +121,24 @@ impl PostgresBackend for DieselPostgresBackend {
             .select(pg_database::datname)
             .filter(pg_database::datname.like("db_pool_%"))
             .load::<String>(conn)
-            .unwrap()
     }
 
     fn create_entities(&self, conn: &mut PgConnection) {
         (self.create_entities)(conn);
     }
 
-    fn create_connection_pool(&self, db_id: Uuid) -> Pool<Self::ConnectionManager> {
+    fn create_connection_pool(
+        &self,
+        db_id: Uuid,
+    ) -> Result<Pool<Self::ConnectionManager>, r2d2::Error> {
         let db_name = get_db_name(db_id);
         let db_name = db_name.as_str();
         let database_url = self.create_database_url(db_name, db_name, db_name);
         let manager = ConnectionManager::<PgConnection>::new(database_url.as_str());
-        (self.create_pool_builder)().build(manager).unwrap()
+        (self.create_pool_builder)().build(manager)
     }
 
-    fn get_table_names(&self, privileged_conn: &mut PgConnection) -> Vec<String> {
+    fn get_table_names(&self, conn: &mut PgConnection) -> QueryResult<Vec<String>> {
         table! {
             pg_tables (tablename) {
                 #[sql_name = "schemaname"]
@@ -139,8 +150,7 @@ impl PostgresBackend for DieselPostgresBackend {
         pg_tables::table
             .filter(pg_tables::schema_name.ne_all(["pg_catalog", "information_schema"]))
             .select(pg_tables::tablename)
-            .load(privileged_conn)
-            .unwrap()
+            .load(conn)
     }
 
     fn get_drop_previous_databases(&self) -> bool {
@@ -148,4 +158,4 @@ impl PostgresBackend for DieselPostgresBackend {
     }
 }
 
-impl_backend_for_pg_backend!(DieselPostgresBackend, Manager);
+impl_backend_for_pg_backend!(DieselPostgresBackend, Manager, ConnectionError, Error);

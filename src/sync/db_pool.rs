@@ -1,6 +1,10 @@
 use std::{ops::Deref, sync::Arc};
 
-use super::{backend::Backend, conn_pool::ConnectionPool, object_pool::ObjectPool};
+use super::{
+    backend::{Backend, Error},
+    conn_pool::ConnectionPool,
+    object_pool::ObjectPool,
+};
 
 pub struct DatabasePool<B>(Arc<ObjectPool<ConnectionPool<B>>>)
 where
@@ -18,16 +22,23 @@ where
 }
 
 pub trait DatabasePoolBuilder: Backend {
-    fn create_database_pool(self) -> DatabasePool<Self> {
+    fn create_database_pool(
+        self,
+    ) -> Result<DatabasePool<Self>, Error<Self::ConnectionError, Self::QueryError>> {
+        self.init()?;
         let backend = Arc::new(self);
         let object_pool = Arc::new(ObjectPool::new(
             move || {
                 let backend = backend.clone();
-                ConnectionPool::new(backend)
+                ConnectionPool::new(backend).expect("connection pool creation must succeed")
             },
-            ConnectionPool::clean,
+            |conn_pool| {
+                conn_pool
+                    .clean()
+                    .expect("connection pool cleaning must succeed");
+            },
         ));
-        DatabasePool(object_pool)
+        Ok(DatabasePool(object_pool))
     }
 }
 

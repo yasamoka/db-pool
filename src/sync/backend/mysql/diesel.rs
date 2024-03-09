@@ -1,6 +1,12 @@
 use std::borrow::Cow;
 
-use diesel::{mysql::MysqlConnection, prelude::*, r2d2::ConnectionManager, sql_query};
+use diesel::{
+    mysql::MysqlConnection,
+    prelude::*,
+    r2d2::ConnectionManager,
+    result::{ConnectionError, Error, QueryResult},
+    sql_query,
+};
 use r2d2::{Builder, Pool, PooledConnection};
 use uuid::Uuid;
 
@@ -55,22 +61,25 @@ impl DieselMysqlBackend {
 
 impl MySQLBackend for DieselMysqlBackend {
     type ConnectionManager = Manager;
+    type ConnectionError = ConnectionError;
+    type QueryError = Error;
 
-    fn get_connection(&self) -> PooledConnection<Manager> {
-        self.default_pool.get().unwrap()
+    fn get_connection(&self) -> Result<PooledConnection<Manager>, r2d2::Error> {
+        self.default_pool.get()
     }
 
-    fn execute(&self, query: &str, conn: &mut MysqlConnection) {
-        sql_query(query).execute(conn).unwrap();
+    fn execute(&self, query: &str, conn: &mut MysqlConnection) -> QueryResult<()> {
+        sql_query(query).execute(conn)?;
+        Ok(())
     }
 
     fn batch_execute<'a>(
         &self,
         query: impl IntoIterator<Item = Cow<'a, str>>,
         conn: &mut MysqlConnection,
-    ) {
+    ) -> QueryResult<()> {
         let query = query.into_iter().collect::<Vec<_>>().join(";");
-        self.execute(query.as_str(), conn);
+        self.execute(query.as_str(), conn)
     }
 
     fn get_host(&self) -> &str {
@@ -80,7 +89,7 @@ impl MySQLBackend for DieselMysqlBackend {
     fn get_previous_database_names(
         &self,
         conn: &mut <Self::ConnectionManager as r2d2::ManageConnection>::Connection,
-    ) -> Vec<String> {
+    ) -> QueryResult<Vec<String>> {
         table! {
             schemata (schema_name) {
                 schema_name -> Text
@@ -91,22 +100,28 @@ impl MySQLBackend for DieselMysqlBackend {
             .select(schemata::schema_name)
             .filter(schemata::schema_name.like("db_pool_%"))
             .load::<String>(conn)
-            .unwrap()
     }
 
     fn create_entities(&self, conn: &mut MysqlConnection) {
         (self.create_entities)(conn);
     }
 
-    fn create_connection_pool(&self, db_id: Uuid) -> Pool<Self::ConnectionManager> {
+    fn create_connection_pool(
+        &self,
+        db_id: Uuid,
+    ) -> Result<Pool<Self::ConnectionManager>, r2d2::Error> {
         let db_name = get_db_name(db_id);
         let db_name = db_name.as_str();
         let database_url = self.create_passwordless_database_url(db_name, db_name);
         let manager = ConnectionManager::<MysqlConnection>::new(database_url.as_str());
-        (self.create_pool_builder)().build(manager).unwrap()
+        (self.create_pool_builder)().build(manager)
     }
 
-    fn get_table_names(&self, db_name: &str, conn: &mut MysqlConnection) -> Vec<String> {
+    fn get_table_names(
+        &self,
+        db_name: &str,
+        conn: &mut MysqlConnection,
+    ) -> QueryResult<Vec<String>> {
         table! {
             tables (table_name) {
                 table_name -> Text,
@@ -114,15 +129,12 @@ impl MySQLBackend for DieselMysqlBackend {
             }
         }
 
-        sql_query(mysql::USE_DEFAULT_DATABASE)
-            .execute(conn)
-            .unwrap();
+        sql_query(mysql::USE_DEFAULT_DATABASE).execute(conn)?;
 
         tables::table
             .filter(tables::table_schema.eq(db_name))
             .select(tables::table_name)
             .load::<String>(conn)
-            .unwrap()
     }
 
     fn get_drop_previous_databases(&self) -> bool {
@@ -130,4 +142,4 @@ impl MySQLBackend for DieselMysqlBackend {
     }
 }
 
-impl_backend_for_mysql_backend!(DieselMysqlBackend, Manager);
+impl_backend_for_mysql_backend!(DieselMysqlBackend, Manager, ConnectionError, Error);

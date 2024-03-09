@@ -2,14 +2,17 @@ use std::borrow::Cow;
 
 use r2d2::{Builder, Pool, PooledConnection};
 use r2d2_mysql::{
-    mysql::{prelude::*, Conn, OptsBuilder},
+    mysql::{prelude::*, Conn, Error, OptsBuilder},
     MySqlConnectionManager,
 };
 use uuid::Uuid;
 
 use crate::{statement::mysql, util::get_db_name};
 
-use super::r#trait::{impl_backend_for_mysql_backend, MySQLBackend as MySQLBackendTrait};
+use super::{
+    super::error::Error as BackendError,
+    r#trait::{impl_backend_for_mysql_backend, MySQLBackend as MySQLBackendTrait},
+};
 
 type Manager = MySqlConnectionManager;
 
@@ -51,18 +54,24 @@ impl MySQLBackend {
 
 impl MySQLBackendTrait for MySQLBackend {
     type ConnectionManager = Manager;
+    type ConnectionError = Error;
+    type QueryError = Error;
 
-    fn get_connection(&self) -> PooledConnection<Manager> {
-        self.default_pool.get().unwrap()
+    fn get_connection(&self) -> Result<PooledConnection<Manager>, r2d2::Error> {
+        self.default_pool.get()
     }
 
-    fn execute(&self, query: &str, conn: &mut Conn) {
-        conn.query_drop(query).unwrap();
+    fn execute(&self, query: &str, conn: &mut Conn) -> Result<(), Error> {
+        conn.query_drop(query)
     }
 
-    fn batch_execute<'a>(&self, query: impl IntoIterator<Item = Cow<'a, str>>, conn: &mut Conn) {
+    fn batch_execute<'a>(
+        &self,
+        query: impl IntoIterator<Item = Cow<'a, str>>,
+        conn: &mut Conn,
+    ) -> Result<(), Error> {
         let query = query.into_iter().collect::<Vec<_>>().join(";");
-        self.execute(query.as_str(), conn);
+        self.execute(query.as_str(), conn)
     }
 
     fn get_host(&self) -> &str {
@@ -72,18 +81,15 @@ impl MySQLBackendTrait for MySQLBackend {
     fn get_previous_database_names(
         &self,
         conn: &mut <Self::ConnectionManager as r2d2::ManageConnection>::Connection,
-    ) -> Vec<String> {
+    ) -> Result<Vec<String>, Error> {
         conn.query(mysql::GET_DATABASE_NAMES)
-            .unwrap()
-            .drain(..)
-            .collect()
     }
 
     fn create_entities(&self, conn: &mut Conn) {
         (self.create_entities)(conn);
     }
 
-    fn create_connection_pool(&self, db_id: Uuid) -> Pool<Manager> {
+    fn create_connection_pool(&self, db_id: Uuid) -> Result<Pool<Manager>, r2d2::Error> {
         let db_name = get_db_name(db_id);
         let db_name = db_name.as_str();
         let opts = OptsBuilder::new()
@@ -92,14 +98,11 @@ impl MySQLBackendTrait for MySQLBackend {
             .db_name(Some(db_name))
             .user(Some(db_name));
         let manager = MySqlConnectionManager::new(opts);
-        (self.create_pool_builder)().build(manager).unwrap()
+        (self.create_pool_builder)().build(manager)
     }
 
-    fn get_table_names(&self, db_name: &str, conn: &mut Conn) -> Vec<String> {
+    fn get_table_names(&self, db_name: &str, conn: &mut Conn) -> Result<Vec<String>, Error> {
         conn.query(mysql::get_table_names(db_name))
-            .unwrap()
-            .drain(..)
-            .collect()
     }
 
     fn get_drop_previous_databases(&self) -> bool {
@@ -107,4 +110,10 @@ impl MySQLBackendTrait for MySQLBackend {
     }
 }
 
-impl_backend_for_mysql_backend!(MySQLBackend, Manager);
+impl From<Error> for BackendError<Error, Error> {
+    fn from(value: Error) -> Self {
+        Self::Query(value)
+    }
+}
+
+impl_backend_for_mysql_backend!(MySQLBackend, Manager, Error, Error);
