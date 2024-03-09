@@ -2,7 +2,6 @@
 
 use parking_lot::Mutex;
 use std::future::Future;
-use std::mem::{forget, ManuallyDrop};
 use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
 
@@ -61,7 +60,7 @@ impl<T> AsyncObjectPool<T> {
 
 pub struct AsyncReusable<'a, T> {
     pool: &'a AsyncObjectPool<T>,
-    data: ManuallyDrop<T>,
+    data: Option<T>,
 }
 
 impl<'a, T> AsyncReusable<'a, T> {
@@ -69,19 +68,8 @@ impl<'a, T> AsyncReusable<'a, T> {
     pub fn new(pool: &'a AsyncObjectPool<T>, t: T) -> Self {
         Self {
             pool,
-            data: ManuallyDrop::new(t),
+            data: Some(t),
         }
-    }
-
-    #[inline]
-    pub fn detach(mut self) -> (&'a AsyncObjectPool<T>, T) {
-        let ret = unsafe { (self.pool, self.take()) };
-        forget(self);
-        ret
-    }
-
-    unsafe fn take(&mut self) -> T {
-        ManuallyDrop::take(&mut self.data)
     }
 }
 
@@ -90,110 +78,112 @@ impl<'a, T> Deref for AsyncReusable<'a, T> {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        &self.data
+        self.data.as_ref().unwrap()
     }
 }
 
 impl<'a, T> DerefMut for AsyncReusable<'a, T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.data
+        self.data.as_mut().unwrap()
     }
 }
 
 impl<'a, T> Drop for AsyncReusable<'a, T> {
     #[inline]
     fn drop(&mut self) {
-        unsafe { self.pool.attach(self.take()) }
+        self.pool.attach(self.data.take().unwrap());
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::{AsyncObjectPool, Reusable};
-//     use std::mem::drop;
+#[cfg(test)]
+mod tests {
+    use super::AsyncObjectPool;
+    use std::mem::drop;
 
-//     #[test]
-//     fn detach() {
-//         let pool = AsyncObjectPool::new(|| Vec::new(), |_| {});
-//         let (pool, mut object) = pool.pull().detach();
-//         object.push(1);
-//         Reusable::new(&pool, object);
-//         assert_eq!(pool.pull()[0], 1);
-//     }
+    #[tokio::test]
+    async fn len() {
+        {
+            let pool = AsyncObjectPool::new(
+                || Box::pin(async { Vec::<u8>::new() }),
+                |obj| Box::pin(async { obj }),
+            );
 
-//     #[test]
-//     fn detach_then_attach() {
-//         let pool = AsyncObjectPool::new(|| Vec::new(), |_| {});
-//         let (pool, mut object) = pool.pull().detach();
-//         object.push(1);
-//         pool.attach(object);
-//         assert_eq!(pool.pull()[0], 1);
-//     }
+            let object1 = pool.pull().await;
+            drop(object1);
+            let object2 = pool.pull().await;
+            drop(object2);
 
-//     #[test]
-//     fn len() {
-//         {
-//             let pool = AsyncObjectPool::<Vec<u8>, _, _>::new(|| Vec::new(), |_| {});
+            assert_eq!(pool.len(), 1);
+        }
 
-//             let object1 = pool.pull();
-//             drop(object1);
-//             let object2 = pool.pull();
-//             drop(object2);
+        {
+            let pool = AsyncObjectPool::new(
+                || Box::pin(async { Vec::<u8>::new() }),
+                |obj| Box::pin(async { obj }),
+            );
 
-//             assert_eq!(pool.len(), 1);
-//         }
+            let object1 = pool.pull().await;
+            let object2 = pool.pull().await;
 
-//         {
-//             let pool = AsyncObjectPool::<Vec<u8>, _, _>::new(|| Vec::new(), |_| {});
+            drop(object1);
+            drop(object2);
+            assert_eq!(pool.len(), 2);
+        }
+    }
 
-//             let object1 = pool.pull();
-//             let object2 = pool.pull();
+    #[tokio::test]
+    async fn e2e() {
+        let pool = AsyncObjectPool::new(
+            || Box::pin(async { Vec::<u8>::new() }),
+            |obj| Box::pin(async { obj }),
+        );
+        let mut objects = Vec::new();
 
-//             drop(object1);
-//             drop(object2);
-//             assert_eq!(pool.len(), 2);
-//         }
-//     }
+        for i in 0..10 {
+            let mut object = pool.pull().await;
+            object.push(i);
+            objects.push(object);
+        }
 
-//     #[test]
-//     fn e2e() {
-//         let pool = AsyncObjectPool::new(|| Vec::new(), |_| {});
-//         let mut objects = Vec::new();
+        drop(objects);
 
-//         for i in 0..10 {
-//             let mut object = pool.pull();
-//             object.push(i);
-//             objects.push(object);
-//         }
+        for i in (0..10).rev() {
+            let mut object = pool.objects.lock().pop().unwrap();
+            assert_eq!(object.pop(), Some(i));
+        }
+    }
 
-//         drop(objects);
+    #[tokio::test]
+    async fn reset() {
+        let pool = AsyncObjectPool::new(
+            || Box::pin(async { Vec::new() }),
+            |mut v| {
+                Box::pin(async {
+                    v.clear();
+                    v
+                })
+            },
+        );
 
-//         for i in (10..0).rev() {
-//             let mut object = pool.objects.lock().pop().unwrap();
-//             assert_eq!(object.pop(), Some(i));
-//         }
-//     }
+        let mut object = pool.pull().await;
+        object.push(1);
+        drop(object);
+        let object = pool.pull().await;
+        assert_eq!(object.len(), 0);
+    }
 
-//     #[test]
-//     fn reset() {
-//         let pool = AsyncObjectPool::new(|| Vec::new(), |v| v.clear());
+    #[tokio::test]
+    async fn no_reset() {
+        let pool = AsyncObjectPool::new(
+            || Box::pin(async { Vec::new() }),
+            |obj| Box::pin(async { obj }),
+        );
 
-//         let mut object = pool.pull();
-//         object.push(1);
-//         drop(object);
-//         let object = pool.pull();
-//         assert_eq!(object.len(), 0);
-//     }
-
-//     #[test]
-//     fn no_reset() {
-//         let pool = AsyncObjectPool::new(|| Vec::new(), |_| {});
-
-//         let mut object = pool.pull();
-//         object.push(1);
-//         drop(object);
-//         let object = pool.pull();
-//         assert_eq!(object.len(), 1);
-//     }
-// }
+        let mut object = pool.pull().await;
+        object.push(1);
+        drop(object);
+        let object = pool.pull().await;
+        assert_eq!(object.len(), 1);
+    }
+}

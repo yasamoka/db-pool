@@ -1,6 +1,9 @@
 <img src="./logo.svg" height="150" />
 
 # db-pool
+
+[![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-success.svg)](https://github.com/rust-secure-code/safety-dance/)
+
 A thread-safe database pool for running database-tied tests in parallel with:
 - Easy setup
 - Proper isolation

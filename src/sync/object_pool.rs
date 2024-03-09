@@ -1,7 +1,6 @@
 // adapted from https://github.com/CJP10/object-pool and https://github.com/EVaillant/lockfree-object-pool
 
 use parking_lot::Mutex;
-use std::mem::{forget, ManuallyDrop};
 use std::ops::{Deref, DerefMut};
 
 pub type Stack<T> = Vec<T>;
@@ -54,7 +53,7 @@ impl<T> ObjectPool<T> {
 
 pub struct Reusable<'a, T> {
     pool: &'a ObjectPool<T>,
-    data: ManuallyDrop<T>,
+    data: Option<T>,
 }
 
 impl<'a, T> Reusable<'a, T> {
@@ -62,19 +61,8 @@ impl<'a, T> Reusable<'a, T> {
     pub fn new(pool: &'a ObjectPool<T>, t: T) -> Self {
         Self {
             pool,
-            data: ManuallyDrop::new(t),
+            data: Some(t),
         }
-    }
-
-    #[inline]
-    pub fn detach(mut self) -> (&'a ObjectPool<T>, T) {
-        let ret = unsafe { (self.pool, self.take()) };
-        forget(self);
-        ret
-    }
-
-    unsafe fn take(&mut self) -> T {
-        ManuallyDrop::take(&mut self.data)
     }
 }
 
@@ -83,46 +71,28 @@ impl<'a, T> Deref for Reusable<'a, T> {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        &self.data
+        self.data.as_ref().unwrap()
     }
 }
 
 impl<'a, T> DerefMut for Reusable<'a, T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.data
+        self.data.as_mut().unwrap()
     }
 }
 
 impl<'a, T> Drop for Reusable<'a, T> {
     #[inline]
     fn drop(&mut self) {
-        unsafe { self.pool.attach(self.take()) }
+        self.pool.attach(self.data.take().unwrap());
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{ObjectPool, Reusable};
+    use super::ObjectPool;
     use std::mem::drop;
-
-    #[test]
-    fn detach() {
-        let pool = ObjectPool::new(Vec::new, |_| {});
-        let (pool, mut object) = pool.pull().detach();
-        object.push(1);
-        Reusable::new(pool, object);
-        assert_eq!(pool.pull()[0], 1);
-    }
-
-    #[test]
-    fn detach_then_attach() {
-        let pool = ObjectPool::new(Vec::new, |_| {});
-        let (pool, mut object) = pool.pull().detach();
-        object.push(1);
-        pool.attach(object);
-        assert_eq!(pool.pull()[0], 1);
-    }
 
     #[test]
     fn len() {
