@@ -8,17 +8,14 @@ use parking_lot::Mutex;
 use r2d2::{Builder, Pool, PooledConnection};
 use uuid::Uuid;
 
-use crate::util::get_db_name;
+use crate::{common::config::postgres::PrivilegedConfig, util::get_db_name};
 
 use super::r#trait::{impl_backend_for_pg_backend, PostgresBackend};
 
 type Manager = ConnectionManager<PgConnection>;
 
 pub struct Backend {
-    username: String,
-    password: String,
-    host: String,
-    port: u16,
+    privileged_config: PrivilegedConfig,
     default_pool: Pool<Manager>,
     db_conns: Mutex<HashMap<Uuid, PgConnection>>,
     create_restricted_pool: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
@@ -28,23 +25,16 @@ pub struct Backend {
 
 impl Backend {
     pub fn new(
-        username: String,
-        password: String,
-        host: String,
-        port: u16,
+        privileged_config: PrivilegedConfig,
         create_privileged_pool: impl Fn() -> Builder<Manager>,
         create_restricted_pool: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
         create_entities: impl Fn(&mut PgConnection) + Send + Sync + 'static,
     ) -> Result<Self, r2d2::Error> {
-        let connection_url = format!("postgres://{username}:{password}@{host}:{port}");
-        let manager = Manager::new(connection_url);
+        let manager = Manager::new(privileged_config.default_connection_url());
         let default_pool = (create_privileged_pool()).build(manager)?;
 
         Ok(Self {
-            username,
-            password,
-            host,
-            port,
+            privileged_config,
             default_pool,
             db_conns: Mutex::new(HashMap::new()),
             create_entities: Box::new(create_entities),
@@ -59,13 +49,6 @@ impl Backend {
             drop_previous_databases_flag: value,
             ..self
         }
-    }
-
-    fn create_database_url(&self, username: &str, password: &str, db_name: &str) -> String {
-        format!(
-            "postgres://{}:{}@{}:{}/{}",
-            username, password, self.host, self.port, db_name
-        )
     }
 }
 
@@ -94,11 +77,9 @@ impl PostgresBackend for Backend {
 
     fn establish_database_connection(&self, db_id: Uuid) -> ConnectionResult<PgConnection> {
         let db_name = get_db_name(db_id);
-        let database_url = self.create_database_url(
-            self.username.as_str(),
-            self.password.as_str(),
-            db_name.as_str(),
-        );
+        let database_url = self
+            .privileged_config
+            .privileged_database_connection_url(db_name.as_str());
         PgConnection::establish(database_url.as_str())
     }
 
@@ -137,7 +118,11 @@ impl PostgresBackend for Backend {
     ) -> Result<Pool<Self::ConnectionManager>, r2d2::Error> {
         let db_name = get_db_name(db_id);
         let db_name = db_name.as_str();
-        let database_url = self.create_database_url(db_name, db_name, db_name);
+        let database_url = self.privileged_config.restricted_database_connection_url(
+            db_name,
+            Some(db_name),
+            db_name,
+        );
         let manager = ConnectionManager::<PgConnection>::new(database_url.as_str());
         (self.create_restricted_pool)().build(manager)
     }

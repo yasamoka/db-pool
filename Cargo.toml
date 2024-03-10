@@ -54,12 +54,16 @@ tokio-shared-rt = "0.1.0"
 
 
 [features]
+# DBMSes
+_mysql = []
+_postgres = []
+
 # Sync
 _sync = ["dep:r2d2"]
 
 # Sync backends
-_sync-mysql = ["_sync"]
-_sync-postgres = ["_sync"]
+_sync-mysql = ["_sync", "_mysql"]
+_sync-postgres = ["_sync", "_postgres"]
 
 # Sync Diesel backends
 _diesel = ["_sync", "dep:diesel", "diesel/r2d2"]
@@ -83,8 +87,8 @@ _async = [
 ]
 
 # Async backends
-_async-mysql = ["_async"]
-_async-postgres = ["_async"]
+_async-mysql = ["_async", "_mysql"]
+_async-postgres = ["_async", "_postgres"]
 
 # Async Diesel backends
 _diesel-async = ["_async", "dep:diesel", "dep:diesel-async", "diesel-async/bb8"]

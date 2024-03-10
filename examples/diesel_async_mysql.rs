@@ -4,7 +4,10 @@ use diesel_async::{
     pooled_connection::AsyncDieselConnectionManager, AsyncMysqlConnection, RunQueryDsl,
 };
 
-use db_pool::r#async::{DatabasePoolBuilderTrait, DieselAsyncMysqlBackend};
+use db_pool::{
+    r#async::{DatabasePoolBuilderTrait, DieselAsyncMysqlBackend},
+    PrivilegedMySQLConfig,
+};
 use futures::future::join_all;
 
 #[tokio::main]
@@ -18,10 +21,7 @@ async fn main() {
     .to_owned();
 
     let backend = DieselAsyncMysqlBackend::new(
-        "root".to_owned(),
-        "root".to_owned(),
-        "localhost".to_owned(),
-        3306,
+        PrivilegedMySQLConfig::new("root".to_owned()).password(Some("root".to_owned())),
         || Pool::builder().max_size(10),
         || Pool::builder().max_size(2),
         move |mut conn| {

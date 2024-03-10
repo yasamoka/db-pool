@@ -3,7 +3,10 @@ use std::thread;
 use diesel::{prelude::*, r2d2::ConnectionManager, sql_query};
 use r2d2::Pool;
 
-use db_pool::sync::{DatabasePoolBuilderTrait, DieselPostgresBackend};
+use db_pool::{
+    sync::{DatabasePoolBuilderTrait, DieselPostgresBackend},
+    PrivilegedPostgresConfig,
+};
 
 fn main() {
     let create_stmt = r#"
@@ -15,10 +18,7 @@ fn main() {
     .to_owned();
 
     let backend = DieselPostgresBackend::new(
-        "postgres".to_owned(),
-        "postgres".to_owned(),
-        "localhost".to_owned(),
-        5432,
+        PrivilegedPostgresConfig::new("postgres".to_owned()).password(Some("postgres".to_owned())),
         || Pool::builder().max_size(10),
         || Pool::builder().max_size(2),
         move |conn| {

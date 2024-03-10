@@ -10,7 +10,10 @@ use diesel_async::{
 use futures::Future;
 use uuid::Uuid;
 
-use crate::{common::statement::mysql, util::get_db_name};
+use crate::{
+    common::{config::mysql::PrivilegedConfig, statement::mysql},
+    util::get_db_name,
+};
 
 use super::r#trait::{impl_async_backend_for_async_mysql_backend, AsyncMySQLBackend};
 
@@ -21,10 +24,7 @@ type CreateEntities = dyn Fn(AsyncMysqlConnection) -> Pin<Box<dyn Future<Output 
     + 'static;
 
 pub struct Backend {
-    username: String,
-    password: String,
-    host: String,
-    port: u16,
+    privileged_config: PrivilegedConfig,
     default_pool: Pool<Manager>,
     create_restricted_pool: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
     create_entities: Box<CreateEntities>,
@@ -33,10 +33,7 @@ pub struct Backend {
 
 impl Backend {
     pub async fn new(
-        username: String,
-        password: String,
-        host: String,
-        port: u16,
+        privileged_config: PrivilegedConfig,
         create_privileged_pool: impl Fn() -> Builder<Manager>,
         create_restricted_pool: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
         create_entities: impl Fn(AsyncMysqlConnection) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>>
@@ -44,15 +41,11 @@ impl Backend {
             + Sync
             + 'static,
     ) -> Result<Self, PoolError> {
-        let connection_url = format!("mysql://{username}:{password}@{host}:{port}");
-        let manager = AsyncDieselConnectionManager::new(connection_url);
+        let manager = AsyncDieselConnectionManager::new(privileged_config.default_connection_url());
         let default_pool = (create_privileged_pool()).build(manager).await?;
 
         Ok(Self {
-            username,
-            password,
-            host,
-            port,
+            privileged_config,
             default_pool,
             create_restricted_pool: Box::new(create_restricted_pool),
             create_entities: Box::new(create_entities),
@@ -66,20 +59,6 @@ impl Backend {
             drop_previous_databases_flag: value,
             ..self
         }
-    }
-
-    fn create_database_url(&self, username: &str, password: &str, db_name: &str) -> String {
-        format!(
-            "mysql://{}:{}@{}:{}/{}",
-            username, password, self.host, self.port, db_name
-        )
-    }
-
-    fn create_passwordless_database_url(&self, username: &str, db_name: &str) -> String {
-        format!(
-            "mysql://{}@{}:{}/{}",
-            username, self.host, self.port, db_name
-        )
     }
 }
 
@@ -108,7 +87,7 @@ impl AsyncMySQLBackend for Backend {
     }
 
     fn get_host(&self) -> &str {
-        self.host.as_str()
+        self.privileged_config.host.as_str()
     }
 
     async fn get_previous_database_names(
@@ -129,8 +108,9 @@ impl AsyncMySQLBackend for Backend {
     }
 
     async fn create_entities(&self, db_name: &str) -> Result<(), ConnectionError> {
-        let database_url =
-            self.create_database_url(self.username.as_str(), self.password.as_str(), db_name);
+        let database_url = self
+            .privileged_config
+            .privileged_database_connection_url(db_name);
         let conn = AsyncMysqlConnection::establish(database_url.as_str()).await?;
         (self.create_entities)(conn).await;
         Ok(())
@@ -142,7 +122,9 @@ impl AsyncMySQLBackend for Backend {
     ) -> Result<Pool<Self::ConnectionManager>, RunError<PoolError>> {
         let db_name = get_db_name(db_id);
         let db_name = db_name.as_str();
-        let database_url = self.create_passwordless_database_url(db_name, db_name);
+        let database_url = self
+            .privileged_config
+            .restricted_database_connection_url(db_name, None, db_name);
         let manager =
             AsyncDieselConnectionManager::<AsyncMysqlConnection>::new(database_url.as_str());
         (self.create_restricted_pool)()

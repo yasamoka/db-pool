@@ -127,8 +127,11 @@ mod tests {
     use serde_json::{from_value, to_value, Value};
     use tokio::sync::OnceCell;
 
-    use db_pool::r#async::{
-        ConnectionPool, DatabasePool, DatabasePoolBuilderTrait, DieselAsyncPgBackend, Reusable,
+    use db_pool::{
+        r#async::{
+            ConnectionPool, DatabasePool, DatabasePoolBuilderTrait, DieselAsyncPgBackend, Reusable,
+        },
+        PrivilegedPostgresConfig,
     };
 
     use crate::{build_default_connection_pool, build_schema, Book, PoolWrapper};
@@ -137,10 +140,8 @@ mod tests {
         use diesel_async::RunQueryDsl;
 
         let backend = DieselAsyncPgBackend::new(
-            "postgres".to_owned(),
-            "postgres".to_owned(),
-            "localhost".to_owned(),
-            5432,
+            PrivilegedPostgresConfig::new("postgres".to_owned())
+                .password(Some("postgres".to_owned())),
             || Pool::builder().max_size(10),
             || Pool::builder().max_size(1).test_on_check_out(true),
             move |mut conn| {
@@ -156,7 +157,10 @@ mod tests {
         .await
         .expect("backend creation must succeed");
 
-        backend.create_database_pool().await.expect("database pool creation must succeed")
+        backend
+            .create_database_pool()
+            .await
+            .expect("database pool creation must succeed")
     }
 
     async fn get_connection_pool() -> Reusable<'static, ConnectionPool<DieselAsyncPgBackend>> {

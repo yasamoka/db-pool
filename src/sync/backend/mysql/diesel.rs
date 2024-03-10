@@ -10,15 +10,17 @@ use diesel::{
 use r2d2::{Builder, Pool, PooledConnection};
 use uuid::Uuid;
 
-use crate::{common::statement::mysql, util::get_db_name};
+use crate::{
+    common::{config::mysql::PrivilegedConfig, statement::mysql},
+    util::get_db_name,
+};
 
 use super::r#trait::{impl_backend_for_mysql_backend, MySQLBackend};
 
 type Manager = ConnectionManager<MysqlConnection>;
 
 pub struct Backend {
-    host: String,
-    port: u16,
+    privileged_config: PrivilegedConfig,
     default_pool: Pool<Manager>,
     create_restricted_pool: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
     create_entities: Box<dyn Fn(&mut MysqlConnection) + Send + Sync + 'static>,
@@ -27,21 +29,16 @@ pub struct Backend {
 
 impl Backend {
     pub fn new(
-        username: &str,
-        password: &str,
-        host: String,
-        port: u16,
+        privileged_config: PrivilegedConfig,
         create_privileged_pool: impl Fn() -> Builder<Manager>,
         create_restricted_pool: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
         create_entities: impl Fn(&mut MysqlConnection) + Send + Sync + 'static,
     ) -> Result<Self, r2d2::Error> {
-        let connection_url = format!("mysql://{username}:{password}@{host}:{port}");
-        let manager = Manager::new(connection_url);
+        let manager = Manager::new(privileged_config.default_connection_url());
         let default_pool = (create_privileged_pool()).build(manager)?;
 
         Ok(Self {
-            host,
-            port,
+            privileged_config,
             default_pool,
             create_entities: Box::new(create_entities),
             create_restricted_pool: Box::new(create_restricted_pool),
@@ -55,13 +52,6 @@ impl Backend {
             drop_previous_databases_flag: value,
             ..self
         }
-    }
-
-    fn create_passwordless_database_url(&self, username: &str, db_name: &str) -> String {
-        format!(
-            "mysql://{}@{}:{}/{}",
-            username, self.host, self.port, db_name
-        )
     }
 }
 
@@ -89,7 +79,7 @@ impl MySQLBackend for Backend {
     }
 
     fn get_host(&self) -> Cow<str> {
-        self.host.as_str().into()
+        self.privileged_config.host.as_str().into()
     }
 
     fn get_previous_database_names(
@@ -118,7 +108,9 @@ impl MySQLBackend for Backend {
     ) -> Result<Pool<Self::ConnectionManager>, r2d2::Error> {
         let db_name = get_db_name(db_id);
         let db_name = db_name.as_str();
-        let database_url = self.create_passwordless_database_url(db_name, db_name);
+        let database_url = self
+            .privileged_config
+            .restricted_database_connection_url(db_name, None, db_name);
         let manager = ConnectionManager::<MysqlConnection>::new(database_url.as_str());
         (self.create_restricted_pool)().build(manager)
     }

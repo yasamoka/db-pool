@@ -2,8 +2,11 @@ use bb8::Pool;
 use diesel::{prelude::*, sql_query};
 use diesel_async::RunQueryDsl;
 
-use db_pool::r#async::{
-    ConnectionPool, DatabasePool, DatabasePoolBuilderTrait, DieselAsyncPgBackend, Reusable,
+use db_pool::{
+    r#async::{
+        ConnectionPool, DatabasePool, DatabasePoolBuilderTrait, DieselAsyncPgBackend, Reusable,
+    },
+    PrivilegedPostgresConfig,
 };
 use futures::future::join_all;
 
@@ -40,10 +43,7 @@ async fn create_database_pool() -> DatabasePool<DieselAsyncPgBackend> {
     .to_owned();
 
     let backend = DieselAsyncPgBackend::new(
-        "postgres".to_owned(),
-        "postgres".to_owned(),
-        "localhost".to_owned(),
-        5432,
+        PrivilegedPostgresConfig::new("postgres".to_owned()).password(Some("postgres".to_owned())),
         || Pool::builder().max_size(10),
         || Pool::builder().max_size(2),
         move |mut conn| {

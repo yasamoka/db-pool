@@ -3,7 +3,10 @@ use std::thread;
 use diesel::{prelude::*, sql_query};
 use r2d2::Pool;
 
-use db_pool::sync::{ConnectionPool, DatabasePoolBuilderTrait, DieselMysqlBackend};
+use db_pool::{
+    sync::{ConnectionPool, DatabasePoolBuilderTrait, DieselMysqlBackend},
+    PrivilegedMySQLConfig,
+};
 
 diesel::table! {
     author (id) {
@@ -23,10 +26,7 @@ fn main() {
     .to_owned();
 
     let backend = DieselMysqlBackend::new(
-        "root",
-        "root",
-        "localhost".to_owned(),
-        3306,
+        PrivilegedMySQLConfig::new("root".to_owned()).password(Some("root".to_owned())),
         || Pool::builder().max_size(10),
         || Pool::builder().max_size(2),
         move |conn| {

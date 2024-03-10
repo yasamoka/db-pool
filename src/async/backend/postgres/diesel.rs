@@ -11,7 +11,7 @@ use futures::Future;
 use parking_lot::Mutex;
 use uuid::Uuid;
 
-use crate::util::get_db_name;
+use crate::{common::config::postgres::PrivilegedConfig, util::get_db_name};
 
 use super::r#trait::{impl_async_backend_for_async_pg_backend, AsyncPgBackend};
 
@@ -22,10 +22,7 @@ type CreateEntities = dyn Fn(AsyncPgConnection) -> Pin<Box<dyn Future<Output = A
     + 'static;
 
 pub struct Backend {
-    username: String,
-    password: String,
-    host: String,
-    port: u16,
+    privileged_config: PrivilegedConfig,
     default_pool: Pool<Manager>,
     db_conns: Mutex<HashMap<Uuid, AsyncPgConnection>>,
     create_restricted_pool: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
@@ -35,10 +32,7 @@ pub struct Backend {
 
 impl Backend {
     pub async fn new(
-        username: String,
-        password: String,
-        host: String,
-        port: u16,
+        privileged_config: PrivilegedConfig,
         create_privileged_pool: impl Fn() -> Builder<Manager>,
         create_restricted_pool: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
         create_entities: impl Fn(
@@ -48,15 +42,11 @@ impl Backend {
             + Sync
             + 'static,
     ) -> Result<Self, PoolError> {
-        let connection_url = format!("postgres://{username}:{password}@{host}:{port}");
-        let manager = AsyncDieselConnectionManager::new(connection_url);
+        let manager = AsyncDieselConnectionManager::new(privileged_config.default_connection_url());
         let default_pool = (create_privileged_pool()).build(manager).await?;
 
         Ok(Self {
-            username,
-            password,
-            host,
-            port,
+            privileged_config,
             default_pool,
             db_conns: Mutex::new(HashMap::new()),
             create_restricted_pool: Box::new(create_restricted_pool),
@@ -71,13 +61,6 @@ impl Backend {
             drop_previous_databases_flag: value,
             ..self
         }
-    }
-
-    fn create_database_url(&self, username: &str, password: &str, db_name: &str) -> String {
-        format!(
-            "postgres://{}:{}@{}:{}/{}",
-            username, password, self.host, self.port, db_name
-        )
     }
 }
 
@@ -112,11 +95,9 @@ impl AsyncPgBackend for Backend {
         db_id: Uuid,
     ) -> ConnectionResult<AsyncPgConnection> {
         let db_name = get_db_name(db_id);
-        let database_url = self.create_database_url(
-            self.username.as_str(),
-            self.password.as_str(),
-            db_name.as_str(),
-        );
+        let database_url = self
+            .privileged_config
+            .privileged_database_connection_url(db_name.as_str());
         AsyncPgConnection::establish(database_url.as_str()).await
     }
 
@@ -159,7 +140,11 @@ impl AsyncPgBackend for Backend {
     ) -> Result<Pool<Manager>, RunError<PoolError>> {
         let db_name = get_db_name(db_id);
         let db_name = db_name.as_str();
-        let database_url = self.create_database_url(db_name, db_name, db_name);
+        let database_url = self.privileged_config.restricted_database_connection_url(
+            db_name,
+            Some(db_name),
+            db_name,
+        );
         let manager = AsyncDieselConnectionManager::<AsyncPgConnection>::new(database_url.as_str());
         (self.create_restricted_pool)()
             .build(manager)

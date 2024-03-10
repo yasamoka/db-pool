@@ -22,3 +22,5 @@ pub mod r#async;
 #[cfg(feature = "_sync")]
 pub mod sync;
 mod util;
+
+pub use common::config::*;
