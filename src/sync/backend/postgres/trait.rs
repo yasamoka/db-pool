@@ -78,7 +78,8 @@ macro_rules! impl_backend_for_pg_backend {
                     // Drop databases
                     for db_name in &db_names {
                         self.execute(
-                            crate::statement::pg::drop_database(db_name.as_str()).as_str(),
+                            crate::common::statement::postgres::drop_database(db_name.as_str())
+                                .as_str(),
                             conn,
                         )?;
                     }
@@ -104,12 +105,15 @@ macro_rules! impl_backend_for_pg_backend {
 
                     // Create database
                     self.execute(
-                        crate::statement::pg::create_database(db_name).as_str(),
+                        crate::common::statement::postgres::create_database(db_name).as_str(),
                         conn,
                     )?;
 
                     // Create CRUD role
-                    self.execute(crate::statement::pg::create_role(db_name).as_str(), conn)?;
+                    self.execute(
+                        crate::common::statement::postgres::create_role(db_name).as_str(),
+                        conn,
+                    )?;
                 }
 
                 {
@@ -121,11 +125,13 @@ macro_rules! impl_backend_for_pg_backend {
 
                     // Grant privileges to CRUD role
                     self.execute(
-                        crate::statement::pg::grant_table_privileges(db_name).as_str(),
+                        crate::common::statement::postgres::grant_table_privileges(db_name)
+                            .as_str(),
                         &mut conn,
                     )?;
                     self.execute(
-                        crate::statement::pg::grant_sequence_privileges(db_name).as_str(),
+                        crate::common::statement::postgres::grant_sequence_privileges(db_name)
+                            .as_str(),
                         &mut conn,
                     )?;
 
@@ -148,7 +154,7 @@ macro_rules! impl_backend_for_pg_backend {
                 let mut conn = self.get_database_connection(db_id);
                 let table_names = self.get_table_names(&mut conn)?;
                 let stmts = table_names.iter().map(|table_name| {
-                    crate::statement::pg::truncate_table(table_name.as_str()).into()
+                    crate::common::statement::postgres::truncate_table(table_name.as_str()).into()
                 });
                 self.batch_execute(stmts, &mut conn)?;
                 self.put_database_connection(db_id, conn);
@@ -175,10 +181,16 @@ macro_rules! impl_backend_for_pg_backend {
                 let conn = &mut self.get_default_connection()?;
 
                 // Drop database
-                self.execute(crate::statement::pg::drop_database(db_name).as_str(), conn)?;
+                self.execute(
+                    crate::common::statement::postgres::drop_database(db_name).as_str(),
+                    conn,
+                )?;
 
                 // Drop CRUD role
-                self.execute(crate::statement::pg::drop_role(db_name).as_str(), conn)?;
+                self.execute(
+                    crate::common::statement::postgres::drop_role(db_name).as_str(),
+                    conn,
+                )?;
 
                 Ok(())
             }

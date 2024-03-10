@@ -10,7 +10,7 @@ use diesel_async::{
 use futures::Future;
 use uuid::Uuid;
 
-use crate::{statement::mysql, util::get_db_name};
+use crate::{common::statement::mysql, util::get_db_name};
 
 use super::r#trait::{impl_async_backend_for_async_mysql_backend, AsyncMySQLBackend};
 

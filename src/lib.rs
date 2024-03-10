@@ -15,9 +15,10 @@
     clippy::missing_errors_doc
 )]
 
+mod common;
+
 #[cfg(feature = "_async")]
 mod r#async;
-mod statement;
 #[cfg(feature = "_sync")]
 mod sync;
 mod util;

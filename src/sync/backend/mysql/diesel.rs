@@ -10,7 +10,7 @@ use diesel::{
 use r2d2::{Builder, Pool, PooledConnection};
 use uuid::Uuid;
 
-use crate::{statement::mysql, util::get_db_name};
+use crate::{common::statement::mysql, util::get_db_name};
 
 use super::r#trait::{impl_backend_for_mysql_backend, MySQLBackend};
 

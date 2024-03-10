@@ -7,7 +7,7 @@ use r2d2_mysql::{
 };
 use uuid::Uuid;
 
-use crate::{statement::mysql, util::get_db_name};
+use crate::{common::statement::mysql, util::get_db_name};
 
 use super::{
     super::error::Error as BackendError,

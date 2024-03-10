@@ -67,7 +67,8 @@ macro_rules! impl_backend_for_mysql_backend {
                     // Drop databases
                     for db_name in &db_names {
                         self.execute(
-                            crate::statement::mysql::drop_database(db_name.as_str()).as_str(),
+                            crate::common::statement::mysql::drop_database(db_name.as_str())
+                                .as_str(),
                             conn,
                         )?;
                     }

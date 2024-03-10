@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::HashMap, convert::Into, pin::Pin};
+use std::{borrow::Cow, collections::HashMap, convert::Into, ops::Deref, pin::Pin};
 
 use async_trait::async_trait;
 use bb8::{Builder, Pool, RunError};
@@ -10,7 +10,7 @@ use futures::Future;
 use parking_lot::Mutex;
 use uuid::Uuid;
 
-use crate::{statement::pg, util::get_db_name};
+use crate::{common::statement::postgres, util::get_db_name};
 
 use super::{
     super::error::Error as BackendError,
@@ -64,10 +64,10 @@ impl TokioPostgresBackend {
 #[async_trait]
 impl AsyncPgBackend for TokioPostgresBackend {
     type ConnectionManager = Manager;
-    type ConnectionError = Error;
-    type QueryError = Error;
+    type ConnectionError = ConnectionError;
+    type QueryError = QueryError;
 
-    async fn execute_stmt(&self, query: &str, conn: &mut Client) -> Result<(), Error> {
+    async fn execute_stmt(&self, query: &str, conn: &mut Client) -> Result<(), QueryError> {
         conn.execute(query, &[]).await?;
         Ok(())
     }
@@ -76,7 +76,7 @@ impl AsyncPgBackend for TokioPostgresBackend {
         &self,
         query: impl IntoIterator<Item = Cow<'a, str>> + Send,
         conn: &mut Client,
-    ) -> Result<(), Error> {
+    ) -> Result<(), QueryError> {
         let query = query.into_iter().collect::<Vec<_>>().join(";");
         conn.batch_execute(query.as_str()).await?;
         Ok(())
@@ -88,7 +88,7 @@ impl AsyncPgBackend for TokioPostgresBackend {
         self.default_pool.get().await
     }
 
-    async fn establish_database_connection(&self, db_id: Uuid) -> Result<Client, Error> {
+    async fn establish_database_connection(&self, db_id: Uuid) -> Result<Client, ConnectionError> {
         let mut config = self.privileged_config.clone();
         let db_name = get_db_name(db_id);
         config.dbname(db_name.as_str());
@@ -108,10 +108,14 @@ impl AsyncPgBackend for TokioPostgresBackend {
             .unwrap_or_else(|| panic!("connection map must have a connection for {db_id}"))
     }
 
-    async fn get_previous_database_names(&self, conn: &mut Client) -> Result<Vec<String>, Error> {
-        conn.query(pg::GET_DATABASE_NAMES, &[])
+    async fn get_previous_database_names(
+        &self,
+        conn: &mut Client,
+    ) -> Result<Vec<String>, QueryError> {
+        conn.query(postgres::GET_DATABASE_NAMES, &[])
             .await
             .map(|rows| rows.iter().map(|row| row.get(0)).collect())
+            .map_err(Into::into)
     }
 
     async fn create_entities(&self, conn: Client) -> Client {
@@ -134,11 +138,15 @@ impl AsyncPgBackend for TokioPostgresBackend {
             .map_err(Into::into)
     }
 
-    async fn get_table_names(&self, privileged_conn: &mut Client) -> Result<Vec<String>, Error> {
+    async fn get_table_names(
+        &self,
+        privileged_conn: &mut Client,
+    ) -> Result<Vec<String>, QueryError> {
         privileged_conn
-            .query(pg::GET_TABLE_NAMES, &[])
+            .query(postgres::GET_TABLE_NAMES, &[])
             .await
             .map(|rows| rows.iter().map(|row| row.get(0)).collect())
+            .map_err(Into::into)
     }
 
     fn get_drop_previous_databases(&self) -> bool {
@@ -146,12 +154,55 @@ impl AsyncPgBackend for TokioPostgresBackend {
     }
 }
 
-// TODO: separate connection error and query error
+#[derive(Debug)]
+pub struct ConnectionError(Error);
 
-impl From<Error> for BackendError<Error, Error, Error> {
+impl Deref for ConnectionError {
+    type Target = Error;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<Error> for ConnectionError {
     fn from(value: Error) -> Self {
+        Self(value)
+    }
+}
+
+#[derive(Debug)]
+pub struct QueryError(Error);
+
+impl Deref for QueryError {
+    type Target = Error;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<Error> for QueryError {
+    fn from(value: Error) -> Self {
+        Self(value)
+    }
+}
+
+impl From<ConnectionError> for BackendError<Error, ConnectionError, QueryError> {
+    fn from(value: ConnectionError) -> Self {
+        Self::Connection(value)
+    }
+}
+
+impl From<QueryError> for BackendError<Error, ConnectionError, QueryError> {
+    fn from(value: QueryError) -> Self {
         Self::Query(value)
     }
 }
 
-impl_async_backend_for_async_pg_backend!(TokioPostgresBackend, Manager, Error, Error);
+impl_async_backend_for_async_pg_backend!(
+    TokioPostgresBackend,
+    Manager,
+    ConnectionError,
+    QueryError
+);

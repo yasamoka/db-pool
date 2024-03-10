@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::HashMap};
+use std::{borrow::Cow, collections::HashMap, ops::Deref};
 
 use parking_lot::Mutex;
 use r2d2::{Builder, Pool, PooledConnection};
@@ -8,7 +8,7 @@ use r2d2_postgres::{
 };
 use uuid::Uuid;
 
-use crate::{statement::pg, util::get_db_name};
+use crate::{common::statement::postgres, util::get_db_name};
 
 use super::{
     super::error::Error as BackendError,
@@ -54,10 +54,10 @@ impl PostgresBackend {
 
 impl PostgresBackendTrait for PostgresBackend {
     type ConnectionManager = Manager;
-    type QueryError = Error;
-    type ConnectionError = Error;
+    type ConnectionError = ConnectionError;
+    type QueryError = QueryError;
 
-    fn execute(&self, query: &str, conn: &mut Client) -> Result<(), Error> {
+    fn execute(&self, query: &str, conn: &mut Client) -> Result<(), QueryError> {
         conn.execute(query, &[])?;
         Ok(())
     }
@@ -66,7 +66,7 @@ impl PostgresBackendTrait for PostgresBackend {
         &self,
         query: impl IntoIterator<Item = Cow<'a, str>>,
         conn: &mut Client,
-    ) -> Result<(), Error> {
+    ) -> Result<(), QueryError> {
         let query = query.into_iter().collect::<Vec<_>>().join(";");
         conn.batch_execute(query.as_str())?;
         Ok(())
@@ -76,11 +76,11 @@ impl PostgresBackendTrait for PostgresBackend {
         self.default_pool.get()
     }
 
-    fn establish_database_connection(&self, db_id: Uuid) -> Result<Client, Error> {
+    fn establish_database_connection(&self, db_id: Uuid) -> Result<Client, ConnectionError> {
         let mut config = self.privileged_config.clone();
         let db_name = get_db_name(db_id);
         config.dbname(db_name.as_str());
-        config.connect(NoTls)
+        config.connect(NoTls).map_err(Into::into)
     }
 
     fn put_database_connection(&self, db_id: Uuid, conn: Client) {
@@ -94,9 +94,10 @@ impl PostgresBackendTrait for PostgresBackend {
             .unwrap_or_else(|| panic!("connection map must have a connection for {db_id}"))
     }
 
-    fn get_previous_database_names(&self, conn: &mut Client) -> Result<Vec<String>, Error> {
-        conn.query(pg::GET_DATABASE_NAMES, &[])
+    fn get_previous_database_names(&self, conn: &mut Client) -> Result<Vec<String>, QueryError> {
+        conn.query(postgres::GET_DATABASE_NAMES, &[])
             .map(|rows| rows.iter().map(|row| row.get(0)).collect())
+            .map_err(Into::into)
     }
 
     fn create_entities(&self, conn: &mut Client) {
@@ -113,9 +114,10 @@ impl PostgresBackendTrait for PostgresBackend {
         (self.create_pool_builder)().build(manager)
     }
 
-    fn get_table_names(&self, conn: &mut Client) -> Result<Vec<String>, Error> {
-        conn.query(pg::GET_TABLE_NAMES, &[])
+    fn get_table_names(&self, conn: &mut Client) -> Result<Vec<String>, QueryError> {
+        conn.query(postgres::GET_TABLE_NAMES, &[])
             .map(|rows| rows.iter().map(|row| row.get(0)).collect())
+            .map_err(Into::into)
     }
 
     fn get_drop_previous_databases(&self) -> bool {
@@ -123,12 +125,50 @@ impl PostgresBackendTrait for PostgresBackend {
     }
 }
 
-// TODO: separate connection error and query error
+#[derive(Debug)]
+pub struct ConnectionError(Error);
 
-impl From<Error> for BackendError<Error, Error> {
+impl Deref for ConnectionError {
+    type Target = Error;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<Error> for ConnectionError {
     fn from(value: Error) -> Self {
+        Self(value)
+    }
+}
+
+#[derive(Debug)]
+pub struct QueryError(Error);
+
+impl Deref for QueryError {
+    type Target = Error;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<Error> for QueryError {
+    fn from(value: Error) -> Self {
+        Self(value)
+    }
+}
+
+impl From<ConnectionError> for BackendError<ConnectionError, QueryError> {
+    fn from(value: ConnectionError) -> Self {
+        Self::Connection(value)
+    }
+}
+
+impl From<QueryError> for BackendError<ConnectionError, QueryError> {
+    fn from(value: QueryError) -> Self {
         Self::Query(value)
     }
 }
 
-impl_backend_for_pg_backend!(PostgresBackend, Manager, Error, Error);
+impl_backend_for_pg_backend!(PostgresBackend, Manager, ConnectionError, QueryError);

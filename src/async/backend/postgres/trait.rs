@@ -97,7 +97,7 @@ macro_rules! impl_async_backend_for_async_pg_backend {
                         .map(|db_name| async move {
                             let conn = &mut self.get_default_connection().await?;
                             self.execute_stmt(
-                                crate::statement::pg::drop_database(db_name.as_str()).as_str(),
+                                crate::common::statement::postgres::drop_database(db_name.as_str()).as_str(),
                                 conn,
                             )
                             .await?;
@@ -138,13 +138,13 @@ macro_rules! impl_async_backend_for_async_pg_backend {
 
                     // Create database
                     self.execute_stmt(
-                        crate::statement::pg::create_database(db_name).as_str(),
+                        crate::common::statement::postgres::create_database(db_name).as_str(),
                         conn,
                     )
                     .await?;
 
                     // Create CRUD role
-                    self.execute_stmt(crate::statement::pg::create_role(db_name).as_str(), conn)
+                    self.execute_stmt(crate::common::statement::postgres::create_role(db_name).as_str(), conn)
                         .await?;
                 }
 
@@ -157,12 +157,12 @@ macro_rules! impl_async_backend_for_async_pg_backend {
 
                     // Grant privileges to CRUD role
                     self.execute_stmt(
-                        crate::statement::pg::grant_table_privileges(db_name).as_str(),
+                        crate::common::statement::postgres::grant_table_privileges(db_name).as_str(),
                         &mut conn,
                     )
                     .await?;
                     self.execute_stmt(
-                        crate::statement::pg::grant_sequence_privileges(db_name).as_str(),
+                        crate::common::statement::postgres::grant_sequence_privileges(db_name).as_str(),
                         &mut conn,
                     )
                     .await?;
@@ -190,7 +190,7 @@ macro_rules! impl_async_backend_for_async_pg_backend {
                 let mut conn = self.get_database_connection(db_id);
                 let table_names = self.get_table_names(&mut conn).await?;
                 let stmts = table_names.iter().map(|table_name| {
-                    crate::statement::pg::truncate_table(table_name.as_str()).into()
+                    crate::common::statement::postgres::truncate_table(table_name.as_str()).into()
                 });
                 self.batch_execute_stmt(stmts, &mut conn).await?;
                 self.put_database_connection(db_id, conn);
@@ -221,11 +221,11 @@ macro_rules! impl_async_backend_for_async_pg_backend {
                 let conn = &mut self.get_default_connection().await?;
 
                 // Drop database
-                self.execute_stmt(crate::statement::pg::drop_database(db_name).as_str(), conn)
+                self.execute_stmt(crate::common::statement::postgres::drop_database(db_name).as_str(), conn)
                     .await?;
 
                 // Drop CRUD role
-                self.execute_stmt(crate::statement::pg::drop_role(db_name).as_str(), conn)
+                self.execute_stmt(crate::common::statement::postgres::drop_role(db_name).as_str(), conn)
                     .await?;
 
                 Ok(())

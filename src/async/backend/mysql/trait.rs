@@ -34,7 +34,6 @@ pub trait AsyncMySQLBackend {
         &self,
         conn: &mut <Self::ConnectionManager as ManageConnection>::Connection,
     ) -> Result<Vec<String>, Self::QueryError>;
-    // TODO: think of a better error type here
     async fn create_entities(&self, db_name: &str) -> Result<(), Self::ConnectionError>;
     async fn create_connection_pool(
         &self,
@@ -86,7 +85,8 @@ macro_rules! impl_async_backend_for_async_mysql_backend {
                         .map(|db_name| async move {
                             let conn = &mut self.get_connection().await?;
                             self.execute_stmt(
-                                crate::statement::mysql::drop_database(db_name.as_str()).as_str(),
+                                crate::common::statement::mysql::drop_database(db_name.as_str())
+                                    .as_str(),
                                 conn,
                             )
                             .await?;

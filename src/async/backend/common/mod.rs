@@ -1,1 +1,1 @@
-mod diesel;
+mod error;
