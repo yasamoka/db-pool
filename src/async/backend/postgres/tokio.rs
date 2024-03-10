@@ -24,32 +24,35 @@ type CreateEntities = dyn Fn(Client) -> Pin<Box<dyn Future<Output = Client> + Se
     + 'static;
 
 pub struct TokioPostgresBackend {
-    privileged_config: Config,
+    config: Config,
     default_pool: Pool<Manager>,
     db_conns: Mutex<HashMap<Uuid, Client>>,
+    create_restricted_pool: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
     create_entities: Box<CreateEntities>,
-    create_pool_builder: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
     drop_previous_databases_flag: bool,
 }
 
 impl TokioPostgresBackend {
-    pub fn new(
-        privileged_config: Config,
-        default_pool: Pool<Manager>,
+    pub async fn new(
+        config: Config,
+        create_default_pool: impl Fn() -> Builder<Manager>,
+        create_restricted_pool: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
         create_entities: impl Fn(Client) -> Pin<Box<dyn Future<Output = Client> + Send + 'static>>
             + Send
             + Sync
             + 'static,
-        create_pool_builder: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
-    ) -> Self {
-        Self {
-            privileged_config,
+    ) -> Result<Self, RunError<Error>> {
+        let manager = Manager::new(config.clone(), NoTls);
+        let default_pool = (create_default_pool()).build(manager).await?;
+
+        Ok(Self {
+            config,
             default_pool,
             db_conns: Mutex::new(HashMap::new()),
             create_entities: Box::new(create_entities),
-            create_pool_builder: Box::new(create_pool_builder),
+            create_restricted_pool: Box::new(create_restricted_pool),
             drop_previous_databases_flag: true,
-        }
+        })
     }
 
     #[must_use]
@@ -89,7 +92,7 @@ impl AsyncPgBackend for TokioPostgresBackend {
     }
 
     async fn establish_database_connection(&self, db_id: Uuid) -> Result<Client, ConnectionError> {
-        let mut config = self.privileged_config.clone();
+        let mut config = self.config.clone();
         let db_name = get_db_name(db_id);
         config.dbname(db_name.as_str());
         let (client, connection) = config.connect(NoTls).await?;
@@ -126,13 +129,13 @@ impl AsyncPgBackend for TokioPostgresBackend {
         &self,
         db_id: Uuid,
     ) -> Result<Pool<Self::ConnectionManager>, RunError<Error>> {
-        let mut config = self.privileged_config.clone();
+        let mut config = self.config.clone();
         let db_name = get_db_name(db_id);
         let db_name = db_name.as_str();
         config.dbname(db_name);
         config.user(db_name);
         let manager = PostgresConnectionManager::new(config, NoTls);
-        (self.create_pool_builder)()
+        (self.create_restricted_pool)()
             .build(manager)
             .await
             .map_err(Into::into)

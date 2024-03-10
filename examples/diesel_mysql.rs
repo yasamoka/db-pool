@@ -1,6 +1,6 @@
 use std::thread;
 
-use diesel::{prelude::*, r2d2::ConnectionManager, sql_query};
+use diesel::{prelude::*, sql_query};
 use r2d2::Pool;
 
 use db_pool::{ConnectionPool, DatabasePoolBuilder, DieselMysqlBackend};
@@ -22,22 +22,24 @@ fn main() {
         "#
     .to_owned();
 
-    let default_pool =
-        Pool::new(ConnectionManager::new("mysql://root:root@localhost:3306")).unwrap();
-
-    let db_pool = DieselMysqlBackend::new(
+    let backend = DieselMysqlBackend::new(
+        "root",
+        "root",
         "localhost".to_owned(),
         3306,
-        default_pool,
+        || Pool::builder().max_size(10),
+        || Pool::builder().max_size(2),
         move |conn| {
             sql_query(create_entities_stmt.as_str())
                 .execute(conn)
                 .unwrap();
         },
-        || Pool::builder().max_size(2),
     )
-    .create_database_pool()
-    .expect("db_pool creation must succeed");
+    .expect("backend creation must succeed");
+
+    let db_pool = backend
+        .create_database_pool()
+        .expect("db_pool creation must succeed");
 
     {
         for run in 0..2 {

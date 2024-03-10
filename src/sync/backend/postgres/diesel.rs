@@ -21,8 +21,8 @@ pub struct DieselPostgresBackend {
     port: u16,
     default_pool: Pool<Manager>,
     db_conns: Mutex<HashMap<Uuid, PgConnection>>,
+    create_restricted_pool: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
     create_entities: Box<dyn Fn(&mut PgConnection) + Send + Sync + 'static>,
-    create_pool_builder: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
     drop_previous_databases_flag: bool,
 }
 
@@ -32,11 +32,15 @@ impl DieselPostgresBackend {
         password: String,
         host: String,
         port: u16,
-        default_pool: Pool<Manager>,
+        create_default_pool: impl Fn() -> Builder<Manager>,
+        create_restricted_pool: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
         create_entities: impl Fn(&mut PgConnection) + Send + Sync + 'static,
-        create_pool_builder: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, r2d2::Error> {
+        let connection_url = format!("postgres://{username}:{password}@{host}:{port}");
+        let manager = Manager::new(connection_url);
+        let default_pool = (create_default_pool()).build(manager)?;
+
+        Ok(Self {
             username,
             password,
             host,
@@ -44,9 +48,9 @@ impl DieselPostgresBackend {
             default_pool,
             db_conns: Mutex::new(HashMap::new()),
             create_entities: Box::new(create_entities),
-            create_pool_builder: Box::new(create_pool_builder),
+            create_restricted_pool: Box::new(create_restricted_pool),
             drop_previous_databases_flag: true,
-        }
+        })
     }
 
     #[must_use]
@@ -135,7 +139,7 @@ impl PostgresBackend for DieselPostgresBackend {
         let db_name = db_name.as_str();
         let database_url = self.create_database_url(db_name, db_name, db_name);
         let manager = ConnectionManager::<PgConnection>::new(database_url.as_str());
-        (self.create_pool_builder)().build(manager)
+        (self.create_restricted_pool)().build(manager)
     }
 
     fn get_table_names(&self, conn: &mut PgConnection) -> QueryResult<Vec<String>> {

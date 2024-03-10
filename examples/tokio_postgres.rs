@@ -9,8 +9,6 @@ use futures::future::join_all;
 
 #[tokio::main]
 async fn main() {
-    let privileged_config = "host=localhost user=postgres".parse::<Config>().unwrap();
-
     let create_stmt = r#"
         CREATE TABLE author(
             id uuid NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -19,17 +17,10 @@ async fn main() {
         "#
     .to_owned();
 
-    let default_pool = Pool::builder()
-        .build(PostgresConnectionManager::new(
-            privileged_config.clone(),
-            NoTls,
-        ))
-        .await
-        .unwrap();
-
-    let db_pool = TokioPostgresBackend::new(
-        privileged_config,
-        default_pool,
+    let backend = TokioPostgresBackend::new(
+        "host=localhost user=postgres".parse::<Config>().unwrap(),
+        || Pool::builder().max_size(10),
+        || Pool::builder().max_size(2),
         move |conn| {
             let create_stmt = create_stmt.clone();
             Box::pin(async move {
@@ -37,11 +28,14 @@ async fn main() {
                 conn
             })
         },
-        || Pool::builder().max_size(2),
     )
-    .create_database_pool()
     .await
-    .expect("db_pool creation must succeed");
+    .expect("backend creation must succeed");
+
+    let db_pool = backend
+        .create_database_pool()
+        .await
+        .expect("db_pool creation must succeed");
 
     {
         for run in 0..2 {

@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use r2d2::{Builder, Pool, PooledConnection};
 use r2d2_mysql::{
-    mysql::{prelude::*, Conn, Error, OptsBuilder},
+    mysql::{prelude::*, Conn, Error, Opts, OptsBuilder},
     MySqlConnectionManager,
 };
 use uuid::Uuid;
@@ -17,30 +17,30 @@ use super::{
 type Manager = MySqlConnectionManager;
 
 pub struct MySQLBackend {
-    host: String,
-    port: u16,
+    opts: Opts,
     default_pool: Pool<Manager>,
+    create_restricted_pool: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
     create_entities: Box<dyn Fn(&mut Conn) + Send + Sync + 'static>,
-    create_pool_builder: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
     drop_previous_databases_flag: bool,
 }
 
 impl MySQLBackend {
     pub fn new(
-        host: String,
-        port: u16,
-        default_pool: Pool<Manager>,
+        opts: Opts,
+        create_default_pool: impl Fn() -> Builder<Manager>,
+        create_restricted_pool: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
         create_entities: impl Fn(&mut Conn) + Send + Sync + 'static,
-        create_pool_builder: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
-    ) -> Self {
-        Self {
-            host,
-            port,
+    ) -> Result<Self, r2d2::Error> {
+        let manager = Manager::new(OptsBuilder::from_opts(opts.clone()));
+        let default_pool = (create_default_pool()).build(manager)?;
+
+        Ok(Self {
+            opts,
             default_pool,
             create_entities: Box::new(create_entities),
-            create_pool_builder: Box::new(create_pool_builder),
+            create_restricted_pool: Box::new(create_restricted_pool),
             drop_previous_databases_flag: true,
-        }
+        })
     }
 
     #[must_use]
@@ -74,8 +74,8 @@ impl MySQLBackendTrait for MySQLBackend {
         self.execute(query.as_str(), conn)
     }
 
-    fn get_host(&self) -> &str {
-        self.host.as_str()
+    fn get_host(&self) -> Cow<str> {
+        self.opts.get_ip_or_hostname()
     }
 
     fn get_previous_database_names(
@@ -92,13 +92,11 @@ impl MySQLBackendTrait for MySQLBackend {
     fn create_connection_pool(&self, db_id: Uuid) -> Result<Pool<Manager>, r2d2::Error> {
         let db_name = get_db_name(db_id);
         let db_name = db_name.as_str();
-        let opts = OptsBuilder::new()
-            .ip_or_hostname(Some(self.host.as_str()))
-            .tcp_port(self.port)
+        let opts = OptsBuilder::from_opts(self.opts.clone())
             .db_name(Some(db_name))
             .user(Some(db_name));
         let manager = MySqlConnectionManager::new(opts);
-        (self.create_pool_builder)().build(manager)
+        (self.create_restricted_pool)().build(manager)
     }
 
     fn get_table_names(&self, db_name: &str, conn: &mut Conn) -> Result<Vec<String>, Error> {

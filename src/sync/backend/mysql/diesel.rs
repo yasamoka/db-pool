@@ -20,27 +20,33 @@ pub struct DieselMysqlBackend {
     host: String,
     port: u16,
     default_pool: Pool<Manager>,
+    create_restricted_pool: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
     create_entities: Box<dyn Fn(&mut MysqlConnection) + Send + Sync + 'static>,
-    create_pool_builder: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
     drop_previous_databases_flag: bool,
 }
 
 impl DieselMysqlBackend {
     pub fn new(
+        username: &str,
+        password: &str,
         host: String,
         port: u16,
-        default_pool: Pool<Manager>,
+        create_default_pool: impl Fn() -> Builder<Manager>,
+        create_restricted_pool: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
         create_entities: impl Fn(&mut MysqlConnection) + Send + Sync + 'static,
-        create_pool_builder: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, r2d2::Error> {
+        let connection_url = format!("mysql://{username}:{password}@{host}:{port}");
+        let manager = Manager::new(connection_url);
+        let default_pool = (create_default_pool()).build(manager)?;
+
+        Ok(Self {
             host,
             port,
             default_pool,
             create_entities: Box::new(create_entities),
-            create_pool_builder: Box::new(create_pool_builder),
+            create_restricted_pool: Box::new(create_restricted_pool),
             drop_previous_databases_flag: true,
-        }
+        })
     }
 
     #[must_use]
@@ -82,8 +88,8 @@ impl MySQLBackend for DieselMysqlBackend {
         self.execute(query.as_str(), conn)
     }
 
-    fn get_host(&self) -> &str {
-        self.host.as_str()
+    fn get_host(&self) -> Cow<str> {
+        self.host.as_str().into()
     }
 
     fn get_previous_database_names(
@@ -114,7 +120,7 @@ impl MySQLBackend for DieselMysqlBackend {
         let db_name = db_name.as_str();
         let database_url = self.create_passwordless_database_url(db_name, db_name);
         let manager = ConnectionManager::<MysqlConnection>::new(database_url.as_str());
-        (self.create_pool_builder)().build(manager)
+        (self.create_restricted_pool)().build(manager)
     }
 
     fn get_table_names(

@@ -1,6 +1,6 @@
 use bb8::Pool;
 use diesel::{prelude::*, sql_query};
-use diesel_async::{pooled_connection::AsyncDieselConnectionManager, RunQueryDsl};
+use diesel_async::RunQueryDsl;
 
 use db_pool::{
     AsyncConnectionPool, AsyncDatabasePool, AsyncDatabasePoolBuilder, AsyncReusable,
@@ -40,17 +40,13 @@ async fn create_database_pool() -> AsyncDatabasePool<DieselAsyncPgBackend> {
         "#
     .to_owned();
 
-    DieselAsyncPgBackend::new(
+    let backend = DieselAsyncPgBackend::new(
         "postgres".to_owned(),
         "postgres".to_owned(),
         "localhost".to_owned(),
         5432,
-        Pool::builder()
-            .build(AsyncDieselConnectionManager::new(
-                "postgres://postgres:postgres@localhost:5432",
-            ))
-            .await
-            .unwrap(),
+        || Pool::builder().max_size(10),
+        || Pool::builder().max_size(2),
         move |mut conn| {
             let create_stmt = create_stmt.clone();
             Box::pin(async move {
@@ -61,11 +57,14 @@ async fn create_database_pool() -> AsyncDatabasePool<DieselAsyncPgBackend> {
                 conn
             })
         },
-        || Pool::builder().max_size(2),
     )
-    .create_database_pool()
     .await
-    .expect("db_pool creation must succeed")
+    .expect("backend creation must succeeed");
+
+    backend
+        .create_database_pool()
+        .await
+        .expect("db_pool creation must succeed")
 }
 
 async fn run_test(conn_pool: AsyncReusable<'_, AsyncConnectionPool<DieselAsyncPgBackend>>) {

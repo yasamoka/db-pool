@@ -28,37 +28,41 @@ pub struct DieselAsyncPgBackend {
     port: u16,
     default_pool: Pool<Manager>,
     db_conns: Mutex<HashMap<Uuid, AsyncPgConnection>>,
+    create_restricted_pool: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
     create_entities: Box<CreateEntities>,
-    create_pool_builder: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
     drop_previous_databases_flag: bool,
 }
 
 impl DieselAsyncPgBackend {
-    pub fn new(
+    pub async fn new(
         username: String,
         password: String,
         host: String,
         port: u16,
-        default_pool: Pool<Manager>,
+        create_default_pool: impl Fn() -> Builder<Manager>,
+        create_restricted_pool: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
         create_entities: impl Fn(
                 AsyncPgConnection,
             ) -> Pin<Box<dyn Future<Output = AsyncPgConnection> + Send + 'static>>
             + Send
             + Sync
             + 'static,
-        create_pool_builder: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, PoolError> {
+        let connection_url = format!("postgres://{username}:{password}@{host}:{port}");
+        let manager = AsyncDieselConnectionManager::new(connection_url);
+        let default_pool = (create_default_pool()).build(manager).await?;
+
+        Ok(Self {
             username,
             password,
             host,
             port,
             default_pool,
             db_conns: Mutex::new(HashMap::new()),
+            create_restricted_pool: Box::new(create_restricted_pool),
             create_entities: Box::new(create_entities),
-            create_pool_builder: Box::new(create_pool_builder),
             drop_previous_databases_flag: true,
-        }
+        })
     }
 
     #[must_use]
@@ -157,7 +161,7 @@ impl AsyncPgBackend for DieselAsyncPgBackend {
         let db_name = db_name.as_str();
         let database_url = self.create_database_url(db_name, db_name, db_name);
         let manager = AsyncDieselConnectionManager::<AsyncPgConnection>::new(database_url.as_str());
-        (self.create_pool_builder)()
+        (self.create_restricted_pool)()
             .build(manager)
             .await
             .map_err(Into::into)

@@ -1,19 +1,11 @@
 use std::thread;
 
 use r2d2::Pool;
-use r2d2_mysql::{
-    mysql::{params, prelude::*, OptsBuilder},
-    MySqlConnectionManager,
-};
+use r2d2_mysql::mysql::{params, prelude::*, OptsBuilder};
 
 use db_pool::{ConnectionPool, DatabasePoolBuilder, MySQLBackend};
 
 fn main() {
-    let privileged_opts = OptsBuilder::new()
-        .user(Some("root"))
-        .pass(Some("root"))
-        .ip_or_hostname(Some("localhost"));
-
     let create_entities_stmt = r#"
         CREATE TABLE author(
             id uuid NOT NULL PRIMARY KEY DEFAULT uuid(),
@@ -22,19 +14,22 @@ fn main() {
         "#
     .to_owned();
 
-    let default_pool = Pool::new(MySqlConnectionManager::new(privileged_opts)).unwrap();
-
-    let db_pool = MySQLBackend::new(
-        "localhost".to_owned(),
-        3306,
-        default_pool,
+    let backend = MySQLBackend::new(
+        OptsBuilder::new()
+            .user(Some("root"))
+            .pass(Some("root"))
+            .into(),
+        || Pool::builder().max_size(10),
+        || Pool::builder().max_size(2),
         move |conn| {
             conn.query_drop(create_entities_stmt.as_str()).unwrap();
         },
-        || Pool::builder().max_size(2),
     )
-    .create_database_pool()
-    .expect("db_pool creation must succeed");
+    .expect("backend creation must succeed");
+
+    let db_pool = backend
+        .create_database_pool()
+        .expect("db_pool creation must succeed");
 
     for run in 0..2 {
         dbg!(run);

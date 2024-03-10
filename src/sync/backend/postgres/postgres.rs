@@ -18,29 +18,32 @@ use super::{
 type Manager = PostgresConnectionManager<NoTls>;
 
 pub struct PostgresBackend {
-    privileged_config: Config,
+    config: Config,
     default_pool: Pool<Manager>,
     db_conns: Mutex<HashMap<Uuid, Client>>,
+    create_restricted_pool: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
     create_entities: Box<dyn Fn(&mut Client) + Send + Sync + 'static>,
-    create_pool_builder: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
     drop_previous_databases_flag: bool,
 }
 
 impl PostgresBackend {
     pub fn new(
-        privileged_config: Config,
-        default_pool: Pool<Manager>,
+        config: Config,
+        create_default_pool: impl Fn() -> Builder<Manager>,
+        create_restricted_pool: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
         create_entities: impl Fn(&mut Client) + Send + Sync + 'static,
-        create_pool_builder: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
-    ) -> Self {
-        Self {
-            privileged_config,
+    ) -> Result<Self, r2d2::Error> {
+        let manager = Manager::new(config.clone(), NoTls);
+        let default_pool = (create_default_pool()).build(manager)?;
+
+        Ok(Self {
+            config,
             default_pool,
             db_conns: Mutex::new(HashMap::new()),
+            create_restricted_pool: Box::new(create_restricted_pool),
             create_entities: Box::new(create_entities),
-            create_pool_builder: Box::new(create_pool_builder),
             drop_previous_databases_flag: true,
-        }
+        })
     }
 
     #[must_use]
@@ -77,7 +80,7 @@ impl PostgresBackendTrait for PostgresBackend {
     }
 
     fn establish_database_connection(&self, db_id: Uuid) -> Result<Client, ConnectionError> {
-        let mut config = self.privileged_config.clone();
+        let mut config = self.config.clone();
         let db_name = get_db_name(db_id);
         config.dbname(db_name.as_str());
         config.connect(NoTls).map_err(Into::into)
@@ -105,13 +108,13 @@ impl PostgresBackendTrait for PostgresBackend {
     }
 
     fn create_connection_pool(&self, db_id: Uuid) -> Result<Pool<Manager>, r2d2::Error> {
-        let mut config = self.privileged_config.clone();
+        let mut config = self.config.clone();
         let db_name = get_db_name(db_id);
         let db_name = db_name.as_str();
         config.dbname(db_name);
         config.user(db_name);
         let manager = PostgresConnectionManager::new(config, NoTls);
-        (self.create_pool_builder)().build(manager)
+        (self.create_restricted_pool)().build(manager)
     }
 
     fn get_table_names(&self, conn: &mut Client) -> Result<Vec<String>, QueryError> {

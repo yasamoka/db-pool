@@ -1,16 +1,11 @@
 use std::thread;
 
 use r2d2::Pool;
-use r2d2_postgres::{
-    postgres::{Client, Config, NoTls},
-    PostgresConnectionManager,
-};
+use r2d2_postgres::postgres::{Client, Config};
 
 use db_pool::{ConnectionPool, DatabasePoolBuilder, PostgresBackend};
 
 fn main() {
-    let privileged_config = "host=localhost user=postgres".parse::<Config>().unwrap();
-
     let create_entities_stmt = r#"
         CREATE TABLE author(
             id uuid NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -19,22 +14,19 @@ fn main() {
         "#
     .to_owned();
 
-    let default_pool = Pool::new(PostgresConnectionManager::new(
-        privileged_config.clone(),
-        NoTls,
-    ))
-    .unwrap();
-
-    let db_pool = PostgresBackend::new(
-        privileged_config,
-        default_pool,
+    let backend = PostgresBackend::new(
+        "host=localhost user=postgres".parse::<Config>().unwrap(),
+        || Pool::builder().max_size(10),
+        || Pool::builder().max_size(2),
         move |conn: &mut Client| {
             conn.execute(create_entities_stmt.as_str(), &[]).unwrap();
         },
-        || Pool::builder().max_size(2),
     )
-    .create_database_pool()
-    .expect("db_pool creation must succeed");
+    .expect("backend creation must succeed");
+
+    let db_pool = backend
+        .create_database_pool()
+        .expect("db_pool creation must succeed");
 
     for run in 0..2 {
         dbg!(run);

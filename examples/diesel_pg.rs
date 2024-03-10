@@ -14,22 +14,22 @@ fn main() {
         "#
     .to_owned();
 
-    let db_pool = DieselPostgresBackend::new(
+    let backend = DieselPostgresBackend::new(
         "postgres".to_owned(),
         "postgres".to_owned(),
         "localhost".to_owned(),
         5432,
-        Pool::new(ConnectionManager::new(
-            "postgres://postgres:postgres@localhost:5432",
-        ))
-        .unwrap(),
+        || Pool::builder().max_size(10),
+        || Pool::builder().max_size(2),
         move |conn| {
             sql_query(create_stmt.as_str()).execute(conn).unwrap();
         },
-        || Pool::builder().max_size(2),
     )
-    .create_database_pool()
-    .expect("db_pool creation must succeed");
+    .expect("backend creation must succeed");
+
+    let db_pool = backend
+        .create_database_pool()
+        .expect("db_pool creation must succeed");
 
     {
         for run in 0..2 {

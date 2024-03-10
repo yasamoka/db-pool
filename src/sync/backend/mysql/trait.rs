@@ -21,7 +21,7 @@ pub trait MySQLBackend {
         conn: &mut <Self::ConnectionManager as ManageConnection>::Connection,
     ) -> Result<(), Self::QueryError>;
 
-    fn get_host(&self) -> &str;
+    fn get_host(&self) -> Cow<str>;
 
     fn get_previous_database_names(
         &self,
@@ -88,7 +88,7 @@ macro_rules! impl_backend_for_mysql_backend {
                 let db_name = crate::util::get_db_name(db_id);
                 let db_name = db_name.as_str();
 
-                let host = self.get_host();
+                let host = &self.get_host();
 
                 // Get privileged connection
                 let conn = &mut self.get_connection()?;
@@ -146,7 +146,7 @@ macro_rules! impl_backend_for_mysql_backend {
                 let db_name = crate::util::get_db_name(db_id);
                 let db_name = db_name.as_str();
 
-                let host = self.get_host();
+                let host = &self.get_host();
 
                 // Get privileged connection
                 let conn = &mut self.get_connection()?;
