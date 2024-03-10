@@ -1,7 +1,7 @@
 use std::{ops::Deref, sync::Arc};
 
 use super::{
-    backend::{Backend, Error},
+    backend::{r#trait::Backend, Error},
     conn_pool::ConnectionPool,
     object_pool::ObjectPool,
 };

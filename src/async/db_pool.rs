@@ -4,21 +4,21 @@ use async_trait::async_trait;
 use bb8::ManageConnection;
 
 use super::{
-    backend::{AsyncBackend, Error},
-    conn_pool::AsyncConnectionPool,
-    object_pool::AsyncObjectPool,
+    backend::{r#trait::Backend, Error},
+    conn_pool::ConnectionPool,
+    object_pool::ObjectPool,
 };
 
 #[derive(Clone)]
-pub struct AsyncDatabasePool<B>(Arc<AsyncObjectPool<AsyncConnectionPool<B>>>)
+pub struct DatabasePool<B>(Arc<ObjectPool<ConnectionPool<B>>>)
 where
-    B: AsyncBackend;
+    B: Backend;
 
-impl<B> Deref for AsyncDatabasePool<B>
+impl<B> Deref for DatabasePool<B>
 where
-    B: AsyncBackend,
+    B: Backend,
 {
-    type Target = Arc<AsyncObjectPool<AsyncConnectionPool<B>>>;
+    type Target = Arc<ObjectPool<ConnectionPool<B>>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -26,11 +26,11 @@ where
 }
 
 #[async_trait]
-pub trait AsyncDatabasePoolBuilder: AsyncBackend {
+pub trait DatabasePoolBuilder: Backend {
     async fn create_database_pool(
         self,
     ) -> Result<
-        AsyncDatabasePool<Self>,
+        DatabasePool<Self>,
         Error<
             <Self::ConnectionManager as ManageConnection>::Error,
             Self::ConnectionError,
@@ -39,11 +39,11 @@ pub trait AsyncDatabasePoolBuilder: AsyncBackend {
     > {
         self.init().await?;
         let backend = Arc::new(self);
-        let object_pool = Arc::new(AsyncObjectPool::new(
+        let object_pool = Arc::new(ObjectPool::new(
             move || {
                 let backend = backend.clone();
                 Box::pin(async {
-                    AsyncConnectionPool::new(backend)
+                    ConnectionPool::new(backend)
                         .await
                         .expect("connection pool creation must succeed")
                 })
@@ -58,8 +58,8 @@ pub trait AsyncDatabasePoolBuilder: AsyncBackend {
                 })
             },
         ));
-        Ok(AsyncDatabasePool(object_pool))
+        Ok(DatabasePool(object_pool))
     }
 }
 
-impl<AB> AsyncDatabasePoolBuilder for AB where AB: AsyncBackend {}
+impl<AB> DatabasePoolBuilder for AB where AB: Backend {}

@@ -55,7 +55,7 @@ pub trait AsyncMySQLBackend {
 macro_rules! impl_async_backend_for_async_mysql_backend {
     ($struct_name: ident, $manager: ident, $connection_error: ident, $query_error: ident) => {
         #[async_trait::async_trait]
-        impl crate::r#async::backend::r#trait::AsyncBackend for $struct_name {
+        impl crate::r#async::backend::r#trait::Backend for $struct_name {
             type ConnectionManager = $manager;
             type ConnectionError = $connection_error;
             type QueryError = $query_error;

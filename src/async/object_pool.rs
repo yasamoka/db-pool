@@ -12,19 +12,19 @@ type Init<T> =
 type Reset<T> =
     Box<dyn Fn(T) -> Pin<Box<dyn Future<Output = T> + Send + 'static>> + Send + Sync + 'static>;
 
-pub struct AsyncObjectPool<T> {
+pub struct ObjectPool<T> {
     objects: Mutex<Stack<T>>,
     init: Init<T>,
     reset: Reset<T>,
 }
 
-impl<T> AsyncObjectPool<T> {
+impl<T> ObjectPool<T> {
     #[inline]
     pub fn new(
         init: impl Fn() -> Pin<Box<dyn Future<Output = T> + Send + 'static>> + Send + Sync + 'static,
         reset: impl Fn(T) -> Pin<Box<dyn Future<Output = T> + Send + 'static>> + Send + Sync + 'static,
-    ) -> AsyncObjectPool<T> {
-        AsyncObjectPool {
+    ) -> ObjectPool<T> {
+        ObjectPool {
             objects: Mutex::new(Vec::new()),
             init: Box::new(init),
             reset: Box::new(reset),
@@ -42,14 +42,14 @@ impl<T> AsyncObjectPool<T> {
     }
 
     #[inline]
-    pub async fn pull(&self) -> AsyncReusable<T> {
+    pub async fn pull(&self) -> Reusable<T> {
         let object = self.objects.lock().pop();
         let object = if let Some(object) = object {
             (self.reset)(object).await
         } else {
             (self.init)().await
         };
-        AsyncReusable::new(self, object)
+        Reusable::new(self, object)
     }
 
     #[inline]
@@ -58,14 +58,14 @@ impl<T> AsyncObjectPool<T> {
     }
 }
 
-pub struct AsyncReusable<'a, T> {
-    pool: &'a AsyncObjectPool<T>,
+pub struct Reusable<'a, T> {
+    pool: &'a ObjectPool<T>,
     data: Option<T>,
 }
 
-impl<'a, T> AsyncReusable<'a, T> {
+impl<'a, T> Reusable<'a, T> {
     #[inline]
-    pub fn new(pool: &'a AsyncObjectPool<T>, t: T) -> Self {
+    pub fn new(pool: &'a ObjectPool<T>, t: T) -> Self {
         Self {
             pool,
             data: Some(t),
@@ -75,7 +75,7 @@ impl<'a, T> AsyncReusable<'a, T> {
 
 const DATA_MUST_CONTAIN_SOME: &str = "data must always contain a [Some] value";
 
-impl<'a, T> Deref for AsyncReusable<'a, T> {
+impl<'a, T> Deref for Reusable<'a, T> {
     type Target = T;
 
     #[inline]
@@ -84,14 +84,14 @@ impl<'a, T> Deref for AsyncReusable<'a, T> {
     }
 }
 
-impl<'a, T> DerefMut for AsyncReusable<'a, T> {
+impl<'a, T> DerefMut for Reusable<'a, T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.data.as_mut().expect(DATA_MUST_CONTAIN_SOME)
     }
 }
 
-impl<'a, T> Drop for AsyncReusable<'a, T> {
+impl<'a, T> Drop for Reusable<'a, T> {
     #[inline]
     fn drop(&mut self) {
         self.pool
@@ -101,13 +101,13 @@ impl<'a, T> Drop for AsyncReusable<'a, T> {
 
 #[cfg(test)]
 mod tests {
-    use super::AsyncObjectPool;
+    use super::ObjectPool;
     use std::mem::drop;
 
     #[tokio::test]
     async fn len() {
         {
-            let pool = AsyncObjectPool::new(
+            let pool = ObjectPool::new(
                 || Box::pin(async { Vec::<u8>::new() }),
                 |obj| Box::pin(async { obj }),
             );
@@ -121,7 +121,7 @@ mod tests {
         }
 
         {
-            let pool = AsyncObjectPool::new(
+            let pool = ObjectPool::new(
                 || Box::pin(async { Vec::<u8>::new() }),
                 |obj| Box::pin(async { obj }),
             );
@@ -137,7 +137,7 @@ mod tests {
 
     #[tokio::test]
     async fn e2e() {
-        let pool = AsyncObjectPool::new(
+        let pool = ObjectPool::new(
             || Box::pin(async { Vec::<u8>::new() }),
             |obj| Box::pin(async { obj }),
         );
@@ -159,7 +159,7 @@ mod tests {
 
     #[tokio::test]
     async fn reset() {
-        let pool = AsyncObjectPool::new(
+        let pool = ObjectPool::new(
             || Box::pin(async { Vec::new() }),
             |mut v| {
                 Box::pin(async {
@@ -178,7 +178,7 @@ mod tests {
 
     #[tokio::test]
     async fn no_reset() {
-        let pool = AsyncObjectPool::new(
+        let pool = ObjectPool::new(
             || Box::pin(async { Vec::new() }),
             |obj| Box::pin(async { obj }),
         );

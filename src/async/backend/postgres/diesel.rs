@@ -21,7 +21,7 @@ type CreateEntities = dyn Fn(AsyncPgConnection) -> Pin<Box<dyn Future<Output = A
     + Sync
     + 'static;
 
-pub struct DieselAsyncPgBackend {
+pub struct Backend {
     username: String,
     password: String,
     host: String,
@@ -33,13 +33,13 @@ pub struct DieselAsyncPgBackend {
     drop_previous_databases_flag: bool,
 }
 
-impl DieselAsyncPgBackend {
+impl Backend {
     pub async fn new(
         username: String,
         password: String,
         host: String,
         port: u16,
-        create_default_pool: impl Fn() -> Builder<Manager>,
+        create_privileged_pool: impl Fn() -> Builder<Manager>,
         create_restricted_pool: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
         create_entities: impl Fn(
                 AsyncPgConnection,
@@ -50,7 +50,7 @@ impl DieselAsyncPgBackend {
     ) -> Result<Self, PoolError> {
         let connection_url = format!("postgres://{username}:{password}@{host}:{port}");
         let manager = AsyncDieselConnectionManager::new(connection_url);
-        let default_pool = (create_default_pool()).build(manager).await?;
+        let default_pool = (create_privileged_pool()).build(manager).await?;
 
         Ok(Self {
             username,
@@ -82,7 +82,7 @@ impl DieselAsyncPgBackend {
 }
 
 #[async_trait]
-impl AsyncPgBackend for DieselAsyncPgBackend {
+impl AsyncPgBackend for Backend {
     type ConnectionManager = Manager;
     type ConnectionError = ConnectionError;
     type QueryError = Error;
@@ -191,4 +191,4 @@ impl AsyncPgBackend for DieselAsyncPgBackend {
     }
 }
 
-impl_async_backend_for_async_pg_backend!(DieselAsyncPgBackend, Manager, ConnectionError, Error);
+impl_async_backend_for_async_pg_backend!(Backend, Manager, ConnectionError, Error);

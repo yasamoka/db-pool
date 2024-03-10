@@ -3,7 +3,7 @@ use std::thread;
 use r2d2::Pool;
 use r2d2_postgres::postgres::{Client, Config};
 
-use db_pool::{ConnectionPool, DatabasePoolBuilder, PostgresBackend};
+use db_pool::sync::{ConnectionPool, DatabasePoolBuilderTrait, PostgresBackend};
 
 fn main() {
     let create_entities_stmt = r#"

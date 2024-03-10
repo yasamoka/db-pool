@@ -8,16 +8,15 @@ use r2d2_postgres::{
 };
 use uuid::Uuid;
 
-use crate::{common::statement::postgres, util::get_db_name};
-
-use super::{
-    super::error::Error as BackendError,
-    r#trait::{impl_backend_for_pg_backend, PostgresBackend as PostgresBackendTrait},
+use crate::{
+    common::statement::postgres, sync::backend::error::Error as BackendError, util::get_db_name,
 };
+
+use super::r#trait::{impl_backend_for_pg_backend, PostgresBackend as PostgresBackendTrait};
 
 type Manager = PostgresConnectionManager<NoTls>;
 
-pub struct PostgresBackend {
+pub struct Backend {
     config: Config,
     default_pool: Pool<Manager>,
     db_conns: Mutex<HashMap<Uuid, Client>>,
@@ -26,15 +25,15 @@ pub struct PostgresBackend {
     drop_previous_databases_flag: bool,
 }
 
-impl PostgresBackend {
+impl Backend {
     pub fn new(
         config: Config,
-        create_default_pool: impl Fn() -> Builder<Manager>,
+        create_privileged_pool: impl Fn() -> Builder<Manager>,
         create_restricted_pool: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
         create_entities: impl Fn(&mut Client) + Send + Sync + 'static,
     ) -> Result<Self, r2d2::Error> {
         let manager = Manager::new(config.clone(), NoTls);
-        let default_pool = (create_default_pool()).build(manager)?;
+        let default_pool = (create_privileged_pool()).build(manager)?;
 
         Ok(Self {
             config,
@@ -55,7 +54,7 @@ impl PostgresBackend {
     }
 }
 
-impl PostgresBackendTrait for PostgresBackend {
+impl PostgresBackendTrait for Backend {
     type ConnectionManager = Manager;
     type ConnectionError = ConnectionError;
     type QueryError = QueryError;
@@ -174,4 +173,4 @@ impl From<QueryError> for BackendError<ConnectionError, QueryError> {
     }
 }
 
-impl_backend_for_pg_backend!(PostgresBackend, Manager, ConnectionError, QueryError);
+impl_backend_for_pg_backend!(Backend, Manager, ConnectionError, QueryError);

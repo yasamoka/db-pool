@@ -20,7 +20,7 @@ type CreateEntities = dyn Fn(AsyncMysqlConnection) -> Pin<Box<dyn Future<Output 
     + Sync
     + 'static;
 
-pub struct DieselAsyncMysqlBackend {
+pub struct Backend {
     username: String,
     password: String,
     host: String,
@@ -31,13 +31,13 @@ pub struct DieselAsyncMysqlBackend {
     drop_previous_databases_flag: bool,
 }
 
-impl DieselAsyncMysqlBackend {
+impl Backend {
     pub async fn new(
         username: String,
         password: String,
         host: String,
         port: u16,
-        create_default_pool: impl Fn() -> Builder<Manager>,
+        create_privileged_pool: impl Fn() -> Builder<Manager>,
         create_restricted_pool: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
         create_entities: impl Fn(AsyncMysqlConnection) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>>
             + Send
@@ -46,7 +46,7 @@ impl DieselAsyncMysqlBackend {
     ) -> Result<Self, PoolError> {
         let connection_url = format!("mysql://{username}:{password}@{host}:{port}");
         let manager = AsyncDieselConnectionManager::new(connection_url);
-        let default_pool = (create_default_pool()).build(manager).await?;
+        let default_pool = (create_privileged_pool()).build(manager).await?;
 
         Ok(Self {
             username,
@@ -84,7 +84,7 @@ impl DieselAsyncMysqlBackend {
 }
 
 #[async_trait]
-impl AsyncMySQLBackend for DieselAsyncMysqlBackend {
+impl AsyncMySQLBackend for Backend {
     type ConnectionManager = Manager;
     type ConnectionError = ConnectionError;
     type QueryError = Error;
@@ -177,9 +177,4 @@ impl AsyncMySQLBackend for DieselAsyncMysqlBackend {
     }
 }
 
-impl_async_backend_for_async_mysql_backend!(
-    DieselAsyncMysqlBackend,
-    Manager,
-    ConnectionError,
-    Error
-);
+impl_async_backend_for_async_mysql_backend!(Backend, Manager, ConnectionError, Error);

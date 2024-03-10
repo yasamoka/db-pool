@@ -4,11 +4,15 @@ mod error;
 mod mysql;
 #[cfg(feature = "_sync-postgres")]
 mod postgres;
-mod r#trait;
+pub(crate) mod r#trait;
 
 pub use error::Error;
-#[cfg(feature = "_sync-mysql")]
-pub use mysql::*;
-#[cfg(feature = "_sync-postgres")]
-pub use postgres::*;
-pub use r#trait::Backend;
+#[cfg(feature = "diesel-mysql")]
+pub use mysql::DieselMysqlBackend;
+#[cfg(feature = "mysql")]
+pub use mysql::MySQLBackend;
+#[cfg(feature = "diesel-postgres")]
+pub use postgres::DieselPostgresBackend;
+#[cfg(feature = "postgres")]
+pub use postgres::PostgresBackend;
+pub use r#trait::Backend as BackendTrait;

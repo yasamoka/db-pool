@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use crate::util::get_db_name;
 
-use super::backend::{Backend, Error as BackendError};
+use super::backend::{r#trait::Backend, Error as BackendError};
 
 pub struct ConnectionPool<B>
 where

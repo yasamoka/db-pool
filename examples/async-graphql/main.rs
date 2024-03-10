@@ -8,7 +8,7 @@ use diesel_async::{
 use poem::{handler, listener::TcpListener, post, web::Html, IntoResponse, Route, Server};
 use serde::Deserialize;
 
-use db_pool::{AsyncPoolWrapper, DieselAsyncPgBackend};
+use db_pool::r#async::{DieselAsyncPgBackend, PoolWrapper};
 
 type Schema = async_graphql::Schema<Query, Mutation, EmptySubscription>;
 type Manager = AsyncDieselConnectionManager<AsyncPgConnection>;
@@ -77,7 +77,7 @@ impl Mutation {
     }
 }
 
-fn build_schema(conn_pool: AsyncPoolWrapper<DieselAsyncPgBackend>) -> Schema {
+fn build_schema(conn_pool: PoolWrapper<DieselAsyncPgBackend>) -> Schema {
     async_graphql::Schema::build(Query, Mutation, EmptySubscription)
         .data(conn_pool)
         .finish()
@@ -95,9 +95,7 @@ async fn build_default_connection_pool() -> Pool<Manager> {
 }
 
 async fn get_connection<'a>(ctx: &'a Context<'_>) -> PooledConnection<'a, Manager> {
-    let pool = ctx
-        .data::<AsyncPoolWrapper<DieselAsyncPgBackend>>()
-        .unwrap();
+    let pool = ctx.data::<PoolWrapper<DieselAsyncPgBackend>>().unwrap();
     pool.get().await.unwrap()
 }
 
@@ -111,7 +109,7 @@ async fn graphiql() -> impl IntoResponse {
 #[tokio::main]
 async fn main() {
     let conn_pool = build_default_connection_pool().await;
-    let schema = build_schema(AsyncPoolWrapper::Pool(conn_pool));
+    let schema = build_schema(PoolWrapper::Pool(conn_pool));
     let app = Route::new().at(GRAPHQL_ENDPOINT, post(GraphQL::new(schema)).get(graphiql));
     let listener = TcpListener::bind("localhost:3000");
     Server::new(listener).run(app).await.unwrap();
@@ -124,33 +122,27 @@ mod tests {
     use async_graphql::{Request, Variables};
     use bb8::Pool;
     use diesel::sql_query;
-    use diesel_async::pooled_connection::AsyncDieselConnectionManager;
     use futures::future::join_all;
     use serde::{Deserialize, Serialize};
     use serde_json::{from_value, to_value, Value};
     use tokio::sync::OnceCell;
 
-    use db_pool::{
-        AsyncConnectionPool, AsyncDatabasePool, AsyncDatabasePoolBuilder, AsyncReusable,
-        DieselAsyncPgBackend,
+    use db_pool::r#async::{
+        ConnectionPool, DatabasePool, DatabasePoolBuilderTrait, DieselAsyncPgBackend, Reusable,
     };
 
-    use crate::{build_default_connection_pool, build_schema, AsyncPoolWrapper, Book};
+    use crate::{build_default_connection_pool, build_schema, Book, PoolWrapper};
 
-    async fn init_db_pool() -> AsyncDatabasePool<DieselAsyncPgBackend> {
+    async fn init_db_pool() -> DatabasePool<DieselAsyncPgBackend> {
         use diesel_async::RunQueryDsl;
 
-        DieselAsyncPgBackend::new(
+        let backend = DieselAsyncPgBackend::new(
             "postgres".to_owned(),
             "postgres".to_owned(),
             "localhost".to_owned(),
             5432,
-            Pool::builder()
-                .build(AsyncDieselConnectionManager::new(
-                    "postgres://postgres:postgres@localhost:5432",
-                ))
-                .await
-                .unwrap(),
+            || Pool::builder().max_size(10),
+            || Pool::builder().max_size(1).test_on_check_out(true),
             move |mut conn| {
                 Box::pin(async move {
                     sql_query("CREATE TABLE book(id SERIAL PRIMARY KEY, title TEXT NOT NULL)")
@@ -160,21 +152,20 @@ mod tests {
                     conn
                 })
             },
-            || Pool::builder().max_size(1).test_on_check_out(true),
         )
-        .create_database_pool()
         .await
-        .expect("db_pool creation must succeed")
+        .expect("backend creation must succeed");
+
+        backend.create_database_pool().await.expect("database pool creation must succeed")
     }
 
-    async fn get_connection_pool(
-    ) -> AsyncReusable<'static, AsyncConnectionPool<DieselAsyncPgBackend>> {
-        static DB_POOL: OnceCell<AsyncDatabasePool<DieselAsyncPgBackend>> = OnceCell::const_new();
+    async fn get_connection_pool() -> Reusable<'static, ConnectionPool<DieselAsyncPgBackend>> {
+        static DB_POOL: OnceCell<DatabasePool<DieselAsyncPgBackend>> = OnceCell::const_new();
         let db_pool = DB_POOL.get_or_init(init_db_pool).await;
         db_pool.pull().await
     }
 
-    async fn test(conn_pool: AsyncPoolWrapper<DieselAsyncPgBackend>) {
+    async fn test(conn_pool: PoolWrapper<DieselAsyncPgBackend>) {
         #[derive(Deserialize)]
         struct Data {
             books: Vec<Book>,
@@ -244,7 +235,7 @@ mod tests {
 
     async fn run_failing_test() {
         let conn_pool = build_default_connection_pool().await;
-        test(AsyncPoolWrapper::Pool(conn_pool)).await;
+        test(PoolWrapper::Pool(conn_pool)).await;
     }
 
     async fn run_passing_test() {
@@ -252,7 +243,7 @@ mod tests {
             let futures = (0..5)
                 .map(|_| async move {
                     let conn_pool = get_connection_pool().await;
-                    test(AsyncPoolWrapper::ReusablePool(conn_pool)).await;
+                    test(PoolWrapper::ReusablePool(conn_pool)).await;
                 })
                 .collect::<Vec<_>>();
             join_all(futures).await;

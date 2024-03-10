@@ -23,7 +23,7 @@ type CreateEntities = dyn Fn(Client) -> Pin<Box<dyn Future<Output = Client> + Se
     + Sync
     + 'static;
 
-pub struct TokioPostgresBackend {
+pub struct Backend {
     config: Config,
     default_pool: Pool<Manager>,
     db_conns: Mutex<HashMap<Uuid, Client>>,
@@ -32,10 +32,10 @@ pub struct TokioPostgresBackend {
     drop_previous_databases_flag: bool,
 }
 
-impl TokioPostgresBackend {
+impl Backend {
     pub async fn new(
         config: Config,
-        create_default_pool: impl Fn() -> Builder<Manager>,
+        create_privileged_pool: impl Fn() -> Builder<Manager>,
         create_restricted_pool: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
         create_entities: impl Fn(Client) -> Pin<Box<dyn Future<Output = Client> + Send + 'static>>
             + Send
@@ -43,7 +43,7 @@ impl TokioPostgresBackend {
             + 'static,
     ) -> Result<Self, RunError<Error>> {
         let manager = Manager::new(config.clone(), NoTls);
-        let default_pool = (create_default_pool()).build(manager).await?;
+        let default_pool = (create_privileged_pool()).build(manager).await?;
 
         Ok(Self {
             config,
@@ -65,7 +65,7 @@ impl TokioPostgresBackend {
 }
 
 #[async_trait]
-impl AsyncPgBackend for TokioPostgresBackend {
+impl AsyncPgBackend for Backend {
     type ConnectionManager = Manager;
     type ConnectionError = ConnectionError;
     type QueryError = QueryError;
@@ -203,9 +203,4 @@ impl From<QueryError> for BackendError<Error, ConnectionError, QueryError> {
     }
 }
 
-impl_async_backend_for_async_pg_backend!(
-    TokioPostgresBackend,
-    Manager,
-    ConnectionError,
-    QueryError
-);
+impl_async_backend_for_async_pg_backend!(Backend, Manager, ConnectionError, QueryError);

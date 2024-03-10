@@ -3,7 +3,7 @@ use std::thread;
 use diesel::{prelude::*, r2d2::ConnectionManager, sql_query};
 use r2d2::Pool;
 
-use db_pool::{DatabasePoolBuilder, DieselPostgresBackend};
+use db_pool::sync::{DatabasePoolBuilderTrait, DieselPostgresBackend};
 
 fn main() {
     let create_stmt = r#"

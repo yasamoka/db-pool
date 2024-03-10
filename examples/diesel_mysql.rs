@@ -3,7 +3,7 @@ use std::thread;
 use diesel::{prelude::*, sql_query};
 use r2d2::Pool;
 
-use db_pool::{ConnectionPool, DatabasePoolBuilder, DieselMysqlBackend};
+use db_pool::sync::{ConnectionPool, DatabasePoolBuilderTrait, DieselMysqlBackend};
 
 diesel::table! {
     author (id) {

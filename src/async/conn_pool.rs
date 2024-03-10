@@ -5,20 +5,20 @@ use uuid::Uuid;
 
 use crate::util::get_db_name;
 
-use super::backend::{AsyncBackend, Error as BackendError};
+use super::backend::{r#trait::Backend, Error as BackendError};
 
-pub struct AsyncConnectionPool<B>
+pub struct ConnectionPool<B>
 where
-    B: AsyncBackend,
+    B: Backend,
 {
     backend: Arc<B>,
     db_id: Uuid,
     conn_pool: Option<Pool<B::ConnectionManager>>,
 }
 
-impl<B> AsyncConnectionPool<B>
+impl<B> ConnectionPool<B>
 where
-    B: AsyncBackend,
+    B: Backend,
 {
     pub async fn new(
         backend: Arc<B>,
@@ -59,9 +59,9 @@ where
     }
 }
 
-impl<B> Deref for AsyncConnectionPool<B>
+impl<B> Deref for ConnectionPool<B>
 where
-    B: AsyncBackend,
+    B: Backend,
 {
     type Target = Pool<B::ConnectionManager>;
 
@@ -72,9 +72,9 @@ where
     }
 }
 
-impl<B> Drop for AsyncConnectionPool<B>
+impl<B> Drop for ConnectionPool<B>
 where
-    B: AsyncBackend,
+    B: Backend,
 {
     fn drop(&mut self) {
         self.conn_pool = None;

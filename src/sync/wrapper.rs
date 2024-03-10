@@ -1,4 +1,4 @@
-use bb8::{ManageConnection, Pool, PooledConnection, RunError};
+use r2d2::{Error, Pool, PooledConnection};
 
 use super::{backend::r#trait::Backend, conn_pool::ConnectionPool, object_pool::Reusable};
 
@@ -14,16 +14,10 @@ impl<B> PoolWrapper<B>
 where
     B: Backend,
 {
-    pub async fn get(
-        &self,
-    ) -> Result<
-        PooledConnection<'_, B::ConnectionManager>,
-        RunError<<B::ConnectionManager as ManageConnection>::Error>,
-    > {
+    pub fn get(&self) -> Result<PooledConnection<B::ConnectionManager>, Error> {
         match self {
             Self::Pool(pool) => pool.get(),
             Self::ReusablePool(pool) => pool.get(),
         }
-        .await
     }
 }

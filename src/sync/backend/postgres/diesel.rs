@@ -14,7 +14,7 @@ use super::r#trait::{impl_backend_for_pg_backend, PostgresBackend};
 
 type Manager = ConnectionManager<PgConnection>;
 
-pub struct DieselPostgresBackend {
+pub struct Backend {
     username: String,
     password: String,
     host: String,
@@ -26,19 +26,19 @@ pub struct DieselPostgresBackend {
     drop_previous_databases_flag: bool,
 }
 
-impl DieselPostgresBackend {
+impl Backend {
     pub fn new(
         username: String,
         password: String,
         host: String,
         port: u16,
-        create_default_pool: impl Fn() -> Builder<Manager>,
+        create_privileged_pool: impl Fn() -> Builder<Manager>,
         create_restricted_pool: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
         create_entities: impl Fn(&mut PgConnection) + Send + Sync + 'static,
     ) -> Result<Self, r2d2::Error> {
         let connection_url = format!("postgres://{username}:{password}@{host}:{port}");
         let manager = Manager::new(connection_url);
-        let default_pool = (create_default_pool()).build(manager)?;
+        let default_pool = (create_privileged_pool()).build(manager)?;
 
         Ok(Self {
             username,
@@ -69,7 +69,7 @@ impl DieselPostgresBackend {
     }
 }
 
-impl PostgresBackend for DieselPostgresBackend {
+impl PostgresBackend for Backend {
     type ConnectionManager = Manager;
     type ConnectionError = ConnectionError;
     type QueryError = Error;
@@ -162,4 +162,4 @@ impl PostgresBackend for DieselPostgresBackend {
     }
 }
 
-impl_backend_for_pg_backend!(DieselPostgresBackend, Manager, ConnectionError, Error);
+impl_backend_for_pg_backend!(Backend, Manager, ConnectionError, Error);

@@ -7,16 +7,15 @@ use r2d2_mysql::{
 };
 use uuid::Uuid;
 
-use crate::{common::statement::mysql, util::get_db_name};
-
-use super::{
-    super::error::Error as BackendError,
-    r#trait::{impl_backend_for_mysql_backend, MySQLBackend as MySQLBackendTrait},
+use crate::{
+    common::statement::mysql, sync::backend::error::Error as BackendError, util::get_db_name,
 };
+
+use super::r#trait::{impl_backend_for_mysql_backend, MySQLBackend as MySQLBackendTrait};
 
 type Manager = MySqlConnectionManager;
 
-pub struct MySQLBackend {
+pub struct Backend {
     opts: Opts,
     default_pool: Pool<Manager>,
     create_restricted_pool: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
@@ -24,15 +23,15 @@ pub struct MySQLBackend {
     drop_previous_databases_flag: bool,
 }
 
-impl MySQLBackend {
+impl Backend {
     pub fn new(
         opts: Opts,
-        create_default_pool: impl Fn() -> Builder<Manager>,
+        create_privileged_pool: impl Fn() -> Builder<Manager>,
         create_restricted_pool: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
         create_entities: impl Fn(&mut Conn) + Send + Sync + 'static,
     ) -> Result<Self, r2d2::Error> {
         let manager = Manager::new(OptsBuilder::from_opts(opts.clone()));
-        let default_pool = (create_default_pool()).build(manager)?;
+        let default_pool = (create_privileged_pool()).build(manager)?;
 
         Ok(Self {
             opts,
@@ -52,7 +51,7 @@ impl MySQLBackend {
     }
 }
 
-impl MySQLBackendTrait for MySQLBackend {
+impl MySQLBackendTrait for Backend {
     type ConnectionManager = Manager;
     type ConnectionError = Error;
     type QueryError = Error;
@@ -114,4 +113,4 @@ impl From<Error> for BackendError<Error, Error> {
     }
 }
 
-impl_backend_for_mysql_backend!(MySQLBackend, Manager, Error, Error);
+impl_backend_for_mysql_backend!(Backend, Manager, Error, Error);

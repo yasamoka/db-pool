@@ -16,7 +16,7 @@ use super::r#trait::{impl_backend_for_mysql_backend, MySQLBackend};
 
 type Manager = ConnectionManager<MysqlConnection>;
 
-pub struct DieselMysqlBackend {
+pub struct Backend {
     host: String,
     port: u16,
     default_pool: Pool<Manager>,
@@ -25,19 +25,19 @@ pub struct DieselMysqlBackend {
     drop_previous_databases_flag: bool,
 }
 
-impl DieselMysqlBackend {
+impl Backend {
     pub fn new(
         username: &str,
         password: &str,
         host: String,
         port: u16,
-        create_default_pool: impl Fn() -> Builder<Manager>,
+        create_privileged_pool: impl Fn() -> Builder<Manager>,
         create_restricted_pool: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
         create_entities: impl Fn(&mut MysqlConnection) + Send + Sync + 'static,
     ) -> Result<Self, r2d2::Error> {
         let connection_url = format!("mysql://{username}:{password}@{host}:{port}");
         let manager = Manager::new(connection_url);
-        let default_pool = (create_default_pool()).build(manager)?;
+        let default_pool = (create_privileged_pool()).build(manager)?;
 
         Ok(Self {
             host,
@@ -65,7 +65,7 @@ impl DieselMysqlBackend {
     }
 }
 
-impl MySQLBackend for DieselMysqlBackend {
+impl MySQLBackend for Backend {
     type ConnectionManager = Manager;
     type ConnectionError = ConnectionError;
     type QueryError = Error;
@@ -148,4 +148,4 @@ impl MySQLBackend for DieselMysqlBackend {
     }
 }
 
-impl_backend_for_mysql_backend!(DieselMysqlBackend, Manager, ConnectionError, Error);
+impl_backend_for_mysql_backend!(Backend, Manager, ConnectionError, Error);

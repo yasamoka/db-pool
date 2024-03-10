@@ -18,12 +18,7 @@
 mod common;
 
 #[cfg(feature = "_async")]
-mod r#async;
+pub mod r#async;
 #[cfg(feature = "_sync")]
-mod sync;
+pub mod sync;
 mod util;
-
-#[cfg(feature = "_async")]
-pub use r#async::*;
-#[cfg(feature = "_sync")]
-pub use sync::*;

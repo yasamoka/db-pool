@@ -4,7 +4,7 @@ use bb8_postgres::{
     PostgresConnectionManager,
 };
 
-use db_pool::{AsyncDatabasePoolBuilder, TokioPostgresBackend};
+use db_pool::r#async::{DatabasePoolBuilderTrait, TokioPostgresBackend};
 use futures::future::join_all;
 
 #[tokio::main]

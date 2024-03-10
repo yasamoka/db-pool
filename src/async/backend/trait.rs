@@ -7,7 +7,7 @@ use uuid::Uuid;
 use super::error::Error;
 
 #[async_trait]
-pub trait AsyncBackend: Sized + Send + Sync + 'static {
+pub trait Backend: Sized + Send + Sync + 'static {
     type ConnectionManager: ManageConnection;
     type ConnectionError: Debug;
     type QueryError: Debug;

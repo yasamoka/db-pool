@@ -2,9 +2,8 @@ use bb8::Pool;
 use diesel::{prelude::*, sql_query};
 use diesel_async::RunQueryDsl;
 
-use db_pool::{
-    AsyncConnectionPool, AsyncDatabasePool, AsyncDatabasePoolBuilder, AsyncReusable,
-    DieselAsyncPgBackend,
+use db_pool::r#async::{
+    ConnectionPool, DatabasePool, DatabasePoolBuilderTrait, DieselAsyncPgBackend, Reusable,
 };
 use futures::future::join_all;
 
@@ -31,7 +30,7 @@ async fn main() {
     }
 }
 
-async fn create_database_pool() -> AsyncDatabasePool<DieselAsyncPgBackend> {
+async fn create_database_pool() -> DatabasePool<DieselAsyncPgBackend> {
     let create_stmt = r#"
         CREATE TABLE author(
             id uuid NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -67,7 +66,7 @@ async fn create_database_pool() -> AsyncDatabasePool<DieselAsyncPgBackend> {
         .expect("db_pool creation must succeed")
 }
 
-async fn run_test(conn_pool: AsyncReusable<'_, AsyncConnectionPool<DieselAsyncPgBackend>>) {
+async fn run_test(conn_pool: Reusable<'_, ConnectionPool<DieselAsyncPgBackend>>) {
     diesel::table! {
         author (id) {
             id -> Uuid,

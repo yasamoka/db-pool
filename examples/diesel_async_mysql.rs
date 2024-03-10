@@ -4,7 +4,7 @@ use diesel_async::{
     pooled_connection::AsyncDieselConnectionManager, AsyncMysqlConnection, RunQueryDsl,
 };
 
-use db_pool::{AsyncDatabasePoolBuilder, DieselAsyncMysqlBackend};
+use db_pool::r#async::{DatabasePoolBuilderTrait, DieselAsyncMysqlBackend};
 use futures::future::join_all;
 
 #[tokio::main]

@@ -3,7 +3,7 @@ use std::thread;
 use r2d2::Pool;
 use r2d2_mysql::mysql::{params, prelude::*, OptsBuilder};
 
-use db_pool::{ConnectionPool, DatabasePoolBuilder, MySQLBackend};
+use db_pool::sync::{ConnectionPool, DatabasePoolBuilderTrait, MySQLBackend};
 
 fn main() {
     let create_entities_stmt = r#"
