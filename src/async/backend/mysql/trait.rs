@@ -5,7 +5,7 @@ use bb8::{ManageConnection, Pool, PooledConnection};
 use uuid::Uuid;
 
 #[async_trait]
-pub trait AsyncMySQLBackend {
+pub(super) trait MySQLBackend {
     type ConnectionManager: ManageConnection;
     type ConnectionError;
     type QueryError;

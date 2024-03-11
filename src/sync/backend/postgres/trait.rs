@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use r2d2::{ManageConnection, Pool, PooledConnection};
 use uuid::Uuid;
 
-pub trait PostgresBackend {
+pub(super) trait PostgresBackend {
     type ConnectionManager: ManageConnection;
     type ConnectionError;
     type QueryError;

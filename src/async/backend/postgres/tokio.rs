@@ -14,7 +14,7 @@ use crate::{common::statement::postgres, util::get_db_name};
 
 use super::{
     super::error::Error as BackendError,
-    r#trait::{impl_async_backend_for_async_pg_backend, AsyncPgBackend},
+    r#trait::{impl_async_backend_for_async_pg_backend, PostgresBackend},
 };
 
 type Manager = PostgresConnectionManager<NoTls>;
@@ -65,7 +65,7 @@ impl TokioPostgresBackend {
 }
 
 #[async_trait]
-impl AsyncPgBackend for TokioPostgresBackend {
+impl PostgresBackend for TokioPostgresBackend {
     type ConnectionManager = Manager;
     type ConnectionError = ConnectionError;
     type QueryError = QueryError;

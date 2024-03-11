@@ -15,7 +15,7 @@ use crate::{
     util::get_db_name,
 };
 
-use super::r#trait::{impl_async_backend_for_async_mysql_backend, AsyncMySQLBackend};
+use super::r#trait::{impl_async_backend_for_async_mysql_backend, MySQLBackend};
 
 type Manager = AsyncDieselConnectionManager<AsyncMysqlConnection>;
 type CreateEntities = dyn Fn(AsyncMysqlConnection) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>>
@@ -63,7 +63,7 @@ impl DieselAsyncMySQLBackend {
 }
 
 #[async_trait]
-impl AsyncMySQLBackend for DieselAsyncMySQLBackend {
+impl MySQLBackend for DieselAsyncMySQLBackend {
     type ConnectionManager = Manager;
     type ConnectionError = ConnectionError;
     type QueryError = Error;

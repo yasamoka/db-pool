@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use r2d2::{ManageConnection, Pool, PooledConnection};
 use uuid::Uuid;
 
-pub trait MySQLBackend {
+pub(super) trait MySQLBackend {
     type ConnectionManager: ManageConnection;
     type ConnectionError;
     type QueryError;

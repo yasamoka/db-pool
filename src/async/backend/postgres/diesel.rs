@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 use crate::{common::config::postgres::PrivilegedConfig, util::get_db_name};
 
-use super::r#trait::{impl_async_backend_for_async_pg_backend, AsyncPgBackend};
+use super::r#trait::{impl_async_backend_for_async_pg_backend, PostgresBackend};
 
 type Manager = AsyncDieselConnectionManager<AsyncPgConnection>;
 type CreateEntities = dyn Fn(AsyncPgConnection) -> Pin<Box<dyn Future<Output = AsyncPgConnection> + Send + 'static>>
@@ -65,7 +65,7 @@ impl DieselAsyncPostgresBackend {
 }
 
 #[async_trait]
-impl AsyncPgBackend for DieselAsyncPostgresBackend {
+impl PostgresBackend for DieselAsyncPostgresBackend {
     type ConnectionManager = Manager;
     type ConnectionError = ConnectionError;
     type QueryError = Error;

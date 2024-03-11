@@ -5,7 +5,7 @@ use bb8::{ManageConnection, Pool, PooledConnection, RunError};
 use uuid::Uuid;
 
 #[async_trait]
-pub trait AsyncPgBackend: Sized + Send + Sync + 'static {
+pub(super) trait PostgresBackend: Sized + Send + Sync + 'static {
     type ConnectionManager: ManageConnection;
     type ConnectionError;
     type QueryError;
