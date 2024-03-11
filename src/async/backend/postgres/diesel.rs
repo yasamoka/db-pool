@@ -21,7 +21,7 @@ type CreateEntities = dyn Fn(AsyncPgConnection) -> Pin<Box<dyn Future<Output = A
     + Sync
     + 'static;
 
-pub struct Backend {
+pub struct DieselAsyncPostgresBackend {
     privileged_config: PrivilegedConfig,
     default_pool: Pool<Manager>,
     db_conns: Mutex<HashMap<Uuid, AsyncPgConnection>>,
@@ -30,7 +30,7 @@ pub struct Backend {
     drop_previous_databases_flag: bool,
 }
 
-impl Backend {
+impl DieselAsyncPostgresBackend {
     pub async fn new(
         privileged_config: PrivilegedConfig,
         create_privileged_pool: impl Fn() -> Builder<Manager>,
@@ -65,7 +65,7 @@ impl Backend {
 }
 
 #[async_trait]
-impl AsyncPgBackend for Backend {
+impl AsyncPgBackend for DieselAsyncPostgresBackend {
     type ConnectionManager = Manager;
     type ConnectionError = ConnectionError;
     type QueryError = Error;
@@ -176,4 +176,9 @@ impl AsyncPgBackend for Backend {
     }
 }
 
-impl_async_backend_for_async_pg_backend!(Backend, Manager, ConnectionError, Error);
+impl_async_backend_for_async_pg_backend!(
+    DieselAsyncPostgresBackend,
+    Manager,
+    ConnectionError,
+    Error
+);

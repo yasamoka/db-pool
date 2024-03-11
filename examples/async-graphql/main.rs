@@ -8,7 +8,7 @@ use diesel_async::{
 use poem::{handler, listener::TcpListener, post, web::Html, IntoResponse, Route, Server};
 use serde::Deserialize;
 
-use db_pool::r#async::{DieselAsyncPgBackend, PoolWrapper};
+use db_pool::r#async::{DieselAsyncPostgresBackend, PoolWrapper};
 
 type Schema = async_graphql::Schema<Query, Mutation, EmptySubscription>;
 type Manager = AsyncDieselConnectionManager<AsyncPgConnection>;
@@ -77,7 +77,7 @@ impl Mutation {
     }
 }
 
-fn build_schema(conn_pool: PoolWrapper<DieselAsyncPgBackend>) -> Schema {
+fn build_schema(conn_pool: PoolWrapper<DieselAsyncPostgresBackend>) -> Schema {
     async_graphql::Schema::build(Query, Mutation, EmptySubscription)
         .data(conn_pool)
         .finish()
@@ -95,7 +95,9 @@ async fn build_default_connection_pool() -> Pool<Manager> {
 }
 
 async fn get_connection<'a>(ctx: &'a Context<'_>) -> PooledConnection<'a, Manager> {
-    let pool = ctx.data::<PoolWrapper<DieselAsyncPgBackend>>().unwrap();
+    let pool = ctx
+        .data::<PoolWrapper<DieselAsyncPostgresBackend>>()
+        .unwrap();
     pool.get().await.unwrap()
 }
 

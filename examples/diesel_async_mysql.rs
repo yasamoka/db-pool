@@ -5,7 +5,7 @@ use diesel_async::{
 };
 
 use db_pool::{
-    r#async::{DatabasePoolBuilderTrait, DieselAsyncMysqlBackend},
+    r#async::{DatabasePoolBuilderTrait, DieselAsyncMySQLBackend},
     PrivilegedMySQLConfig,
 };
 use futures::future::join_all;
@@ -20,7 +20,7 @@ async fn main() {
         "#
     .to_owned();
 
-    let backend = DieselAsyncMysqlBackend::new(
+    let backend = DieselAsyncMySQLBackend::new(
         PrivilegedMySQLConfig::new("root".to_owned()).password(Some("root".to_owned())),
         || Pool::builder().max_size(10),
         || Pool::builder().max_size(2),

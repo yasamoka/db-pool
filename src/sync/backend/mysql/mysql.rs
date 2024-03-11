@@ -15,7 +15,7 @@ use super::r#trait::{impl_backend_for_mysql_backend, MySQLBackend as MySQLBacken
 
 type Manager = MySqlConnectionManager;
 
-pub struct Backend {
+pub struct MySQLBackend {
     opts: Opts,
     default_pool: Pool<Manager>,
     create_restricted_pool: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
@@ -23,7 +23,7 @@ pub struct Backend {
     drop_previous_databases_flag: bool,
 }
 
-impl Backend {
+impl MySQLBackend {
     pub fn new(
         opts: Opts,
         create_privileged_pool: impl Fn() -> Builder<Manager>,
@@ -51,7 +51,7 @@ impl Backend {
     }
 }
 
-impl MySQLBackendTrait for Backend {
+impl MySQLBackendTrait for MySQLBackend {
     type ConnectionManager = Manager;
     type ConnectionError = Error;
     type QueryError = Error;
@@ -114,4 +114,4 @@ impl From<Error> for BackendError<Error, Error> {
     }
 }
 
-impl_backend_for_mysql_backend!(Backend, Manager, Error, Error);
+impl_backend_for_mysql_backend!(MySQLBackend, Manager, Error, Error);

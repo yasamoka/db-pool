@@ -23,7 +23,7 @@ type CreateEntities = dyn Fn(AsyncMysqlConnection) -> Pin<Box<dyn Future<Output 
     + Sync
     + 'static;
 
-pub struct Backend {
+pub struct DieselAsyncMySQLBackend {
     privileged_config: PrivilegedConfig,
     default_pool: Pool<Manager>,
     create_restricted_pool: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
@@ -31,7 +31,7 @@ pub struct Backend {
     drop_previous_databases_flag: bool,
 }
 
-impl Backend {
+impl DieselAsyncMySQLBackend {
     pub async fn new(
         privileged_config: PrivilegedConfig,
         create_privileged_pool: impl Fn() -> Builder<Manager>,
@@ -63,7 +63,7 @@ impl Backend {
 }
 
 #[async_trait]
-impl AsyncMySQLBackend for Backend {
+impl AsyncMySQLBackend for DieselAsyncMySQLBackend {
     type ConnectionManager = Manager;
     type ConnectionError = ConnectionError;
     type QueryError = Error;
@@ -161,4 +161,9 @@ impl AsyncMySQLBackend for Backend {
     }
 }
 
-impl_async_backend_for_async_mysql_backend!(Backend, Manager, ConnectionError, Error);
+impl_async_backend_for_async_mysql_backend!(
+    DieselAsyncMySQLBackend,
+    Manager,
+    ConnectionError,
+    Error
+);

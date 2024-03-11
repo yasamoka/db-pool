@@ -4,7 +4,7 @@ use diesel::{prelude::*, sql_query};
 use r2d2::Pool;
 
 use db_pool::{
-    sync::{ConnectionPool, DatabasePoolBuilderTrait, DieselMysqlBackend},
+    sync::{ConnectionPool, DatabasePoolBuilderTrait, DieselMySQLBackend},
     PrivilegedMySQLConfig,
 };
 
@@ -25,7 +25,7 @@ fn main() {
         "#
     .to_owned();
 
-    let backend = DieselMysqlBackend::new(
+    let backend = DieselMySQLBackend::new(
         PrivilegedMySQLConfig::new("root".to_owned()).password(Some("root".to_owned())),
         || Pool::builder().max_size(10),
         || Pool::builder().max_size(2),
@@ -62,7 +62,7 @@ fn main() {
     }
 }
 
-fn run_test(conn_pool: &ConnectionPool<DieselMysqlBackend>) {
+fn run_test(conn_pool: &ConnectionPool<DieselMySQLBackend>) {
     #[derive(Insertable)]
     #[diesel(table_name = author)]
     struct NewAuthor<'a> {

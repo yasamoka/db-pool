@@ -19,7 +19,7 @@ use super::r#trait::{impl_backend_for_mysql_backend, MySQLBackend};
 
 type Manager = ConnectionManager<MysqlConnection>;
 
-pub struct Backend {
+pub struct DieselMySQLBackend {
     privileged_config: PrivilegedConfig,
     default_pool: Pool<Manager>,
     create_restricted_pool: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
@@ -27,7 +27,7 @@ pub struct Backend {
     drop_previous_databases_flag: bool,
 }
 
-impl Backend {
+impl DieselMySQLBackend {
     pub fn new(
         privileged_config: PrivilegedConfig,
         create_privileged_pool: impl Fn() -> Builder<Manager>,
@@ -55,7 +55,7 @@ impl Backend {
     }
 }
 
-impl MySQLBackend for Backend {
+impl MySQLBackend for DieselMySQLBackend {
     type ConnectionManager = Manager;
     type ConnectionError = ConnectionError;
     type QueryError = Error;
@@ -142,4 +142,4 @@ impl MySQLBackend for Backend {
     }
 }
 
-impl_backend_for_mysql_backend!(Backend, Manager, ConnectionError, Error);
+impl_backend_for_mysql_backend!(DieselMySQLBackend, Manager, ConnectionError, Error);

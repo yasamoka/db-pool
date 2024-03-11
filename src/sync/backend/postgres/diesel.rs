@@ -14,7 +14,7 @@ use super::r#trait::{impl_backend_for_pg_backend, PostgresBackend};
 
 type Manager = ConnectionManager<PgConnection>;
 
-pub struct Backend {
+pub struct DieselPostgresBackend {
     privileged_config: PrivilegedConfig,
     default_pool: Pool<Manager>,
     db_conns: Mutex<HashMap<Uuid, PgConnection>>,
@@ -23,7 +23,7 @@ pub struct Backend {
     drop_previous_databases_flag: bool,
 }
 
-impl Backend {
+impl DieselPostgresBackend {
     pub fn new(
         privileged_config: PrivilegedConfig,
         create_privileged_pool: impl Fn() -> Builder<Manager>,
@@ -52,7 +52,7 @@ impl Backend {
     }
 }
 
-impl PostgresBackend for Backend {
+impl PostgresBackend for DieselPostgresBackend {
     type ConnectionManager = Manager;
     type ConnectionError = ConnectionError;
     type QueryError = Error;
@@ -147,4 +147,4 @@ impl PostgresBackend for Backend {
     }
 }
 
-impl_backend_for_pg_backend!(Backend, Manager, ConnectionError, Error);
+impl_backend_for_pg_backend!(DieselPostgresBackend, Manager, ConnectionError, Error);

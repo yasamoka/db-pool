@@ -3,4 +3,4 @@ mod diesel;
 mod r#trait;
 
 #[cfg(feature = "diesel-async-mysql")]
-pub use diesel::Backend as DieselAsyncMysqlBackend;
+pub use diesel::DieselAsyncMySQLBackend;

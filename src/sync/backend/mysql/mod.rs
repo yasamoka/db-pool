@@ -5,6 +5,6 @@ mod mysql;
 mod r#trait;
 
 #[cfg(feature = "diesel-mysql")]
-pub use diesel::Backend as DieselMysqlBackend;
+pub use diesel::DieselMySQLBackend;
 #[cfg(feature = "mysql")]
-pub use mysql::Backend as MySQLBackend;
+pub use mysql::MySQLBackend;

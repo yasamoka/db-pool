@@ -16,7 +16,7 @@ use super::r#trait::{impl_backend_for_pg_backend, PostgresBackend as PostgresBac
 
 type Manager = PostgresConnectionManager<NoTls>;
 
-pub struct Backend {
+pub struct PostgresBackend {
     config: Config,
     default_pool: Pool<Manager>,
     db_conns: Mutex<HashMap<Uuid, Client>>,
@@ -25,7 +25,7 @@ pub struct Backend {
     drop_previous_databases_flag: bool,
 }
 
-impl Backend {
+impl PostgresBackend {
     pub fn new(
         config: Config,
         create_privileged_pool: impl Fn() -> Builder<Manager>,
@@ -54,7 +54,7 @@ impl Backend {
     }
 }
 
-impl PostgresBackendTrait for Backend {
+impl PostgresBackendTrait for PostgresBackend {
     type ConnectionManager = Manager;
     type ConnectionError = ConnectionError;
     type QueryError = QueryError;
@@ -174,4 +174,4 @@ impl From<QueryError> for BackendError<ConnectionError, QueryError> {
     }
 }
 
-impl_backend_for_pg_backend!(Backend, Manager, ConnectionError, QueryError);
+impl_backend_for_pg_backend!(PostgresBackend, Manager, ConnectionError, QueryError);

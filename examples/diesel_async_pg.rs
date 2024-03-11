@@ -4,7 +4,8 @@ use diesel_async::RunQueryDsl;
 
 use db_pool::{
     r#async::{
-        ConnectionPool, DatabasePool, DatabasePoolBuilderTrait, DieselAsyncPgBackend, Reusable,
+        ConnectionPool, DatabasePool, DatabasePoolBuilderTrait, DieselAsyncPostgresBackend,
+        Reusable,
     },
     PrivilegedPostgresConfig,
 };
@@ -33,7 +34,7 @@ async fn main() {
     }
 }
 
-async fn create_database_pool() -> DatabasePool<DieselAsyncPgBackend> {
+async fn create_database_pool() -> DatabasePool<DieselAsyncPostgresBackend> {
     let create_stmt = r#"
         CREATE TABLE author(
             id uuid NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -42,7 +43,7 @@ async fn create_database_pool() -> DatabasePool<DieselAsyncPgBackend> {
         "#
     .to_owned();
 
-    let backend = DieselAsyncPgBackend::new(
+    let backend = DieselAsyncPostgresBackend::new(
         PrivilegedPostgresConfig::new("postgres".to_owned()).password(Some("postgres".to_owned())),
         || Pool::builder().max_size(10),
         || Pool::builder().max_size(2),
@@ -66,7 +67,7 @@ async fn create_database_pool() -> DatabasePool<DieselAsyncPgBackend> {
         .expect("db_pool creation must succeed")
 }
 
-async fn run_test(conn_pool: Reusable<'_, ConnectionPool<DieselAsyncPgBackend>>) {
+async fn run_test(conn_pool: Reusable<'_, ConnectionPool<DieselAsyncPostgresBackend>>) {
     diesel::table! {
         author (id) {
             id -> Uuid,
