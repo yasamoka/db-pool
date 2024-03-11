@@ -5,6 +5,6 @@ mod tokio;
 mod r#trait;
 
 #[cfg(feature = "diesel-async-postgres")]
-pub use diesel::DieselAsyncPostgresBackend;
+pub use diesel::DieselAsyncPgBackend;
 #[cfg(feature = "tokio-postgres")]
 pub use tokio::TokioPostgresBackend;

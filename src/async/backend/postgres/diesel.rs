@@ -1,11 +1,10 @@
-use std::{borrow::Cow, collections::HashMap, convert::Into, pin::Pin};
+use std::{borrow::Cow, collections::HashMap, pin::Pin};
 
 use async_trait::async_trait;
-use bb8::{Builder, Pool, PooledConnection, RunError};
 use diesel::{prelude::*, result::Error, sql_query, table, ConnectionError};
 use diesel_async::{
-    pooled_connection::{AsyncDieselConnectionManager, PoolError},
-    AsyncConnection as _, AsyncPgConnection, RunQueryDsl,
+    pooled_connection::AsyncDieselConnectionManager, AsyncConnection as _, AsyncPgConnection,
+    RunQueryDsl,
 };
 use futures::Future;
 use parking_lot::Mutex;
@@ -13,37 +12,49 @@ use uuid::Uuid;
 
 use crate::{common::config::postgres::PrivilegedConfig, util::get_db_name};
 
-use super::r#trait::{impl_async_backend_for_async_pg_backend, PostgresBackend};
+use super::{
+    super::{
+        common::pool::diesel::r#trait::DieselPoolAssociation, error::Error as BackendError,
+        r#trait::Backend,
+    },
+    r#trait::{PostgresBackend, PostgresBackendWrapper},
+};
 
-type Manager = AsyncDieselConnectionManager<AsyncPgConnection>;
 type CreateEntities = dyn Fn(AsyncPgConnection) -> Pin<Box<dyn Future<Output = AsyncPgConnection> + Send + 'static>>
     + Send
     + Sync
     + 'static;
 
-pub struct DieselAsyncPostgresBackend {
+pub struct DieselAsyncPgBackend<P>
+where
+    P: DieselPoolAssociation<AsyncPgConnection>,
+{
     privileged_config: PrivilegedConfig,
-    default_pool: Pool<Manager>,
+    default_pool: P::Pool,
     db_conns: Mutex<HashMap<Uuid, AsyncPgConnection>>,
-    create_restricted_pool: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
+    create_restricted_pool: Box<dyn Fn() -> P::Builder + Send + Sync + 'static>,
     create_entities: Box<CreateEntities>,
     drop_previous_databases_flag: bool,
 }
 
-impl DieselAsyncPostgresBackend {
+impl<P> DieselAsyncPgBackend<P>
+where
+    P: DieselPoolAssociation<AsyncPgConnection>,
+{
     pub async fn new(
         privileged_config: PrivilegedConfig,
-        create_privileged_pool: impl Fn() -> Builder<Manager>,
-        create_restricted_pool: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
+        create_privileged_pool: impl Fn() -> P::Builder,
+        create_restricted_pool: impl Fn() -> P::Builder + Send + Sync + 'static,
         create_entities: impl Fn(
                 AsyncPgConnection,
             ) -> Pin<Box<dyn Future<Output = AsyncPgConnection> + Send + 'static>>
             + Send
             + Sync
             + 'static,
-    ) -> Result<Self, PoolError> {
+    ) -> Result<Self, P::BuildError> {
         let manager = AsyncDieselConnectionManager::new(privileged_config.default_connection_url());
-        let default_pool = (create_privileged_pool()).build(manager).await?;
+        let builder = create_privileged_pool();
+        let default_pool = P::build_pool(builder, manager).await?;
 
         Ok(Self {
             privileged_config,
@@ -65,8 +76,16 @@ impl DieselAsyncPostgresBackend {
 }
 
 #[async_trait]
-impl PostgresBackend for DieselAsyncPostgresBackend {
-    type ConnectionManager = Manager;
+impl<'pool, P> PostgresBackend<'pool> for DieselAsyncPgBackend<P>
+where
+    P: DieselPoolAssociation<AsyncPgConnection>,
+{
+    type Connection = AsyncPgConnection;
+    type PooledConnection = P::PooledConnection<'pool>;
+    type Pool = P::Pool;
+
+    type BuildError = P::BuildError;
+    type PoolError = P::PoolError;
     type ConnectionError = ConnectionError;
     type QueryError = Error;
 
@@ -85,9 +104,9 @@ impl PostgresBackend for DieselAsyncPostgresBackend {
     }
 
     async fn get_default_connection(
-        &self,
-    ) -> Result<PooledConnection<Manager>, RunError<PoolError>> {
-        self.default_pool.get().await
+        &'pool self,
+    ) -> Result<P::PooledConnection<'pool>, P::PoolError> {
+        P::get_connection(&self.default_pool).await
     }
 
     async fn establish_database_connection(
@@ -134,10 +153,7 @@ impl PostgresBackend for DieselAsyncPostgresBackend {
         (self.create_entities)(conn).await
     }
 
-    async fn create_connection_pool(
-        &self,
-        db_id: Uuid,
-    ) -> Result<Pool<Manager>, RunError<PoolError>> {
+    async fn create_connection_pool(&self, db_id: Uuid) -> Result<P::Pool, P::BuildError> {
         let db_name = get_db_name(db_id);
         let db_name = db_name.as_str();
         let database_url = self.privileged_config.restricted_database_connection_url(
@@ -146,10 +162,8 @@ impl PostgresBackend for DieselAsyncPostgresBackend {
             db_name,
         );
         let manager = AsyncDieselConnectionManager::<AsyncPgConnection>::new(database_url.as_str());
-        (self.create_restricted_pool)()
-            .build(manager)
-            .await
-            .map_err(Into::into)
+        let builder = (self.create_restricted_pool)();
+        P::build_pool(builder, manager).await
     }
 
     async fn get_table_names(
@@ -176,9 +190,36 @@ impl PostgresBackend for DieselAsyncPostgresBackend {
     }
 }
 
-impl_async_backend_for_async_pg_backend!(
-    DieselAsyncPostgresBackend,
-    Manager,
-    ConnectionError,
-    Error
-);
+type BError<BuildError, PoolError> = BackendError<BuildError, PoolError, ConnectionError, Error>;
+
+#[async_trait]
+impl<P> Backend for DieselAsyncPgBackend<P>
+where
+    P: DieselPoolAssociation<AsyncPgConnection>,
+{
+    type Pool = P::Pool;
+
+    type BuildError = P::BuildError;
+    type PoolError = P::PoolError;
+    type ConnectionError = ConnectionError;
+    type QueryError = Error;
+
+    async fn init(&self) -> Result<(), BError<P::BuildError, P::PoolError>> {
+        PostgresBackendWrapper::new(self).init().await
+    }
+
+    async fn create(
+        &self,
+        db_id: uuid::Uuid,
+    ) -> Result<P::Pool, BError<P::BuildError, P::PoolError>> {
+        PostgresBackendWrapper::new(self).create(db_id).await
+    }
+
+    async fn clean(&self, db_id: uuid::Uuid) -> Result<(), BError<P::BuildError, P::PoolError>> {
+        PostgresBackendWrapper::new(self).clean(db_id).await
+    }
+
+    async fn drop(&self, db_id: uuid::Uuid) -> Result<(), BError<P::BuildError, P::PoolError>> {
+        PostgresBackendWrapper::new(self).drop(db_id).await
+    }
+}

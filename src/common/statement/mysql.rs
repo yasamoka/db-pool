@@ -1,5 +1,6 @@
 pub const USE_DEFAULT_DATABASE: &str = "USE information_schema";
 
+#[allow(dead_code)]
 pub const GET_DATABASE_NAMES: &str =
     "SELECT schema_name FROM information_schema.schemata WHERE schema_name LIKE 'db_pool_%';";
 

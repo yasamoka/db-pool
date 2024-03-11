@@ -1,7 +1,7 @@
 use std::{borrow::Cow, collections::HashMap, convert::Into, ops::Deref, pin::Pin};
 
 use async_trait::async_trait;
-use bb8::{Builder, Pool, RunError};
+use bb8::{Builder, Pool, PooledConnection, RunError};
 use bb8_postgres::{
     tokio_postgres::{Client, Config, Error, NoTls},
     PostgresConnectionManager,
@@ -13,8 +13,8 @@ use uuid::Uuid;
 use crate::{common::statement::postgres, util::get_db_name};
 
 use super::{
-    super::error::Error as BackendError,
-    r#trait::{impl_async_backend_for_async_pg_backend, PostgresBackend},
+    super::{error::Error as BackendError, r#trait::Backend},
+    r#trait::{PostgresBackend, PostgresBackendWrapper},
 };
 
 type Manager = PostgresConnectionManager<NoTls>;
@@ -65,8 +65,13 @@ impl TokioPostgresBackend {
 }
 
 #[async_trait]
-impl PostgresBackend for TokioPostgresBackend {
-    type ConnectionManager = Manager;
+impl<'pool> PostgresBackend<'pool> for TokioPostgresBackend {
+    type Connection = Client;
+    type PooledConnection = PooledConnection<'pool, Manager>;
+    type Pool = Pool<Manager>;
+
+    type BuildError = BuildError;
+    type PoolError = PoolError;
     type ConnectionError = ConnectionError;
     type QueryError = QueryError;
 
@@ -86,9 +91,9 @@ impl PostgresBackend for TokioPostgresBackend {
     }
 
     async fn get_default_connection(
-        &self,
-    ) -> Result<bb8::PooledConnection<Self::ConnectionManager>, RunError<Error>> {
-        self.default_pool.get().await
+        &'pool self,
+    ) -> Result<PooledConnection<'pool, Manager>, PoolError> {
+        self.default_pool.get().await.map_err(Into::into)
     }
 
     async fn establish_database_connection(&self, db_id: Uuid) -> Result<Client, ConnectionError> {
@@ -125,10 +130,7 @@ impl PostgresBackend for TokioPostgresBackend {
         (self.create_entities)(conn).await
     }
 
-    async fn create_connection_pool(
-        &self,
-        db_id: Uuid,
-    ) -> Result<Pool<Self::ConnectionManager>, RunError<Error>> {
+    async fn create_connection_pool(&self, db_id: Uuid) -> Result<Pool<Manager>, BuildError> {
         let mut config = self.config.clone();
         let db_name = get_db_name(db_id);
         let db_name = db_name.as_str();
@@ -155,6 +157,40 @@ impl PostgresBackend for TokioPostgresBackend {
 
     fn get_drop_previous_databases(&self) -> bool {
         self.drop_previous_databases_flag
+    }
+}
+
+#[derive(Debug)]
+pub struct BuildError(Error);
+
+impl Deref for BuildError {
+    type Target = Error;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<Error> for BuildError {
+    fn from(value: Error) -> Self {
+        Self(value)
+    }
+}
+
+#[derive(Debug)]
+pub struct PoolError(RunError<Error>);
+
+impl Deref for PoolError {
+    type Target = RunError<Error>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<RunError<Error>> for PoolError {
+    fn from(value: RunError<Error>) -> Self {
+        Self(value)
     }
 }
 
@@ -192,21 +228,54 @@ impl From<Error> for QueryError {
     }
 }
 
-impl From<ConnectionError> for BackendError<Error, ConnectionError, QueryError> {
+impl From<BuildError> for BackendError<BuildError, PoolError, ConnectionError, QueryError> {
+    fn from(value: BuildError) -> Self {
+        Self::Build(value)
+    }
+}
+
+impl From<PoolError> for BackendError<BuildError, PoolError, ConnectionError, QueryError> {
+    fn from(value: PoolError) -> Self {
+        Self::Pool(value)
+    }
+}
+
+impl From<ConnectionError> for BackendError<BuildError, PoolError, ConnectionError, QueryError> {
     fn from(value: ConnectionError) -> Self {
         Self::Connection(value)
     }
 }
 
-impl From<QueryError> for BackendError<Error, ConnectionError, QueryError> {
+impl From<QueryError> for BackendError<BuildError, PoolError, ConnectionError, QueryError> {
     fn from(value: QueryError) -> Self {
         Self::Query(value)
     }
 }
 
-impl_async_backend_for_async_pg_backend!(
-    TokioPostgresBackend,
-    Manager,
-    ConnectionError,
-    QueryError
-);
+type BError = BackendError<BuildError, PoolError, ConnectionError, QueryError>;
+
+#[async_trait]
+impl Backend for TokioPostgresBackend {
+    type Pool = Pool<Manager>;
+
+    type BuildError = BuildError;
+    type PoolError = PoolError;
+    type ConnectionError = ConnectionError;
+    type QueryError = QueryError;
+
+    async fn init(&self) -> Result<(), BError> {
+        PostgresBackendWrapper::new(self).init().await
+    }
+
+    async fn create(&self, db_id: uuid::Uuid) -> Result<Pool<Manager>, BError> {
+        PostgresBackendWrapper::new(self).create(db_id).await
+    }
+
+    async fn clean(&self, db_id: uuid::Uuid) -> Result<(), BError> {
+        PostgresBackendWrapper::new(self).clean(db_id).await
+    }
+
+    async fn drop(&self, db_id: uuid::Uuid) -> Result<(), BError> {
+        PostgresBackendWrapper::new(self).drop(db_id).await
+    }
+}

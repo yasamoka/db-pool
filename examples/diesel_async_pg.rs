@@ -4,12 +4,14 @@ use diesel_async::RunQueryDsl;
 
 use db_pool::{
     r#async::{
-        ConnectionPool, DatabasePool, DatabasePoolBuilderTrait, DieselAsyncPostgresBackend,
+        ConnectionPool, DatabasePool, DatabasePoolBuilderTrait, DieselAsyncPgBackend, DieselBb8,
         Reusable,
     },
     PrivilegedPostgresConfig,
 };
 use futures::future::join_all;
+
+type Backend = DieselAsyncPgBackend<DieselBb8>;
 
 #[tokio::main]
 async fn main() {
@@ -34,7 +36,7 @@ async fn main() {
     }
 }
 
-async fn create_database_pool() -> DatabasePool<DieselAsyncPostgresBackend> {
+async fn create_database_pool() -> DatabasePool<Backend> {
     let create_stmt = r#"
         CREATE TABLE author(
             id uuid NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -43,7 +45,7 @@ async fn create_database_pool() -> DatabasePool<DieselAsyncPostgresBackend> {
         "#
     .to_owned();
 
-    let backend = DieselAsyncPostgresBackend::new(
+    let backend = Backend::new(
         PrivilegedPostgresConfig::new("postgres".to_owned()).password(Some("postgres".to_owned())),
         || Pool::builder().max_size(10),
         || Pool::builder().max_size(2),
@@ -67,7 +69,7 @@ async fn create_database_pool() -> DatabasePool<DieselAsyncPostgresBackend> {
         .expect("db_pool creation must succeed")
 }
 
-async fn run_test(conn_pool: Reusable<'_, ConnectionPool<DieselAsyncPostgresBackend>>) {
+async fn run_test(conn_pool: Reusable<'_, ConnectionPool<Backend>>) {
     diesel::table! {
         author (id) {
             id -> Uuid,

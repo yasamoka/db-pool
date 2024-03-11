@@ -1,15 +1,24 @@
+use std::fmt::Debug;
+
 use diesel::{result::Error, ConnectionError};
-use diesel_async::pooled_connection::PoolError;
 
 use crate::r#async::backend::error::Error as BackendError;
 
-impl From<ConnectionError> for BackendError<PoolError, ConnectionError, Error> {
+impl<B, P> From<ConnectionError> for BackendError<B, P, ConnectionError, Error>
+where
+    B: Debug,
+    P: Debug,
+{
     fn from(value: ConnectionError) -> Self {
         Self::Connection(value)
     }
 }
 
-impl From<Error> for BackendError<PoolError, ConnectionError, Error> {
+impl<B, P> From<Error> for BackendError<B, P, ConnectionError, Error>
+where
+    B: Debug,
+    P: Debug,
+{
     fn from(value: Error) -> Self {
         Self::Query(value)
     }

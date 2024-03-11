@@ -1,6 +1,5 @@
 use std::{ops::Deref, sync::Arc};
 
-use bb8::{ManageConnection, Pool};
 use uuid::Uuid;
 
 use crate::util::get_db_name;
@@ -13,7 +12,7 @@ where
 {
     backend: Arc<B>,
     db_id: Uuid,
-    conn_pool: Option<Pool<B::ConnectionManager>>,
+    conn_pool: Option<B::Pool>,
 }
 
 impl<B> ConnectionPool<B>
@@ -22,14 +21,8 @@ where
 {
     pub async fn new(
         backend: Arc<B>,
-    ) -> Result<
-        Self,
-        BackendError<
-            <B::ConnectionManager as ManageConnection>::Error,
-            B::ConnectionError,
-            B::QueryError,
-        >,
-    > {
+    ) -> Result<Self, BackendError<B::BuildError, B::PoolError, B::ConnectionError, B::QueryError>>
+    {
         let db_id = Uuid::new_v4();
         let conn_pool = backend.create(db_id).await?;
 
@@ -47,14 +40,8 @@ where
 
     pub async fn clean(
         &mut self,
-    ) -> Result<
-        (),
-        BackendError<
-            <B::ConnectionManager as ManageConnection>::Error,
-            B::ConnectionError,
-            B::QueryError,
-        >,
-    > {
+    ) -> Result<(), BackendError<B::BuildError, B::PoolError, B::ConnectionError, B::QueryError>>
+    {
         self.backend.clean(self.db_id).await
     }
 }
@@ -63,7 +50,7 @@ impl<B> Deref for ConnectionPool<B>
 where
     B: Backend,
 {
-    type Target = Pool<B::ConnectionManager>;
+    type Target = B::Pool;
 
     fn deref(&self) -> &Self::Target {
         self.conn_pool

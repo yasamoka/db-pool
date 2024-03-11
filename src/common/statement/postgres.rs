@@ -1,6 +1,7 @@
 #[allow(dead_code)]
 pub const GET_TABLE_NAMES: &str = "SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname != 'pg_catalog' AND schemaname != 'information_schema'";
 
+#[allow(dead_code)]
 pub const GET_DATABASE_NAMES: &str =
     "SELECT datname FROM pg_catalog.pg_database WHERE datname LIKE 'db_pool_%'";
 

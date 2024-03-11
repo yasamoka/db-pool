@@ -1,4 +1,4 @@
-use bb8::{ManageConnection, Pool, PooledConnection, RunError};
+use std::ops::Deref;
 
 use super::{backend::r#trait::Backend, conn_pool::ConnectionPool, object_pool::Reusable};
 
@@ -6,24 +6,20 @@ pub enum PoolWrapper<B>
 where
     B: Backend,
 {
-    Pool(Pool<B::ConnectionManager>),
+    Pool(B::Pool),
     ReusablePool(Reusable<'static, ConnectionPool<B>>),
 }
 
-impl<B> PoolWrapper<B>
+impl<B> Deref for PoolWrapper<B>
 where
     B: Backend,
 {
-    pub async fn get(
-        &self,
-    ) -> Result<
-        PooledConnection<'_, B::ConnectionManager>,
-        RunError<<B::ConnectionManager as ManageConnection>::Error>,
-    > {
+    type Target = B::Pool;
+
+    fn deref(&self) -> &Self::Target {
         match self {
-            Self::Pool(pool) => pool.get(),
-            Self::ReusablePool(pool) => pool.get(),
+            Self::Pool(pool) => pool,
+            Self::ReusablePool(pool) => pool,
         }
-        .await
     }
 }

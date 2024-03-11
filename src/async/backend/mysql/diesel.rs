@@ -1,11 +1,10 @@
-use std::{borrow::Cow, convert::Into, pin::Pin};
+use std::{borrow::Cow, pin::Pin};
 
 use async_trait::async_trait;
-use bb8::{Builder, Pool, PooledConnection, RunError};
 use diesel::{prelude::*, result::Error, sql_query, table};
 use diesel_async::{
-    pooled_connection::{AsyncDieselConnectionManager, PoolError},
-    AsyncConnection, AsyncMysqlConnection, RunQueryDsl,
+    pooled_connection::AsyncDieselConnectionManager, AsyncConnection, AsyncMysqlConnection,
+    RunQueryDsl,
 };
 use futures::Future;
 use uuid::Uuid;
@@ -15,34 +14,46 @@ use crate::{
     util::get_db_name,
 };
 
-use super::r#trait::{impl_async_backend_for_async_mysql_backend, MySQLBackend};
+use super::{
+    super::{
+        common::pool::diesel::r#trait::DieselPoolAssociation, error::Error as BackendError,
+        r#trait::Backend,
+    },
+    r#trait::{MySQLBackend, MySQLBackendWrapper},
+};
 
-type Manager = AsyncDieselConnectionManager<AsyncMysqlConnection>;
 type CreateEntities = dyn Fn(AsyncMysqlConnection) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>>
     + Send
     + Sync
     + 'static;
 
-pub struct DieselAsyncMySQLBackend {
+pub struct DieselAsyncMySQLBackend<P>
+where
+    P: DieselPoolAssociation<AsyncMysqlConnection>,
+{
     privileged_config: PrivilegedConfig,
-    default_pool: Pool<Manager>,
-    create_restricted_pool: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
+    default_pool: P::Pool,
+    create_restricted_pool: Box<dyn Fn() -> P::Builder + Send + Sync + 'static>,
     create_entities: Box<CreateEntities>,
     drop_previous_databases_flag: bool,
 }
 
-impl DieselAsyncMySQLBackend {
+impl<P> DieselAsyncMySQLBackend<P>
+where
+    P: DieselPoolAssociation<AsyncMysqlConnection>,
+{
     pub async fn new(
         privileged_config: PrivilegedConfig,
-        create_privileged_pool: impl Fn() -> Builder<Manager>,
-        create_restricted_pool: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
+        create_privileged_pool: impl Fn() -> P::Builder,
+        create_restricted_pool: impl Fn() -> P::Builder + Send + Sync + 'static,
         create_entities: impl Fn(AsyncMysqlConnection) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>>
             + Send
             + Sync
             + 'static,
-    ) -> Result<Self, PoolError> {
+    ) -> Result<Self, P::BuildError> {
         let manager = AsyncDieselConnectionManager::new(privileged_config.default_connection_url());
-        let default_pool = (create_privileged_pool()).build(manager).await?;
+        let builder = create_privileged_pool();
+        let default_pool = P::build_pool(builder, manager).await?;
 
         Ok(Self {
             privileged_config,
@@ -63,13 +74,21 @@ impl DieselAsyncMySQLBackend {
 }
 
 #[async_trait]
-impl MySQLBackend for DieselAsyncMySQLBackend {
-    type ConnectionManager = Manager;
+impl<'pool, P> MySQLBackend<'pool> for DieselAsyncMySQLBackend<P>
+where
+    P: DieselPoolAssociation<AsyncMysqlConnection>,
+{
+    type Connection = AsyncMysqlConnection;
+    type PooledConnection = P::PooledConnection<'pool>;
+    type Pool = P::Pool;
+
+    type BuildError = P::BuildError;
+    type PoolError = P::PoolError;
     type ConnectionError = ConnectionError;
     type QueryError = Error;
 
-    async fn get_connection(&self) -> Result<PooledConnection<Manager>, RunError<PoolError>> {
-        self.default_pool.get().await
+    async fn get_connection(&'pool self) -> Result<Self::PooledConnection, P::PoolError> {
+        P::get_connection(&self.default_pool).await
     }
 
     async fn execute_stmt(&self, query: &str, conn: &mut AsyncMysqlConnection) -> QueryResult<()> {
@@ -116,10 +135,7 @@ impl MySQLBackend for DieselAsyncMySQLBackend {
         Ok(())
     }
 
-    async fn create_connection_pool(
-        &self,
-        db_id: Uuid,
-    ) -> Result<Pool<Self::ConnectionManager>, RunError<PoolError>> {
+    async fn create_connection_pool(&self, db_id: Uuid) -> Result<P::Pool, P::BuildError> {
         let db_name = get_db_name(db_id);
         let db_name = db_name.as_str();
         let database_url = self.privileged_config.restricted_database_connection_url(
@@ -129,10 +145,8 @@ impl MySQLBackend for DieselAsyncMySQLBackend {
         );
         let manager =
             AsyncDieselConnectionManager::<AsyncMysqlConnection>::new(database_url.as_str());
-        (self.create_restricted_pool)()
-            .build(manager)
-            .await
-            .map_err(Into::into)
+        let builder = (self.create_restricted_pool)();
+        P::build_pool(builder, manager).await
     }
 
     async fn get_table_names(
@@ -161,9 +175,36 @@ impl MySQLBackend for DieselAsyncMySQLBackend {
     }
 }
 
-impl_async_backend_for_async_mysql_backend!(
-    DieselAsyncMySQLBackend,
-    Manager,
-    ConnectionError,
-    Error
-);
+type BError<BuildError, PoolError> = BackendError<BuildError, PoolError, ConnectionError, Error>;
+
+#[async_trait]
+impl<P> Backend for DieselAsyncMySQLBackend<P>
+where
+    P: DieselPoolAssociation<AsyncMysqlConnection>,
+{
+    type Pool = P::Pool;
+
+    type BuildError = P::BuildError;
+    type PoolError = P::PoolError;
+    type ConnectionError = ConnectionError;
+    type QueryError = Error;
+
+    async fn init(&self) -> Result<(), BError<P::BuildError, P::PoolError>> {
+        MySQLBackendWrapper::new(self).init().await
+    }
+
+    async fn create(
+        &self,
+        db_id: uuid::Uuid,
+    ) -> Result<P::Pool, BError<P::BuildError, P::PoolError>> {
+        MySQLBackendWrapper::new(self).create(db_id).await
+    }
+
+    async fn clean(&self, db_id: uuid::Uuid) -> Result<(), BError<P::BuildError, P::PoolError>> {
+        MySQLBackendWrapper::new(self).clean(db_id).await
+    }
+
+    async fn drop(&self, db_id: uuid::Uuid) -> Result<(), BError<P::BuildError, P::PoolError>> {
+        MySQLBackendWrapper::new(self).drop(db_id).await
+    }
+}

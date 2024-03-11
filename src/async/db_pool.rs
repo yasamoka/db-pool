@@ -1,7 +1,6 @@
 use std::{ops::Deref, sync::Arc};
 
 use async_trait::async_trait;
-use bb8::ManageConnection;
 
 use super::{
     backend::{r#trait::Backend, Error},
@@ -31,11 +30,7 @@ pub trait DatabasePoolBuilder: Backend {
         self,
     ) -> Result<
         DatabasePool<Self>,
-        Error<
-            <Self::ConnectionManager as ManageConnection>::Error,
-            Self::ConnectionError,
-            Self::QueryError,
-        >,
+        Error<Self::BuildError, Self::PoolError, Self::ConnectionError, Self::QueryError>,
     > {
         self.init().await?;
         let backend = Arc::new(self);
