@@ -134,6 +134,7 @@ impl AsyncPgBackend for Backend {
         let db_name = db_name.as_str();
         config.dbname(db_name);
         config.user(db_name);
+        config.password(db_name);
         let manager = PostgresConnectionManager::new(config, NoTls);
         (self.create_restricted_pool)()
             .build(manager)

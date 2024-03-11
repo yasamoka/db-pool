@@ -9,7 +9,7 @@ pub fn create_database(db_name: &str) -> String {
 }
 
 pub fn create_role(name: &str) -> String {
-    format!("CREATE ROLE {name} WITH LOGIN")
+    format!("CREATE ROLE {name} WITH LOGIN PASSWORD '{name}'")
 }
 
 pub fn grant_table_privileges(role_name: &str) -> String {

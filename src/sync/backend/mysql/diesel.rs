@@ -108,9 +108,11 @@ impl MySQLBackend for Backend {
     ) -> Result<Pool<Self::ConnectionManager>, r2d2::Error> {
         let db_name = get_db_name(db_id);
         let db_name = db_name.as_str();
-        let database_url = self
-            .privileged_config
-            .restricted_database_connection_url(db_name, None, db_name);
+        let database_url = self.privileged_config.restricted_database_connection_url(
+            db_name,
+            Some(db_name),
+            db_name,
+        );
         let manager = ConnectionManager::<MysqlConnection>::new(database_url.as_str());
         (self.create_restricted_pool)().build(manager)
     }

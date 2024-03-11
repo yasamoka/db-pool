@@ -11,7 +11,7 @@ pub fn create_database(db_name: &str) -> String {
 }
 
 pub fn create_user(name: &str, host: &str) -> String {
-    format!("CREATE USER {name}@{host} IDENTIFIED BY ''")
+    format!("CREATE USER {name}@{host} IDENTIFIED BY '{name}'")
 }
 
 pub fn use_database(db_name: &str) -> String {

@@ -93,7 +93,8 @@ impl MySQLBackendTrait for Backend {
         let db_name = db_name.as_str();
         let opts = OptsBuilder::from_opts(self.opts.clone())
             .db_name(Some(db_name))
-            .user(Some(db_name));
+            .user(Some(db_name))
+            .pass(Some(db_name));
         let manager = MySqlConnectionManager::new(opts);
         (self.create_restricted_pool)().build(manager)
     }
