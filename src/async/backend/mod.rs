@@ -16,6 +16,8 @@ pub use common::pool::diesel::mobc::DieselMobc;
 pub use mysql::DieselAsyncMySQLBackend;
 #[cfg(feature = "diesel-async-postgres")]
 pub use postgres::DieselAsyncPgBackend;
+#[cfg(feature = "sqlx-postgres")]
+pub use postgres::SqlxPostgresBackend;
 #[cfg(feature = "tokio-postgres")]
 pub use postgres::TokioPostgresBackend;
 pub use r#trait::Backend as AsyncBackendTrait;

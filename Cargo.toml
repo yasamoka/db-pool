@@ -34,11 +34,13 @@ deadpool = { version = "0.9.5", optional = true }
 diesel = { version = "2.1.4", optional = true }
 diesel-async = { version = "0.4.1", optional = true }
 futures = { version = "0.3.30", optional = true }
+mobc = { version = "0.8.3", optional = true }
 r2d2 = { version = "0.8.10", optional = true }
 r2d2_mysql = { version = "24.0.0", optional = true }
 r2d2_postgres = { version = "0.18.1", optional = true }
+sqlx = { version = "0.7.4", optional = true }
 tokio = { version = "1.36.0", optional = true }
-mobc = { version = "0.8.3", optional = true }
+
 
 [dev-dependencies]
 diesel = { version = "2.1.4", features = ["mysql", "postgres"] }
@@ -52,6 +54,7 @@ diesel-async = { version = "0.4.1", features = ["bb8", "postgres"] }
 poem = "2.0.1"
 serde = "1.0.197"
 serde_json = "1.0.114"
+sqlx = "0.7.4"
 tokio-shared-rt = "0.1.0"
 
 
@@ -113,6 +116,9 @@ diesel-async-postgres = [
     "diesel-async/postgres",
 ]
 
+# sqlx backends
+sqlx-postgres = ["_async-postgres", "dep:sqlx", "sqlx/postgres"]
+
 # Other async Postgres backends
 tokio-postgres = ["_async-postgres", "dep:bb8-postgres"]
 
@@ -144,6 +150,10 @@ required-features = ["diesel-async-mysql", "diesel-async-bb8"]
 [[example]]
 name = "diesel_async_pg"
 required-features = ["diesel-async-postgres", "diesel-async-bb8"]
+
+[[example]]
+name = "sqlx_postgres"
+required-features = ["sqlx-postgres", "sqlx/runtime-tokio"]
 
 [[example]]
 name = "tokio_postgres"

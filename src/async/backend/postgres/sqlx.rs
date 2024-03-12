@@ -1,13 +1,13 @@
-use std::{borrow::Cow, collections::HashMap, convert::Into, ops::Deref, pin::Pin};
+use std::{borrow::Cow, collections::HashMap, ops::Deref, pin::Pin};
 
 use async_trait::async_trait;
-use bb8::{Builder, Pool, PooledConnection, RunError};
-use bb8_postgres::{
-    tokio_postgres::{Client, Config, Error, NoTls},
-    PostgresConnectionManager,
-};
 use futures::Future;
 use parking_lot::Mutex;
+use sqlx::{
+    pool::PoolConnection,
+    postgres::{PgConnectOptions, PgPoolOptions},
+    Connection, Error, Executor, PgConnection, PgPool, Postgres, Row,
+};
 use uuid::Uuid;
 
 use crate::{common::statement::postgres, util::get_db_name};
@@ -17,42 +17,41 @@ use super::{
     r#trait::{PostgresBackend, PostgresBackendWrapper},
 };
 
-type Manager = PostgresConnectionManager<NoTls>;
-type CreateEntities = dyn Fn(Client) -> Pin<Box<dyn Future<Output = Client> + Send + 'static>>
+type CreateEntities = dyn Fn(PgConnection) -> Pin<Box<dyn Future<Output = PgConnection> + Send + 'static>>
     + Send
     + Sync
     + 'static;
 
-pub struct TokioPostgresBackend {
-    config: Config,
-    default_pool: Pool<Manager>,
-    db_conns: Mutex<HashMap<Uuid, Client>>,
-    create_restricted_pool: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
+pub struct SqlxPostgresBackend {
+    privileged_opts: PgConnectOptions,
+    default_pool: PgPool,
+    db_conns: Mutex<HashMap<Uuid, PgConnection>>,
+    create_restricted_pool: Box<dyn Fn() -> PgPoolOptions + Send + Sync + 'static>,
     create_entities: Box<CreateEntities>,
     drop_previous_databases_flag: bool,
 }
 
-impl TokioPostgresBackend {
-    pub async fn new(
-        config: Config,
-        create_privileged_pool: impl Fn() -> Builder<Manager>,
-        create_restricted_pool: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
-        create_entities: impl Fn(Client) -> Pin<Box<dyn Future<Output = Client> + Send + 'static>>
+impl SqlxPostgresBackend {
+    pub fn new(
+        privileged_options: PgConnectOptions,
+        create_privileged_pool: impl Fn() -> PgPoolOptions,
+        create_restricted_pool: impl Fn() -> PgPoolOptions + Send + Sync + 'static,
+        create_entities: impl Fn(PgConnection) -> Pin<Box<dyn Future<Output = PgConnection> + Send + 'static>>
             + Send
             + Sync
             + 'static,
-    ) -> Result<Self, RunError<Error>> {
-        let manager = Manager::new(config.clone(), NoTls);
-        let default_pool = (create_privileged_pool()).build(manager).await?;
+    ) -> Self {
+        let pool_opts = create_privileged_pool();
+        let default_pool = pool_opts.connect_lazy_with(privileged_options.clone());
 
-        Ok(Self {
-            config,
+        Self {
+            privileged_opts: privileged_options,
             default_pool,
             db_conns: Mutex::new(HashMap::new()),
             create_entities: Box::new(create_entities),
             create_restricted_pool: Box::new(create_restricted_pool),
             drop_previous_databases_flag: true,
-        })
+        }
     }
 
     #[must_use]
@@ -65,51 +64,48 @@ impl TokioPostgresBackend {
 }
 
 #[async_trait]
-impl<'pool> PostgresBackend<'pool> for TokioPostgresBackend {
-    type Connection = Client;
-    type PooledConnection = PooledConnection<'pool, Manager>;
-    type Pool = Pool<Manager>;
+impl<'pool> PostgresBackend<'pool> for SqlxPostgresBackend {
+    type Connection = PgConnection;
+    type PooledConnection = PoolConnection<Postgres>;
+    type Pool = PgPool;
 
     type BuildError = BuildError;
     type PoolError = PoolError;
     type ConnectionError = ConnectionError;
     type QueryError = QueryError;
 
-    async fn execute_stmt(&self, query: &str, conn: &mut Client) -> Result<(), QueryError> {
-        conn.execute(query, &[]).await?;
+    async fn execute_stmt(&self, query: &str, conn: &mut PgConnection) -> Result<(), QueryError> {
+        conn.execute(query).await?;
         Ok(())
     }
 
     async fn batch_execute_stmt<'a>(
         &self,
         query: impl IntoIterator<Item = Cow<'a, str>> + Send,
-        conn: &mut Client,
+        conn: &mut PgConnection,
     ) -> Result<(), QueryError> {
         let query = query.into_iter().collect::<Vec<_>>().join(";");
-        conn.batch_execute(query.as_str()).await?;
-        Ok(())
+        self.execute_stmt(query.as_str(), conn).await
     }
 
-    async fn get_default_connection(
-        &'pool self,
-    ) -> Result<PooledConnection<'pool, Manager>, PoolError> {
-        self.default_pool.get().await.map_err(Into::into)
+    async fn get_default_connection(&'pool self) -> Result<PoolConnection<Postgres>, PoolError> {
+        self.default_pool.acquire().await.map_err(Into::into)
     }
 
-    async fn establish_database_connection(&self, db_id: Uuid) -> Result<Client, ConnectionError> {
-        let mut config = self.config.clone();
+    async fn establish_database_connection(
+        &self,
+        db_id: Uuid,
+    ) -> Result<PgConnection, ConnectionError> {
         let db_name = get_db_name(db_id);
-        config.dbname(db_name.as_str());
-        let (client, connection) = config.connect(NoTls).await?;
-        tokio::spawn(connection);
-        Ok(client)
+        let opts = self.privileged_opts.clone().database(db_name.as_str());
+        PgConnection::connect_with(&opts).await.map_err(Into::into)
     }
 
-    fn put_database_connection(&self, db_id: Uuid, conn: Client) {
+    fn put_database_connection(&self, db_id: Uuid, conn: PgConnection) {
         self.db_conns.lock().insert(db_id, conn);
     }
 
-    fn get_database_connection(&self, db_id: Uuid) -> Client {
+    fn get_database_connection(&self, db_id: Uuid) -> PgConnection {
         self.db_conns
             .lock()
             .remove(&db_id)
@@ -118,40 +114,39 @@ impl<'pool> PostgresBackend<'pool> for TokioPostgresBackend {
 
     async fn get_previous_database_names(
         &self,
-        conn: &mut Client,
+        conn: &mut PgConnection,
     ) -> Result<Vec<String>, QueryError> {
-        conn.query(postgres::GET_DATABASE_NAMES, &[])
-            .await
-            .map(|rows| rows.iter().map(|row| row.get(0)).collect())
+        conn.fetch_all(postgres::GET_DATABASE_NAMES)
+            .await?
+            .iter()
+            .map(|row| row.try_get(0))
+            .collect::<Result<Vec<_>, _>>()
             .map_err(Into::into)
     }
 
-    async fn create_entities(&self, conn: Client) -> Client {
+    async fn create_entities(&self, conn: PgConnection) -> PgConnection {
         (self.create_entities)(conn).await
     }
 
-    async fn create_connection_pool(&self, db_id: Uuid) -> Result<Pool<Manager>, BuildError> {
+    async fn create_connection_pool(&self, db_id: Uuid) -> Result<PgPool, BuildError> {
         let db_name = get_db_name(db_id);
         let db_name = db_name.as_str();
-        let mut config = self.config.clone();
-        config.dbname(db_name);
-        config.user(db_name);
-        config.password(db_name);
-        let manager = PostgresConnectionManager::new(config, NoTls);
-        (self.create_restricted_pool)()
-            .build(manager)
-            .await
-            .map_err(Into::into)
+        let opts = self
+            .privileged_opts
+            .clone()
+            .database(db_name)
+            .username(db_name)
+            .password(db_name);
+        let pool = (self.create_restricted_pool)().connect_lazy_with(opts);
+        Ok(pool)
     }
 
-    async fn get_table_names(
-        &self,
-        privileged_conn: &mut Client,
-    ) -> Result<Vec<String>, QueryError> {
-        privileged_conn
-            .query(postgres::GET_TABLE_NAMES, &[])
-            .await
-            .map(|rows| rows.iter().map(|row| row.get(0)).collect())
+    async fn get_table_names(&self, conn: &mut PgConnection) -> Result<Vec<String>, QueryError> {
+        conn.fetch_all(postgres::GET_TABLE_NAMES)
+            .await?
+            .iter()
+            .map(|row| row.try_get(0))
+            .collect::<Result<Vec<_>, _>>()
             .map_err(Into::into)
     }
 
@@ -161,9 +156,12 @@ impl<'pool> PostgresBackend<'pool> for TokioPostgresBackend {
 }
 
 #[derive(Debug)]
-pub struct BuildError(Error);
+pub struct BuildError;
 
-impl Deref for BuildError {
+#[derive(Debug)]
+pub struct PoolError(Error);
+
+impl Deref for PoolError {
     type Target = Error;
 
     fn deref(&self) -> &Self::Target {
@@ -171,25 +169,8 @@ impl Deref for BuildError {
     }
 }
 
-impl From<Error> for BuildError {
+impl From<Error> for PoolError {
     fn from(value: Error) -> Self {
-        Self(value)
-    }
-}
-
-#[derive(Debug)]
-pub struct PoolError(RunError<Error>);
-
-impl Deref for PoolError {
-    type Target = RunError<Error>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl From<RunError<Error>> for PoolError {
-    fn from(value: RunError<Error>) -> Self {
         Self(value)
     }
 }
@@ -255,8 +236,8 @@ impl From<QueryError> for BackendError<BuildError, PoolError, ConnectionError, Q
 type BError = BackendError<BuildError, PoolError, ConnectionError, QueryError>;
 
 #[async_trait]
-impl Backend for TokioPostgresBackend {
-    type Pool = Pool<Manager>;
+impl Backend for SqlxPostgresBackend {
+    type Pool = PgPool;
 
     type BuildError = BuildError;
     type PoolError = PoolError;
@@ -267,7 +248,7 @@ impl Backend for TokioPostgresBackend {
         PostgresBackendWrapper::new(self).init().await
     }
 
-    async fn create(&self, db_id: uuid::Uuid) -> Result<Pool<Manager>, BError> {
+    async fn create(&self, db_id: uuid::Uuid) -> Result<PgPool, BError> {
         PostgresBackendWrapper::new(self).create(db_id).await
     }
 
