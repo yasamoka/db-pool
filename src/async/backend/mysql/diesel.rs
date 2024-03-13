@@ -87,7 +87,7 @@ where
     type ConnectionError = ConnectionError;
     type QueryError = Error;
 
-    async fn get_connection(&'pool self) -> Result<Self::PooledConnection, P::PoolError> {
+    async fn get_connection(&'pool self) -> Result<P::PooledConnection<'pool>, P::PoolError> {
         P::get_connection(&self.default_pool).await
     }
 

@@ -116,8 +116,12 @@ diesel-async-postgres = [
     "diesel-async/postgres",
 ]
 
+# sqlx
+_sqlx = ["dep:sqlx"]
+
 # sqlx backends
-sqlx-postgres = ["_async-postgres", "dep:sqlx", "sqlx/postgres"]
+sqlx-mysql = ["_async-mysql", "_sqlx", "sqlx/mysql"]
+sqlx-postgres = ["_async-postgres", "_sqlx", "sqlx/postgres"]
 
 # Other async Postgres backends
 tokio-postgres = ["_async-postgres", "dep:bb8-postgres"]
@@ -150,6 +154,10 @@ required-features = ["diesel-async-mysql", "diesel-async-bb8"]
 [[example]]
 name = "diesel_async_pg"
 required-features = ["diesel-async-postgres", "diesel-async-bb8"]
+
+[[example]]
+name = "sqlx_mysql"
+required-features = ["sqlx-mysql", "sqlx/runtime-tokio"]
 
 [[example]]
 name = "sqlx_postgres"

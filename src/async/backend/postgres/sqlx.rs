@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::HashMap, ops::Deref, pin::Pin};
+use std::{borrow::Cow, collections::HashMap, pin::Pin};
 
 use async_trait::async_trait;
 use futures::Future;
@@ -6,14 +6,18 @@ use parking_lot::Mutex;
 use sqlx::{
     pool::PoolConnection,
     postgres::{PgConnectOptions, PgPoolOptions},
-    Connection, Error, Executor, PgConnection, PgPool, Postgres, Row,
+    Connection, Executor, PgConnection, PgPool, Postgres, Row,
 };
 use uuid::Uuid;
 
 use crate::{common::statement::postgres, util::get_db_name};
 
 use super::{
-    super::{error::Error as BackendError, r#trait::Backend},
+    super::{
+        common::error::sqlx::{BuildError, ConnectionError, PoolError, QueryError},
+        error::Error as BackendError,
+        r#trait::Backend,
+    },
     r#trait::{PostgresBackend, PostgresBackendWrapper},
 };
 
@@ -48,8 +52,8 @@ impl SqlxPostgresBackend {
             privileged_opts: privileged_options,
             default_pool,
             db_conns: Mutex::new(HashMap::new()),
-            create_entities: Box::new(create_entities),
             create_restricted_pool: Box::new(create_restricted_pool),
+            create_entities: Box::new(create_entities),
             drop_previous_databases_flag: true,
         }
     }
@@ -152,84 +156,6 @@ impl<'pool> PostgresBackend<'pool> for SqlxPostgresBackend {
 
     fn get_drop_previous_databases(&self) -> bool {
         self.drop_previous_databases_flag
-    }
-}
-
-#[derive(Debug)]
-pub struct BuildError;
-
-#[derive(Debug)]
-pub struct PoolError(Error);
-
-impl Deref for PoolError {
-    type Target = Error;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl From<Error> for PoolError {
-    fn from(value: Error) -> Self {
-        Self(value)
-    }
-}
-
-#[derive(Debug)]
-pub struct ConnectionError(Error);
-
-impl Deref for ConnectionError {
-    type Target = Error;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl From<Error> for ConnectionError {
-    fn from(value: Error) -> Self {
-        Self(value)
-    }
-}
-
-#[derive(Debug)]
-pub struct QueryError(Error);
-
-impl Deref for QueryError {
-    type Target = Error;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl From<Error> for QueryError {
-    fn from(value: Error) -> Self {
-        Self(value)
-    }
-}
-
-impl From<BuildError> for BackendError<BuildError, PoolError, ConnectionError, QueryError> {
-    fn from(value: BuildError) -> Self {
-        Self::Build(value)
-    }
-}
-
-impl From<PoolError> for BackendError<BuildError, PoolError, ConnectionError, QueryError> {
-    fn from(value: PoolError) -> Self {
-        Self::Pool(value)
-    }
-}
-
-impl From<ConnectionError> for BackendError<BuildError, PoolError, ConnectionError, QueryError> {
-    fn from(value: ConnectionError) -> Self {
-        Self::Connection(value)
-    }
-}
-
-impl From<QueryError> for BackendError<BuildError, PoolError, ConnectionError, QueryError> {
-    fn from(value: QueryError) -> Self {
-        Self::Query(value)
     }
 }
 
