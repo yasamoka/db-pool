@@ -195,8 +195,12 @@ name = "sqlx_postgres"
 required-features = ["sqlx-postgres", "sqlx/runtime-tokio"]
 
 [[example]]
-name = "tokio_postgres"
+name = "tokio_postgres_bb8"
 required-features = ["tokio-postgres", "tokio-postgres-bb8"]
+
+[[example]]
+name = "tokio_postgres_mobc"
+required-features = ["tokio-postgres", "tokio-postgres-mobc"]
 
 [[example]]
 name = "async-graphql"

@@ -23,4 +23,5 @@ pub mod r#async;
 pub mod sync;
 mod util;
 
+#[allow(unused_imports)]
 pub use common::config::*;
