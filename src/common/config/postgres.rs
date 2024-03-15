@@ -68,14 +68,16 @@ impl PrivilegedConfig {
         }
     }
 
-    pub(crate) fn restricted_database_connection_url(&self, username: &str, password: Option<&str>, db_name: &str) -> String {
-        let Self {
-            host, port, ..
-        } = self;
+    pub(crate) fn restricted_database_connection_url(
+        &self,
+        username: &str,
+        password: Option<&str>,
+        db_name: &str,
+    ) -> String {
+        let Self { host, port, .. } = self;
         if let Some(password) = password {
             format!("postgres://{username}:{password}@{host}:{port}/{db_name}")
-        }
-        else {
+        } else {
             format!("postgres://{username}@{host}:{port}/{db_name}")
         }
     }

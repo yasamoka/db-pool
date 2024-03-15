@@ -40,6 +40,7 @@ r2d2_mysql = { version = "24.0.0", optional = true }
 r2d2_postgres = { version = "0.18.1", optional = true }
 sqlx = { version = "0.7.4", optional = true }
 tokio = { version = "1.36.0", optional = true }
+sea-orm = { version = "0.12.14", optional = true }
 
 
 [dev-dependencies]
@@ -116,15 +117,21 @@ diesel-async-postgres = [
     "diesel-async/postgres",
 ]
 
+# SeaORM
+_sea-orm = ["dep:sea-orm"]
+
+# SeaORM backends
+sea-orm-postgres = ["_async-postgres", "_sea-orm", "sea-orm/sqlx-postgres"]
+
+# Other async Postgres backends
+tokio-postgres = ["_async-postgres", "dep:bb8-postgres"]
+
 # sqlx
 _sqlx = ["dep:sqlx"]
 
 # sqlx backends
 sqlx-mysql = ["_async-mysql", "_sqlx", "sqlx/mysql"]
 sqlx-postgres = ["_async-postgres", "_sqlx", "sqlx/postgres"]
-
-# Other async Postgres backends
-tokio-postgres = ["_async-postgres", "dep:bb8-postgres"]
 
 
 [[example]]
@@ -154,6 +161,10 @@ required-features = ["diesel-async-mysql", "diesel-async-bb8"]
 [[example]]
 name = "diesel_async_pg"
 required-features = ["diesel-async-postgres", "diesel-async-bb8"]
+
+[[example]]
+name = "sea_orm_postgres"
+required-features = ["sea-orm-postgres", "sqlx/runtime-tokio"]
 
 [[example]]
 name = "sqlx_mysql"

@@ -18,6 +18,8 @@ pub use mysql::DieselAsyncMySQLBackend;
 pub use mysql::SqlxMySQLBackend;
 #[cfg(feature = "diesel-async-postgres")]
 pub use postgres::DieselAsyncPgBackend;
+#[cfg(feature = "sea-orm-postgres")]
+pub use postgres::SeaORMPostgresBackend;
 #[cfg(feature = "sqlx-postgres")]
 pub use postgres::SqlxPostgresBackend;
 #[cfg(feature = "tokio-postgres")]
