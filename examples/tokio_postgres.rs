@@ -4,8 +4,10 @@ use bb8_postgres::{
     PostgresConnectionManager,
 };
 
-use db_pool::r#async::{DatabasePoolBuilderTrait, TokioPostgresBackend};
+use db_pool::r#async::{DatabasePoolBuilderTrait, TokioPostgresBackend, TokioPostgresBb8};
 use futures::future::join_all;
+
+type Backend = TokioPostgresBackend<TokioPostgresBb8>;
 
 #[tokio::main]
 async fn main() {
@@ -17,7 +19,7 @@ async fn main() {
         "#
     .to_owned();
 
-    let backend = TokioPostgresBackend::new(
+    let backend = Backend::new(
         "host=localhost user=postgres".parse::<Config>().unwrap(),
         || Pool::builder().max_size(10),
         || Pool::builder().max_size(2),

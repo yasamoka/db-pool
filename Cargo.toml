@@ -41,6 +41,9 @@ r2d2_postgres = { version = "0.18.1", optional = true }
 sqlx = { version = "0.7.4", optional = true }
 tokio = { version = "1.36.0", optional = true }
 sea-orm = { version = "0.12.14", optional = true }
+deadpool-postgres = { version = "0.10.5", optional = true }
+mobc-postgres = { version = "0.8.0", optional = true }
+tokio-postgres = { version = "0.7.10", optional = true }
 
 
 [dev-dependencies]
@@ -131,8 +134,20 @@ _sqlx = ["dep:sqlx"]
 sqlx-mysql = ["_async-mysql", "_sqlx", "sqlx/mysql"]
 sqlx-postgres = ["_async-postgres", "_sqlx", "sqlx/postgres"]
 
-# Other async Postgres backends
-tokio-postgres = ["_async-postgres", "dep:bb8-postgres"]
+# tokio-postgres backend
+tokio-postgres = ["_async-postgres", "dep:tokio-postgres"]
+
+# tokio-postgres pools
+tokio-postgres-bb8 = ["tokio-postgres", "dep:bb8", "dep:bb8-postgres"]
+tokio-postgres-deadpool = [
+    "tokio-postgres",
+    "dep:deadpool",
+    "dep:deadpool-postgres",
+    "deadpool/managed",
+]
+tokio-postgres-mobc = ["tokio-postgres", "dep:mobc", "dep:mobc-postgres"]
+deadpool-postgres = ["dep:deadpool-postgres"]
+mobc-postgres = ["dep:mobc-postgres"]
 
 
 [[example]]
@@ -181,7 +196,7 @@ required-features = ["sqlx-postgres", "sqlx/runtime-tokio"]
 
 [[example]]
 name = "tokio_postgres"
-required-features = ["tokio-postgres"]
+required-features = ["tokio-postgres", "tokio-postgres-bb8"]
 
 [[example]]
 name = "async-graphql"

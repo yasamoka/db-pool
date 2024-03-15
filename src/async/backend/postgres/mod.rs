@@ -5,7 +5,7 @@ mod sea_orm;
 #[cfg(feature = "sqlx-postgres")]
 pub mod sqlx;
 #[cfg(feature = "tokio-postgres")]
-mod tokio;
+mod tokio_postgres;
 mod r#trait;
 
 #[cfg(feature = "diesel-async-postgres")]
@@ -15,4 +15,4 @@ pub use sea_orm::SeaORMPostgresBackend;
 #[cfg(feature = "sqlx-postgres")]
 pub use sqlx::SqlxPostgresBackend;
 #[cfg(feature = "tokio-postgres")]
-pub use tokio::TokioPostgresBackend;
+pub use tokio_postgres::TokioPostgresBackend;
