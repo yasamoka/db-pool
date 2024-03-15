@@ -185,4 +185,4 @@ required-features = ["tokio-postgres"]
 
 [[example]]
 name = "async-graphql"
-required-features = ["diesel-async-postgres"]
+required-features = ["diesel-async-postgres", "diesel-async-bb8"]
