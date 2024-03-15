@@ -14,6 +14,8 @@ pub use common::pool::diesel::bb8::DieselBb8;
 pub use common::pool::diesel::mobc::DieselMobc;
 #[cfg(feature = "diesel-async-mysql")]
 pub use mysql::DieselAsyncMySQLBackend;
+#[cfg(feature = "sea-orm-mysql")]
+pub use mysql::SeaORMMySQLBackend;
 #[cfg(feature = "sqlx-mysql")]
 pub use mysql::SqlxMySQLBackend;
 #[cfg(feature = "diesel-async-postgres")]

@@ -1,4 +1,8 @@
-#[cfg(any(feature = "diesel-mysql", feature = "diesel-async-mysql"))]
+#[cfg(any(
+    feature = "diesel-mysql",
+    feature = "diesel-async-mysql",
+    feature = "sea-orm-mysql"
+))]
 pub(crate) mod mysql;
 #[cfg(any(
     feature = "diesel-postgres",
@@ -7,7 +11,11 @@ pub(crate) mod mysql;
 ))]
 pub(crate) mod postgres;
 
-#[cfg(any(feature = "diesel-mysql", feature = "diesel-async-mysql"))]
+#[cfg(any(
+    feature = "diesel-mysql",
+    feature = "diesel-async-mysql",
+    feature = "sea-orm-mysql"
+))]
 pub use mysql::PrivilegedConfig as PrivilegedMySQLConfig;
 #[cfg(any(
     feature = "diesel-postgres",

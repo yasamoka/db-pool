@@ -1,16 +1,19 @@
-use std::{borrow::Cow, collections::HashMap, pin::Pin};
+use std::{borrow::Cow, pin::Pin};
 
 use async_trait::async_trait;
 use futures::Future;
-use parking_lot::Mutex;
 use sea_orm::{
     ActiveModelBehavior, ColumnTrait, ConnectOptions, ConnectionTrait, Database,
     DatabaseConnection, DbErr, DeriveEntityModel, DerivePrimaryKey, DeriveRelation, EntityTrait,
-    EnumIter, FromQueryResult, PrimaryKeyTrait, QueryFilter, QuerySelect,
+    EnumIter, FromQueryResult, PrimaryKeyTrait, QueryFilter, QuerySelect, TransactionError,
+    TransactionTrait,
 };
 use uuid::Uuid;
 
-use crate::{common::config::PrivilegedPostgresConfig, util::get_db_name};
+use crate::{
+    common::{config::PrivilegedMySQLConfig, statement::mysql},
+    util::get_db_name,
+};
 
 use super::{
     super::{
@@ -21,7 +24,7 @@ use super::{
         error::Error as BackendError,
         r#trait::Backend,
     },
-    r#trait::{PostgresBackend, PostgresBackendWrapper},
+    r#trait::{MySQLBackend, MySQLBackendWrapper},
 };
 
 type CreateEntities = dyn Fn(DatabaseConnection) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>>
@@ -29,18 +32,17 @@ type CreateEntities = dyn Fn(DatabaseConnection) -> Pin<Box<dyn Future<Output = 
     + Sync
     + 'static;
 
-pub struct SeaORMPostgresBackend {
-    privileged_config: PrivilegedPostgresConfig,
+pub struct SeaORMMySQLBackend {
+    privileged_config: PrivilegedMySQLConfig,
     default_pool: DatabaseConnection,
-    db_conns: Mutex<HashMap<Uuid, DatabaseConnection>>,
     create_restricted_pool: Box<dyn for<'tmp> Fn(&'tmp mut ConnectOptions) + Send + Sync + 'static>,
     create_entities: Box<CreateEntities>,
     drop_previous_databases_flag: bool,
 }
 
-impl SeaORMPostgresBackend {
+impl SeaORMMySQLBackend {
     pub async fn new(
-        privileged_config: PrivilegedPostgresConfig,
+        privileged_config: PrivilegedMySQLConfig,
         create_privileged_pool: impl for<'tmp> Fn(&'tmp mut ConnectOptions),
         create_restricted_pool: impl for<'tmp> Fn(&'tmp mut ConnectOptions) + Send + Sync + 'static,
         create_entities: impl Fn(DatabaseConnection) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>>
@@ -55,7 +57,6 @@ impl SeaORMPostgresBackend {
         Ok(Self {
             privileged_config,
             default_pool,
-            db_conns: Mutex::new(HashMap::new()),
             create_restricted_pool: Box::new(create_restricted_pool),
             create_entities: Box::new(create_entities),
             drop_previous_databases_flag: true,
@@ -72,7 +73,7 @@ impl SeaORMPostgresBackend {
 }
 
 #[async_trait]
-impl<'pool> PostgresBackend<'pool> for SeaORMPostgresBackend {
+impl<'pool> MySQLBackend<'pool> for SeaORMMySQLBackend {
     type Connection = DatabaseConnection;
     type PooledConnection = PooledConnection;
     type Pool = DatabaseConnection;
@@ -81,6 +82,10 @@ impl<'pool> PostgresBackend<'pool> for SeaORMPostgresBackend {
     type PoolError = PoolError;
     type ConnectionError = ConnectionError;
     type QueryError = QueryError;
+
+    async fn get_connection(&'pool self) -> Result<PooledConnection, PoolError> {
+        Ok(self.default_pool.clone().into())
+    }
 
     async fn execute_stmt(
         &self,
@@ -100,31 +105,8 @@ impl<'pool> PostgresBackend<'pool> for SeaORMPostgresBackend {
         self.execute_stmt(query.as_str(), conn).await
     }
 
-    async fn get_default_connection(&'pool self) -> Result<PooledConnection, PoolError> {
-        Ok(self.default_pool.clone().into())
-    }
-
-    async fn establish_database_connection(
-        &self,
-        db_id: Uuid,
-    ) -> Result<DatabaseConnection, ConnectionError> {
-        let db_name = get_db_name(db_id);
-        let database_url = self
-            .privileged_config
-            .privileged_database_connection_url(db_name.as_str());
-        let opts = ConnectOptions::new(database_url);
-        Database::connect(opts).await.map_err(Into::into)
-    }
-
-    fn put_database_connection(&self, db_id: Uuid, conn: DatabaseConnection) {
-        self.db_conns.lock().insert(db_id, conn);
-    }
-
-    fn get_database_connection(&self, db_id: Uuid) -> DatabaseConnection {
-        self.db_conns
-            .lock()
-            .remove(&db_id)
-            .unwrap_or_else(|| panic!("connection map must have a connection for {db_id}"))
+    fn get_host(&self) -> &str {
+        self.privileged_config.host.as_str()
     }
 
     async fn get_previous_database_names(
@@ -132,11 +114,10 @@ impl<'pool> PostgresBackend<'pool> for SeaORMPostgresBackend {
         conn: &mut DatabaseConnection,
     ) -> Result<Vec<String>, QueryError> {
         #[derive(Clone, Debug, DeriveEntityModel)]
-        #[sea_orm(table_name = "pg_database")]
+        #[sea_orm(table_name = "schemata")]
         pub struct Model {
             #[sea_orm(primary_key)]
-            oid: i32,
-            datname: String,
+            schema_name: String,
         }
 
         #[derive(Debug, EnumIter, DeriveRelation)]
@@ -144,25 +125,30 @@ impl<'pool> PostgresBackend<'pool> for SeaORMPostgresBackend {
 
         impl ActiveModelBehavior for ActiveModel {}
 
-        #[derive(FromQueryResult)]
-        struct QueryModel {
-            datname: String,
-        }
+        conn.transaction(move |txn| {
+            Box::pin(async move {
+                txn.execute_unprepared(mysql::USE_DEFAULT_DATABASE).await?;
 
-        Entity::find()
-            .select_only()
-            .column(Column::Datname)
-            .filter(Column::Datname.like("db_pool_%"))
-            .into_model::<QueryModel>()
-            .all(conn)
-            .await
-            .map(|mut models| models.drain(..).map(|model| model.datname).collect())
-            .map_err(Into::into)
+                Entity::find()
+                    .filter(Column::SchemaName.like("db_pool_%"))
+                    .all(txn)
+                    .await
+            })
+        })
+        .await
+        .map(|mut models| models.drain(..).map(|model| model.schema_name).collect())
+        .map_err(|err| match err {
+            TransactionError::Connection(err) | TransactionError::Transaction(err) => err.into(),
+        })
     }
 
-    async fn create_entities(&self, conn: DatabaseConnection) -> DatabaseConnection {
-        (self.create_entities)(conn.clone()).await;
-        conn
+    async fn create_entities(&self, db_name: &str) -> Result<(), ConnectionError> {
+        let database_url = self
+            .privileged_config
+            .privileged_database_connection_url(db_name);
+        let conn = Database::connect(database_url).await?;
+        (self.create_entities)(conn).await;
+        Ok(())
     }
 
     async fn create_connection_pool(&self, db_id: Uuid) -> Result<DatabaseConnection, BuildError> {
@@ -178,16 +164,18 @@ impl<'pool> PostgresBackend<'pool> for SeaORMPostgresBackend {
         Database::connect(opts).await.map_err(Into::into)
     }
 
+    // TODO: improve error in trait to include both query and connection errors
     async fn get_table_names(
         &self,
+        db_name: &str,
         conn: &mut DatabaseConnection,
     ) -> Result<Vec<String>, QueryError> {
         #[derive(Clone, Debug, DeriveEntityModel)]
-        #[sea_orm(table_name = "pg_tables")]
+        #[sea_orm(table_name = "tables")]
         pub struct Model {
-            schemaname: String,
             #[sea_orm(primary_key)]
-            tablename: String,
+            table_name: String,
+            table_schema: String,
         }
 
         #[derive(Debug, EnumIter, DeriveRelation)]
@@ -197,18 +185,28 @@ impl<'pool> PostgresBackend<'pool> for SeaORMPostgresBackend {
 
         #[derive(FromQueryResult)]
         struct QueryModel {
-            tablename: String,
+            table_name: String,
         }
 
-        Entity::find()
-            .select_only()
-            .column(Column::Tablename)
-            .filter(Column::Schemaname.is_not_in(["pg_catalog", "information_schema"]))
-            .into_model::<QueryModel>()
-            .all(conn)
-            .await
-            .map(|mut models| models.drain(..).map(|model| model.tablename).collect())
-            .map_err(Into::into)
+        conn.transaction(move |txn| {
+            let db_name = db_name.to_owned();
+            Box::pin(async move {
+                txn.execute_unprepared(mysql::USE_DEFAULT_DATABASE).await?;
+
+                Entity::find()
+                    .select_only()
+                    .column(Column::TableName)
+                    .filter(Column::TableSchema.eq(db_name))
+                    .into_model::<QueryModel>()
+                    .all(txn)
+                    .await
+            })
+        })
+        .await
+        .map(|mut models| models.drain(..).map(|model| model.table_name).collect())
+        .map_err(|err| match err {
+            TransactionError::Connection(err) | TransactionError::Transaction(err) => err.into(),
+        })
     }
 
     fn get_drop_previous_databases(&self) -> bool {
@@ -219,7 +217,7 @@ impl<'pool> PostgresBackend<'pool> for SeaORMPostgresBackend {
 type BError = BackendError<BuildError, PoolError, ConnectionError, QueryError>;
 
 #[async_trait]
-impl Backend for SeaORMPostgresBackend {
+impl Backend for SeaORMMySQLBackend {
     type Pool = DatabaseConnection;
 
     type BuildError = BuildError;
@@ -228,18 +226,18 @@ impl Backend for SeaORMPostgresBackend {
     type QueryError = QueryError;
 
     async fn init(&self) -> Result<(), BError> {
-        PostgresBackendWrapper::new(self).init().await
+        MySQLBackendWrapper::new(self).init().await
     }
 
     async fn create(&self, db_id: uuid::Uuid) -> Result<DatabaseConnection, BError> {
-        PostgresBackendWrapper::new(self).create(db_id).await
+        MySQLBackendWrapper::new(self).create(db_id).await
     }
 
     async fn clean(&self, db_id: uuid::Uuid) -> Result<(), BError> {
-        PostgresBackendWrapper::new(self).clean(db_id).await
+        MySQLBackendWrapper::new(self).clean(db_id).await
     }
 
     async fn drop(&self, db_id: uuid::Uuid) -> Result<(), BError> {
-        PostgresBackendWrapper::new(self).drop(db_id).await
+        MySQLBackendWrapper::new(self).drop(db_id).await
     }
 }
