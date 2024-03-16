@@ -284,3 +284,266 @@ where
         Ok(())
     }
 }
+
+#[cfg(test)]
+pub(super) mod tests {
+    #![allow(clippy::unwrap_used)]
+
+    use bb8::Pool as Bb8Pool;
+    use diesel::{dsl::exists, insert_into, prelude::*, select, sql_query, table};
+    use diesel_async::{
+        pooled_connection::AsyncDieselConnectionManager, AsyncPgConnection, RunQueryDsl,
+    };
+    use futures::{future::join_all, Future};
+    use tokio::sync::RwLock;
+    use uuid::Uuid;
+
+    use crate::r#async::backend::r#trait::Backend;
+
+    pub type Pool = Bb8Pool<AsyncDieselConnectionManager<AsyncPgConnection>>;
+
+    pub const CREATE_ENTITIES_STMT: &str =
+        "CREATE TABLE book(id SERIAL PRIMARY KEY, title TEXT NOT NULL)";
+
+    static DROP_LOCK: RwLock<()> = RwLock::const_new(());
+
+    table! {
+        pg_database (oid) {
+            oid -> Int4,
+            datname -> Text
+        }
+    }
+
+    #[allow(unused_variables)]
+    trait DropLock<T>
+    where
+        Self: Future<Output = T> + Sized,
+    {
+        async fn lock_drop(self) -> T {
+            let guard = DROP_LOCK.write().await;
+            self.await
+        }
+
+        async fn lock_read(self) -> T {
+            let guard = DROP_LOCK.read().await;
+            self.await
+        }
+    }
+
+    impl<T, F> DropLock<T> for F where F: Future<Output = T> + Sized {}
+
+    async fn create_default_connection_pool() -> Pool {
+        let manager =
+            AsyncDieselConnectionManager::new("postgres://postgres:postgres@localhost:5432");
+        Bb8Pool::builder().build(manager).await.unwrap()
+    }
+
+    async fn create_database_connection_pool(db_name: &str) -> Pool {
+        let manager = AsyncDieselConnectionManager::new(format!(
+            "postgres://{db_name}:{db_name}@localhost:5432/{db_name}"
+        ));
+        Bb8Pool::builder().build(manager).await.unwrap()
+    }
+
+    fn get_db_name(db_id: Uuid) -> String {
+        let db_id = db_id.to_string().replace('-', "_");
+        format!("db_pool_{db_id}")
+    }
+
+    async fn create_database(conn: &mut AsyncPgConnection) -> String {
+        let db_id = Uuid::new_v4();
+        let db_name = get_db_name(db_id);
+        sql_query(format!("CREATE DATABASE {db_name}"))
+            .execute(conn)
+            .await
+            .unwrap();
+        db_name
+    }
+
+    async fn create_databases(count: i64, pool: &Pool) -> Vec<String> {
+        let futures = (0..count)
+            .map(|_| async {
+                let conn = &mut pool.get().await.unwrap();
+                create_database(conn).await
+            })
+            .collect::<Vec<_>>();
+        join_all(futures).await
+    }
+
+    async fn count_databases(db_names: &Vec<String>, conn: &mut AsyncPgConnection) -> i64 {
+        pg_database::table
+            .filter(pg_database::datname.eq_any(db_names))
+            .count()
+            .get_result(conn)
+            .await
+            .unwrap()
+    }
+
+    async fn database_exists(db_name: &str, conn: &mut AsyncPgConnection) -> bool {
+        select(exists(
+            pg_database::table.filter(pg_database::datname.eq(db_name)),
+        ))
+        .get_result(conn)
+        .await
+        .unwrap()
+    }
+
+    pub async fn test_drops_previous_databases<B>(default: B, enabled: B, disabled: B)
+    where
+        B: Backend,
+    {
+        const NUM_DBS: i64 = 3;
+
+        async {
+            let default_pool = create_default_connection_pool().await;
+            let default_conn = &mut default_pool.get().await.unwrap();
+
+            for (backend, cleans) in [(default, true), (enabled, true), (disabled, false)] {
+                let db_names = create_databases(NUM_DBS, &default_pool).await;
+                assert_eq!(count_databases(&db_names, default_conn).await, NUM_DBS);
+                backend.init().await.unwrap();
+                assert_eq!(
+                    count_databases(&db_names, default_conn).await,
+                    if cleans { 0 } else { NUM_DBS }
+                );
+            }
+        }
+        .lock_drop()
+        .await;
+    }
+
+    pub async fn test_creates_database_with_restricted_privileges(backend: impl Backend) {
+        async {
+            let default_conn_pool = create_default_connection_pool().await;
+            let default_conn = &mut default_conn_pool.get().await.unwrap();
+
+            let db_id = Uuid::new_v4();
+            let db_name = get_db_name(db_id);
+            let db_name = db_name.as_str();
+
+            // database must not exist
+            assert!(!database_exists(db_name, default_conn).await);
+
+            // database must exist after creating through backend
+            backend.init().await.unwrap();
+            backend.create(db_id).await.unwrap();
+            assert!(database_exists(db_name, default_conn).await);
+
+            let db_conn_pool = &mut create_database_connection_pool(db_name).await;
+            let db_conn = &mut db_conn_pool.get().await.unwrap();
+
+            // DDL statements must fail
+            for stmt in [
+                "CREATE TABLE author()",
+                "ALTER TABLE book RENAME TO new_book",
+                "ALTER TABLE book ADD description TEXT",
+                "ALTER TABLE book ALTER title TYPE TEXT",
+                "ALTER TABLE book ALTER title DROP NOT NULL",
+                "ALTER TABLE book RENAME title to new_title",
+                "ALTER TABLE book DROP title",
+                "TRUNCATE TABLE book",
+                "DROP TABLE book",
+            ] {
+                assert!(sql_query(stmt).execute(db_conn).await.is_err());
+            }
+
+            // DML statements must succeed
+            for stmt in [
+                "SELECT FROM book",
+                "INSERT INTO book (title) VALUES ('Title')",
+                "UPDATE book SET title = 'Title 2' WHERE id = 1",
+                "DELETE FROM book WHERE id = 1",
+            ] {
+                assert!(sql_query(stmt).execute(db_conn).await.is_ok());
+            }
+        }
+        .lock_read()
+        .await;
+    }
+
+    pub async fn test_cleans_database(backend: impl Backend) {
+        const NUM_BOOKS: i64 = 3;
+
+        async {
+            let db_id = Uuid::new_v4();
+            let db_name = get_db_name(db_id);
+            let db_name = db_name.as_str();
+
+            backend.init().await.unwrap();
+            backend.create(db_id).await.unwrap();
+
+            let db_conn_pool = &mut create_database_connection_pool(db_name).await;
+            let db_conn = &mut db_conn_pool.get().await.unwrap();
+
+            table! {
+                book (id) {
+                    id -> Int4,
+                    title -> Text
+                }
+            }
+
+            #[derive(Insertable)]
+            #[diesel(table_name = book)]
+            struct NewBook {
+                title: String,
+            }
+
+            let new_books = (0..NUM_BOOKS)
+                .map(|i| NewBook {
+                    title: format!("Title {}", i + 1),
+                })
+                .collect::<Vec<_>>();
+            insert_into(book::table)
+                .values(&new_books)
+                .execute(db_conn)
+                .await
+                .unwrap();
+
+            // there must be books
+            assert_eq!(
+                book::table
+                    .count()
+                    .get_result::<i64>(db_conn)
+                    .await
+                    .unwrap(),
+                NUM_BOOKS
+            );
+
+            backend.clean(db_id).await.unwrap();
+
+            // there must be no books
+            assert_eq!(
+                book::table
+                    .count()
+                    .get_result::<i64>(db_conn)
+                    .await
+                    .unwrap(),
+                0
+            );
+        }
+        .lock_read()
+        .await;
+    }
+
+    pub async fn test_drops_database(backend: impl Backend) {
+        async {
+            let default_conn_pool = create_default_connection_pool().await;
+            let default_conn = &mut default_conn_pool.get().await.unwrap();
+
+            let db_id = Uuid::new_v4();
+            let db_name = get_db_name(db_id);
+            let db_name = db_name.as_str();
+
+            // database must exist
+            backend.init().await.unwrap();
+            backend.create(db_id).await.unwrap();
+            assert!(database_exists(db_name, default_conn).await);
+
+            // database must not exist
+            backend.drop(db_id).await.unwrap();
+            assert!(!database_exists(db_name, default_conn).await);
+        }
+        .lock_drop()
+        .await;
+    }
+}

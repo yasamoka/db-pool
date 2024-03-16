@@ -202,3 +202,72 @@ where
         PostgresBackendWrapper::new(self).drop(db_id).await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::needless_return)]
+
+    use bb8::Pool;
+    use tokio_postgres::Config;
+    use tokio_shared_rt::test;
+
+    use crate::r#async::backend::common::pool::tokio_postgres::bb8::TokioPostgresBb8;
+
+    use super::{
+        super::r#trait::tests::{
+            test_cleans_database, test_creates_database_with_restricted_privileges,
+            test_drops_database, test_drops_previous_databases, CREATE_ENTITIES_STMT,
+        },
+        TokioPostgresBackend,
+    };
+
+    async fn create_backend(with_table: bool) -> TokioPostgresBackend<TokioPostgresBb8> {
+        let mut config = Config::new();
+        config
+            .host("localhost")
+            .user("postgres")
+            .password("postgres");
+        TokioPostgresBackend::new(config, Pool::builder, Pool::builder, {
+            move |conn| {
+                if with_table {
+                    Box::pin(async move {
+                        conn.execute(CREATE_ENTITIES_STMT, &[]).await.unwrap();
+                        conn
+                    })
+                } else {
+                    Box::pin(async { conn })
+                }
+            }
+        })
+        .await
+        .unwrap()
+    }
+
+    #[test(shared)]
+    async fn drops_previous_databases() {
+        test_drops_previous_databases(
+            create_backend(false).await,
+            create_backend(false).await.drop_previous_databases(true),
+            create_backend(false).await.drop_previous_databases(false),
+        )
+        .await;
+    }
+
+    #[test(shared)]
+    async fn creates_database_with_restricted_privileges() {
+        let backend = create_backend(true).await.drop_previous_databases(false);
+        test_creates_database_with_restricted_privileges(backend).await;
+    }
+
+    #[test(shared)]
+    async fn cleans_database() {
+        let backend = create_backend(true).await.drop_previous_databases(false);
+        test_cleans_database(backend).await;
+    }
+
+    #[test(shared)]
+    async fn drops_database() {
+        let backend = create_backend(true).await.drop_previous_databases(false);
+        test_drops_database(backend).await;
+    }
+}
