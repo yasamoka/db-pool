@@ -32,3 +32,28 @@ pub fn drop_database(db_name: &str) -> String {
 pub fn drop_role(name: &str) -> String {
     format!("DROP ROLE {name}")
 }
+
+#[cfg(test)]
+pub(crate) mod tests {
+    pub const CREATE_ENTITIES_STATEMENT: &str =
+        "CREATE TABLE book(id SERIAL PRIMARY KEY, title TEXT NOT NULL)";
+
+    pub const DDL_STATEMENTS: [&str; 9] = [
+        "CREATE TABLE author()",
+        "ALTER TABLE book RENAME TO new_book",
+        "ALTER TABLE book ADD description TEXT",
+        "ALTER TABLE book ALTER title TYPE TEXT",
+        "ALTER TABLE book ALTER title DROP NOT NULL",
+        "ALTER TABLE book RENAME title TO new_title",
+        "ALTER TABLE book DROP title",
+        "TRUNCATE TABLE book",
+        "DROP TABLE book",
+    ];
+
+    pub const DML_STATEMENTS: [&str; 4] = [
+        "SELECT * FROM book",
+        "INSERT INTO book (title) VALUES ('Title')",
+        "UPDATE book SET title = 'Title 2' WHERE id = 1",
+        "DELETE FROM book WHERE id = 1",
+    ];
+}

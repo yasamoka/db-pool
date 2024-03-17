@@ -214,12 +214,14 @@ pub(super) mod tests {
     use tokio::sync::{RwLockReadGuard, RwLockWriteGuard};
     use uuid::Uuid;
 
-    use crate::{r#sync::backend::r#trait::Backend, tests::PG_DROP_LOCK};
+    use crate::{
+        common::statement::postgres::tests::{DDL_STATEMENTS, DML_STATEMENTS},
+        r#sync::backend::r#trait::Backend,
+        tests::PG_DROP_LOCK,
+        util::get_db_name,
+    };
 
     pub type Pool = R2d2Pool<ConnectionManager<PgConnection>>;
-
-    pub const CREATE_ENTITIES_STMT: &str =
-        "CREATE TABLE book(id SERIAL PRIMARY KEY, title TEXT NOT NULL)";
 
     table! {
         pg_database (oid) {
@@ -249,11 +251,6 @@ pub(super) mod tests {
             "postgres://{db_name}:{db_name}@localhost:5432/{db_name}"
         ));
         R2d2Pool::builder().build(manager).unwrap()
-    }
-
-    fn get_db_name(db_id: Uuid) -> String {
-        let db_id = db_id.to_string().replace('-', "_");
-        format!("db_pool_{db_id}")
     }
 
     fn create_database(conn: &mut PgConnection) -> String {
@@ -334,27 +331,12 @@ pub(super) mod tests {
             let conn = &mut conn_pool.get().unwrap();
 
             // DDL statements must fail
-            for stmt in [
-                "CREATE TABLE author()",
-                "ALTER TABLE book RENAME TO new_book",
-                "ALTER TABLE book ADD description TEXT",
-                "ALTER TABLE book ALTER title TYPE TEXT",
-                "ALTER TABLE book ALTER title DROP NOT NULL",
-                "ALTER TABLE book RENAME title TO new_title",
-                "ALTER TABLE book DROP title",
-                "TRUNCATE TABLE book",
-                "DROP TABLE book",
-            ] {
+            for stmt in DDL_STATEMENTS {
                 assert!(sql_query(stmt).execute(conn).is_err());
             }
 
             // DML statements must succeed
-            for stmt in [
-                "SELECT * FROM book",
-                "INSERT INTO book (title) VALUES ('Title')",
-                "UPDATE book SET title = 'Title 2' WHERE id = 1",
-                "DELETE FROM book WHERE id = 1",
-            ] {
+            for stmt in DML_STATEMENTS {
                 assert!(sql_query(stmt).execute(conn).is_ok());
             }
         }

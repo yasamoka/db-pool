@@ -251,12 +251,14 @@ mod tests {
     use sea_orm::ConnectionTrait;
     use tokio_shared_rt::test;
 
-    use crate::common::config::PrivilegedPostgresConfig;
+    use crate::common::{
+        config::PrivilegedPostgresConfig, statement::postgres::tests::CREATE_ENTITIES_STATEMENT,
+    };
 
     use super::{
         super::r#trait::tests::{
             test_cleans_database, test_creates_database_with_restricted_privileges,
-            test_drops_database, test_drops_previous_databases, CREATE_ENTITIES_STMT,
+            test_drops_database, test_drops_previous_databases,
         },
         SeaORMPostgresBackend,
     };
@@ -271,7 +273,9 @@ mod tests {
                 move |conn| {
                     if with_table {
                         Box::pin(async move {
-                            conn.execute_unprepared(CREATE_ENTITIES_STMT).await.unwrap();
+                            conn.execute_unprepared(CREATE_ENTITIES_STATEMENT)
+                                .await
+                                .unwrap();
                         })
                     } else {
                         Box::pin(async {})

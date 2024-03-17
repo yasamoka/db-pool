@@ -219,14 +219,16 @@ mod tests {
     use tokio_shared_rt::test;
 
     use crate::{
-        common::config::PrivilegedMySQLConfig,
+        common::{
+            config::PrivilegedMySQLConfig, statement::mysql::tests::CREATE_ENTITIES_STATEMENT,
+        },
         r#async::backend::common::pool::diesel::bb8::DieselBb8,
     };
 
     use super::{
         super::r#trait::tests::{
             test_cleans_database, test_creates_database_with_restricted_privileges,
-            test_drops_database, test_drops_previous_databases, CREATE_ENTITIES_STMT,
+            test_drops_database, test_drops_previous_databases,
         },
         DieselAsyncMySQLBackend,
     };
@@ -240,7 +242,7 @@ mod tests {
                 move |mut conn| {
                     if with_table {
                         Box::pin(async move {
-                            sql_query(CREATE_ENTITIES_STMT)
+                            sql_query(CREATE_ENTITIES_STATEMENT)
                                 .execute(&mut conn)
                                 .await
                                 .unwrap();

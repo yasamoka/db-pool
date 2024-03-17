@@ -156,12 +156,14 @@ mod tests {
     use diesel::{sql_query, RunQueryDsl};
     use r2d2::Pool;
 
-    use crate::common::config::PrivilegedPostgresConfig;
+    use crate::common::{
+        config::PrivilegedPostgresConfig, statement::postgres::tests::CREATE_ENTITIES_STATEMENT,
+    };
 
     use super::{
         super::r#trait::tests::{
             test_cleans_database, test_creates_database_with_restricted_privileges,
-            test_drops_database, test_drops_previous_databases, CREATE_ENTITIES_STMT,
+            test_drops_database, test_drops_previous_databases,
         },
         DieselPostgresBackend,
     };
@@ -175,7 +177,7 @@ mod tests {
             {
                 move |conn| {
                     if with_table {
-                        sql_query(CREATE_ENTITIES_STMT).execute(conn).unwrap();
+                        sql_query(CREATE_ENTITIES_STATEMENT).execute(conn).unwrap();
                     }
                 }
             },

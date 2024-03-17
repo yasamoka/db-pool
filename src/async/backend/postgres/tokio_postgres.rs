@@ -211,12 +211,15 @@ mod tests {
     use tokio_postgres::Config;
     use tokio_shared_rt::test;
 
-    use crate::r#async::backend::common::pool::tokio_postgres::bb8::TokioPostgresBb8;
+    use crate::{
+        common::statement::postgres::tests::CREATE_ENTITIES_STATEMENT,
+        r#async::backend::common::pool::tokio_postgres::bb8::TokioPostgresBb8,
+    };
 
     use super::{
         super::r#trait::tests::{
             test_cleans_database, test_creates_database_with_restricted_privileges,
-            test_drops_database, test_drops_previous_databases, CREATE_ENTITIES_STMT,
+            test_drops_database, test_drops_previous_databases,
         },
         TokioPostgresBackend,
     };
@@ -231,7 +234,7 @@ mod tests {
             move |conn| {
                 if with_table {
                     Box::pin(async move {
-                        conn.execute(CREATE_ENTITIES_STMT, &[]).await.unwrap();
+                        conn.execute(CREATE_ENTITIES_STATEMENT, &[]).await.unwrap();
                         conn
                     })
                 } else {

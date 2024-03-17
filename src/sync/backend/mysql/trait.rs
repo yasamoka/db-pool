@@ -177,12 +177,14 @@ pub(super) mod tests {
     use tokio::sync::{RwLockReadGuard, RwLockWriteGuard};
     use uuid::Uuid;
 
-    use crate::{r#sync::backend::r#trait::Backend, tests::MYSQL_DROP_LOCK};
+    use crate::{
+        common::statement::mysql::tests::{DDL_STATEMENTS, DML_STATEMENTS},
+        r#sync::backend::r#trait::Backend,
+        tests::MYSQL_DROP_LOCK,
+        util::get_db_name,
+    };
 
     pub type Pool = R2d2Pool<ConnectionManager<MysqlConnection>>;
-
-    pub const CREATE_ENTITIES_STMT: &str =
-        "CREATE TABLE book(id INTEGER PRIMARY KEY AUTO_INCREMENT, title TEXT NOT NULL)";
 
     table! {
         schemata (schema_name) {
@@ -208,11 +210,6 @@ pub(super) mod tests {
             "mysql://{db_name}:{db_name}@localhost:3306/{db_name}"
         ));
         R2d2Pool::builder().build(manager).unwrap()
-    }
-
-    fn get_db_name(db_id: Uuid) -> String {
-        let db_id = db_id.to_string().replace('-', "_");
-        format!("db_pool_{db_id}")
     }
 
     fn create_database(conn: &mut MysqlConnection) -> String {
@@ -305,29 +302,12 @@ pub(super) mod tests {
             let conn = &mut conn_pool.get().unwrap();
 
             // // DDL statements must fail
-            for stmt in [
-                "CREATE TABLE author(id INTEGER)",
-                "ALTER TABLE book RENAME TO new_book",
-                "ALTER TABLE book ADD description TEXT",
-                "ALTER TABLE book MODIFY title TEXT",
-                "ALTER TABLE book MODIFY title TEXT NOT NULL",
-                "ALTER TABLE book RENAME COLUMN title TO new_title",
-                "ALTER TABLE book CHANGE title new_title TEXT",
-                "ALTER TABLE book CHANGE title new_title TEXT NOT NULL",
-                "ALTER TABLE book DROP title",
-                "TRUNCATE TABLE book",
-                "DROP TABLE book",
-            ] {
+            for stmt in DDL_STATEMENTS {
                 assert!(sql_query(stmt).execute(conn).is_err());
             }
 
             // DML statements must succeed
-            for stmt in [
-                "SELECT * FROM book",
-                "INSERT INTO book (title) VALUES ('Title')",
-                "UPDATE book SET title = 'Title 2' WHERE id = 1",
-                "DELETE FROM book WHERE id = 1",
-            ] {
+            for stmt in DML_STATEMENTS {
                 assert!(sql_query(stmt).execute(conn).is_ok());
             }
         }

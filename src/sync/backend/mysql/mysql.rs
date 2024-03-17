@@ -123,10 +123,12 @@ mod tests {
     use r2d2::Pool;
     use r2d2_mysql::mysql::{prelude::Queryable, OptsBuilder};
 
+    use crate::common::statement::mysql::tests::CREATE_ENTITIES_STATEMENT;
+
     use super::{
         super::r#trait::tests::{
             test_cleans_database, test_creates_database_with_restricted_privileges,
-            test_drops_database, test_drops_previous_databases, CREATE_ENTITIES_STMT,
+            test_drops_database, test_drops_previous_databases,
         },
         MySQLBackend,
     };
@@ -142,7 +144,7 @@ mod tests {
             {
                 move |conn| {
                     if with_table {
-                        conn.query_drop(CREATE_ENTITIES_STMT).unwrap();
+                        conn.query_drop(CREATE_ENTITIES_STATEMENT).unwrap();
                     }
                 }
             },
