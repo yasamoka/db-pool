@@ -32,6 +32,7 @@ A thread-safe database pool for running database-tied tests in parallel with:
 | diesel-async/postgres | diesel-async-postgres |
 | diesel-async/mysql    | diesel-async-mysql    |
 | sea-orm/sqlx-postgres | sea-orm-postgres      |
+| sea-orm/sqlx-mysql    | sea-orm-mysql         |
 | sqlx/postgres         | sqlx-postgres         |
 | sqlx/mysql            | sqlx-mysql            |
 | tokio-postgres        | tokio-postgres        |
