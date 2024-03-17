@@ -284,7 +284,7 @@ mod tests {
         .unwrap()
     }
 
-    #[test(shared)]
+    #[test(flavor = "multi_thread", shared)]
     async fn drops_previous_databases() {
         test_drops_previous_databases(
             create_backend(false).await,
@@ -294,19 +294,19 @@ mod tests {
         .await;
     }
 
-    #[test(shared)]
+    #[test(flavor = "multi_thread", shared)]
     async fn creates_database_with_restricted_privileges() {
         let backend = create_backend(true).await.drop_previous_databases(false);
         test_creates_database_with_restricted_privileges(backend).await;
     }
 
-    #[test(shared)]
+    #[test(flavor = "multi_thread", shared)]
     async fn cleans_database() {
         let backend = create_backend(true).await.drop_previous_databases(false);
         test_cleans_database(backend).await;
     }
 
-    #[test(shared)]
+    #[test(flavor = "multi_thread", shared)]
     async fn drops_database() {
         let backend = create_backend(true).await.drop_previous_databases(false);
         test_drops_database(backend).await;

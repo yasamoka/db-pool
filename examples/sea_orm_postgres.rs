@@ -85,5 +85,5 @@ async fn run_test(conn: Reusable<'_, ConnectionPool<SeaORMPostgresBackend>>) {
         ..Default::default()
     };
 
-    author.insert(&(**conn)).await.unwrap();
+    author.insert(&**conn).await.unwrap();
 }

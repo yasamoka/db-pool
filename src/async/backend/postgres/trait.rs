@@ -300,7 +300,7 @@ pub(super) mod tests {
 
     use crate::{
         common::statement::postgres::tests::{DDL_STATEMENTS, DML_STATEMENTS},
-        r#async::backend::r#trait::Backend,
+        r#async::{backend::r#trait::Backend, db_pool::DatabasePoolBuilder},
         tests::PG_DROP_LOCK,
         util::get_db_name,
     };
@@ -314,8 +314,15 @@ pub(super) mod tests {
         }
     }
 
+    table! {
+        book (id) {
+            id -> Int4,
+            title -> Text
+        }
+    }
+
     #[allow(unused_variables)]
-    trait DropLock<T>
+    pub trait DropLock<T>
     where
         Self: Future<Output = T> + Sized,
     {
@@ -378,6 +385,15 @@ pub(super) mod tests {
             .unwrap()
     }
 
+    async fn count_all_databases(conn: &mut AsyncPgConnection) -> i64 {
+        pg_database::table
+            .filter(pg_database::datname.like("db_pool_%"))
+            .count()
+            .get_result(conn)
+            .await
+            .unwrap()
+    }
+
     async fn database_exists(db_name: &str, conn: &mut AsyncPgConnection) -> bool {
         select(exists(
             pg_database::table.filter(pg_database::datname.eq(db_name)),
@@ -387,7 +403,27 @@ pub(super) mod tests {
         .unwrap()
     }
 
-    pub async fn test_drops_previous_databases<B>(default: B, enabled: B, disabled: B)
+    async fn insert_books(count: i64, conn: &mut AsyncPgConnection) {
+        #[derive(Insertable)]
+        #[diesel(table_name = book)]
+        struct NewBook {
+            title: String,
+        }
+
+        let new_books = (0..count)
+            .map(|i| NewBook {
+                title: format!("Title {}", i + 1),
+            })
+            .collect::<Vec<_>>();
+
+        insert_into(book::table)
+            .values(&new_books)
+            .execute(conn)
+            .await
+            .unwrap();
+    }
+
+    pub async fn test_backend_drops_previous_databases<B>(default: B, enabled: B, disabled: B)
     where
         B: Backend,
     {
@@ -411,7 +447,7 @@ pub(super) mod tests {
         .await;
     }
 
-    pub async fn test_creates_database_with_restricted_privileges(backend: impl Backend) {
+    pub async fn test_backend_creates_database_with_restricted_privileges(backend: impl Backend) {
         let db_id = Uuid::new_v4();
         let db_name = get_db_name(db_id);
         let db_name = db_name.as_str();
@@ -451,7 +487,7 @@ pub(super) mod tests {
         .await;
     }
 
-    pub async fn test_cleans_database(backend: impl Backend) {
+    pub async fn test_backend_cleans_database(backend: impl Backend) {
         const NUM_BOOKS: i64 = 3;
 
         let db_id = Uuid::new_v4();
@@ -465,29 +501,7 @@ pub(super) mod tests {
             let conn_pool = &mut create_restricted_connection_pool(db_name).await;
             let conn = &mut conn_pool.get().await.unwrap();
 
-            table! {
-                book (id) {
-                    id -> Int4,
-                    title -> Text
-                }
-            }
-
-            #[derive(Insertable)]
-            #[diesel(table_name = book)]
-            struct NewBook {
-                title: String,
-            }
-
-            let new_books = (0..NUM_BOOKS)
-                .map(|i| NewBook {
-                    title: format!("Title {}", i + 1),
-                })
-                .collect::<Vec<_>>();
-            insert_into(book::table)
-                .values(&new_books)
-                .execute(conn)
-                .await
-                .unwrap();
+            insert_books(NUM_BOOKS, conn).await;
 
             // there must be books
             assert_eq!(
@@ -507,7 +521,7 @@ pub(super) mod tests {
         .await;
     }
 
-    pub async fn test_drops_database(backend: impl Backend) {
+    pub async fn test_backend_drops_database(backend: impl Backend) {
         let db_id = Uuid::new_v4();
         let db_name = get_db_name(db_id);
         let db_name = db_name.as_str();
@@ -526,6 +540,64 @@ pub(super) mod tests {
             assert!(!database_exists(db_name, conn).await);
         }
         .lock_read()
+        .await;
+    }
+
+    pub async fn test_pool_drops_previous_databases<B>(default: B, enabled: B, disabled: B)
+    where
+        B: Backend,
+    {
+        const NUM_DBS: i64 = 3;
+
+        async {
+            let conn_pool = get_privileged_connection_pool().await;
+            let conn = &mut conn_pool.get().await.unwrap();
+
+            for (backend, cleans) in [(default, true), (enabled, true), (disabled, false)] {
+                let db_names = create_databases(NUM_DBS, conn_pool).await;
+                assert_eq!(count_databases(&db_names, conn).await, NUM_DBS);
+                backend.create_database_pool().await.unwrap();
+                assert_eq!(
+                    count_databases(&db_names, conn).await,
+                    if cleans { 0 } else { NUM_DBS }
+                );
+            }
+        }
+        .lock_drop()
+        .await;
+    }
+
+    pub async fn test_pool_drops_created_databases(backend: impl Backend) {
+        const NUM_DBS: i64 = 3;
+
+        let privileged_conn_pool = get_privileged_connection_pool().await;
+        let privileged_conn = &mut privileged_conn_pool.get().await.unwrap();
+
+        async {
+            let db_pool = backend.create_database_pool().await.unwrap();
+
+            // there must be no databases
+            assert_eq!(count_all_databases(privileged_conn).await, 0);
+
+            // fetch connection pools
+            let conn_pools = join_all((0..NUM_DBS).map(|_| db_pool.pull())).await;
+
+            // there must be databases
+            assert_eq!(count_all_databases(privileged_conn).await, NUM_DBS);
+
+            // must release databases back to pool
+            drop(conn_pools);
+
+            // there must be databases
+            assert_eq!(count_all_databases(privileged_conn).await, NUM_DBS);
+
+            // must drop databases
+            drop(db_pool);
+
+            // there must be no databases
+            assert_eq!(count_all_databases(privileged_conn).await, 0);
+        }
+        .lock_drop()
         .await;
     }
 }

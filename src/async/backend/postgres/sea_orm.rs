@@ -248,20 +248,45 @@ impl Backend for SeaORMPostgresBackend {
 mod tests {
     #![allow(clippy::unwrap_used, clippy::needless_return)]
 
-    use sea_orm::ConnectionTrait;
+    use futures::future::join_all;
+    use sea_orm::{
+        ActiveModelBehavior, ActiveModelTrait, ConnectionTrait, DeriveEntityModel,
+        DerivePrimaryKey, DeriveRelation, EntityTrait, EnumIter, FromQueryResult, PaginatorTrait,
+        PrimaryKeyTrait, QuerySelect, Set,
+    };
     use tokio_shared_rt::test;
 
-    use crate::common::{
-        config::PrivilegedPostgresConfig, statement::postgres::tests::CREATE_ENTITIES_STATEMENT,
+    use crate::{
+        common::{
+            config::PrivilegedPostgresConfig,
+            statement::postgres::tests::{
+                CREATE_ENTITIES_STATEMENT, DDL_STATEMENTS, DML_STATEMENTS,
+            },
+        },
+        r#async::db_pool::DatabasePoolBuilder,
     };
 
     use super::{
         super::r#trait::tests::{
-            test_cleans_database, test_creates_database_with_restricted_privileges,
-            test_drops_database, test_drops_previous_databases,
+            test_backend_cleans_database, test_backend_creates_database_with_restricted_privileges,
+            test_backend_drops_database, test_backend_drops_previous_databases,
+            test_pool_drops_created_databases, test_pool_drops_previous_databases, DropLock,
         },
         SeaORMPostgresBackend,
     };
+
+    #[derive(Clone, Debug, DeriveEntityModel)]
+    #[sea_orm(table_name = "book")]
+    pub struct Model {
+        #[sea_orm(primary_key)]
+        id: i32,
+        title: String,
+    }
+
+    #[derive(Debug, EnumIter, DeriveRelation)]
+    pub enum Relation {}
+
+    impl ActiveModelBehavior for ActiveModel {}
 
     async fn create_backend(with_table: bool) -> SeaORMPostgresBackend {
         SeaORMPostgresBackend::new(
@@ -287,9 +312,9 @@ mod tests {
         .unwrap()
     }
 
-    #[test(shared)]
-    async fn drops_previous_databases() {
-        test_drops_previous_databases(
+    #[test(flavor = "multi_thread", shared)]
+    async fn backend_drops_previous_databases() {
+        test_backend_drops_previous_databases(
             create_backend(false).await,
             create_backend(false).await.drop_previous_databases(true),
             create_backend(false).await.drop_previous_databases(false),
@@ -297,21 +322,150 @@ mod tests {
         .await;
     }
 
-    #[test(shared)]
-    async fn creates_database_with_restricted_privileges() {
+    #[test(flavor = "multi_thread", shared)]
+    async fn backend_creates_database_with_restricted_privileges() {
         let backend = create_backend(true).await.drop_previous_databases(false);
-        test_creates_database_with_restricted_privileges(backend).await;
+        test_backend_creates_database_with_restricted_privileges(backend).await;
     }
 
-    #[test(shared)]
-    async fn cleans_database() {
+    #[test(flavor = "multi_thread", shared)]
+    async fn backend_cleans_database() {
         let backend = create_backend(true).await.drop_previous_databases(false);
-        test_cleans_database(backend).await;
+        test_backend_cleans_database(backend).await;
     }
 
-    #[test(shared)]
-    async fn drops_database() {
+    #[test(flavor = "multi_thread", shared)]
+    async fn backend_drops_database() {
         let backend = create_backend(true).await.drop_previous_databases(false);
-        test_drops_database(backend).await;
+        test_backend_drops_database(backend).await;
+    }
+
+    #[test(flavor = "multi_thread", shared)]
+    async fn pool_drops_previous_databases() {
+        test_pool_drops_previous_databases(
+            create_backend(false).await,
+            create_backend(false).await.drop_previous_databases(true),
+            create_backend(false).await.drop_previous_databases(false),
+        )
+        .await;
+    }
+
+    #[test(flavor = "multi_thread", shared)]
+    async fn pool_provides_isolated_databases() {
+        #[derive(FromQueryResult, Eq, PartialEq, Debug)]
+        struct QueryModel {
+            title: String,
+        }
+
+        const NUM_DBS: i64 = 3;
+
+        let backend = create_backend(true).await.drop_previous_databases(false);
+
+        async {
+            let db_pool = backend.create_database_pool().await.unwrap();
+            let conns = join_all((0..NUM_DBS).map(|_| db_pool.pull())).await;
+
+            // insert single row into each database
+            join_all(conns.iter().enumerate().map(|(i, conn)| async move {
+                let book = ActiveModel {
+                    title: Set(format!("Title {i}")),
+                    ..Default::default()
+                };
+                book.insert(&***conn).await.unwrap();
+            }))
+            .await;
+
+            // rows fetched must be as inserted
+            join_all(conns.iter().enumerate().map(|(i, conn)| async move {
+                assert_eq!(
+                    Entity::find()
+                        .select_only()
+                        .column(Column::Title)
+                        .into_model::<QueryModel>()
+                        .all(&***conn)
+                        .await
+                        .unwrap(),
+                    vec![QueryModel {
+                        title: format!("Title {i}")
+                    }]
+                );
+            }))
+            .await;
+        }
+        .lock_read()
+        .await;
+    }
+
+    #[test(flavor = "multi_thread", shared)]
+    async fn pool_provides_restricted_databases() {
+        let backend = create_backend(true).await.drop_previous_databases(false);
+
+        async {
+            let db_pool = backend.create_database_pool().await.unwrap();
+            let conn = db_pool.pull().await;
+
+            // DDL statements must fail
+            for stmt in DDL_STATEMENTS {
+                assert!(conn.execute_unprepared(stmt).await.is_err());
+            }
+
+            // DML statements must succeed
+            for stmt in DML_STATEMENTS {
+                assert!(conn.execute_unprepared(stmt).await.is_ok());
+            }
+        }
+        .lock_read()
+        .await;
+    }
+
+    #[test(flavor = "multi_thread", shared)]
+    async fn pool_provides_clean_databases() {
+        const NUM_DBS: i64 = 3;
+
+        let backend = create_backend(true).await.drop_previous_databases(false);
+
+        async {
+            let db_pool = backend.create_database_pool().await.unwrap();
+
+            // fetch connection pools the first time
+            {
+                let conns = join_all((0..NUM_DBS).map(|_| db_pool.pull())).await;
+
+                // databases must be empty
+                join_all(conns.iter().map(|conn| async move {
+                    assert_eq!(Entity::find().count(&***conn).await.unwrap(), 0);
+                }))
+                .await;
+
+                // insert data into each database
+                join_all(conns.iter().map(|conn| async move {
+                    let book = ActiveModel {
+                        title: Set("Title".to_owned()),
+                        ..Default::default()
+                    };
+                    book.insert(&***conn).await.unwrap();
+                }))
+                .await;
+            }
+
+            // fetch same connection pools a second time
+            {
+                let conns = join_all((0..NUM_DBS).map(|_| db_pool.pull())).await;
+
+                // databases must be empty
+                join_all(conns.iter().map(|conn| async move {
+                    assert_eq!(Entity::find().count(&***conn).await.unwrap(), 0);
+                }))
+                .await;
+            }
+        }
+        .lock_read()
+        .await;
+    }
+
+    #[test(flavor = "multi_thread", shared)]
+    async fn pool_drops_created_databases() {
+        let backend = create_backend(false).await;
+        test_pool_drops_created_databases(backend).await;
     }
 }
