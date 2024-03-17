@@ -30,6 +30,9 @@ pub use common::config::*;
 mod tests {
     use tokio::sync::RwLock;
 
+    #[cfg(feature = "_mysql")]
     pub static MYSQL_DROP_LOCK: RwLock<()> = RwLock::const_new(());
+
+    #[cfg(feature = "_postgres")]
     pub static PG_DROP_LOCK: RwLock<()> = RwLock::const_new(());
 }

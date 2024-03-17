@@ -384,10 +384,10 @@ pub(super) mod tests {
     {
         const NUM_DBS: i64 = 3;
 
-        async {
-            let conn_pool = create_privileged_connection_pool().await;
-            let conn = &mut conn_pool.get().await.unwrap();
+        let conn_pool = create_privileged_connection_pool().await;
+        let conn = &mut conn_pool.get().await.unwrap();
 
+        async {
             for (backend, cleans) in [(default, true), (enabled, true), (disabled, false)] {
                 let db_names = create_databases(NUM_DBS, &conn_pool).await;
                 assert_eq!(count_databases(&db_names, conn).await, NUM_DBS);
@@ -403,11 +403,11 @@ pub(super) mod tests {
     }
 
     pub async fn test_creates_database_with_restricted_privileges(backend: impl Backend) {
-        async {
-            let db_id = Uuid::new_v4();
-            let db_name = get_db_name(db_id);
-            let db_name = db_name.as_str();
+        let db_id = Uuid::new_v4();
+        let db_name = get_db_name(db_id);
+        let db_name = db_name.as_str();
 
+        async {
             // privileged operations
             {
                 let conn_pool = create_privileged_connection_pool().await;
@@ -462,16 +462,16 @@ pub(super) mod tests {
     pub async fn test_cleans_database(backend: impl Backend) {
         const NUM_BOOKS: i64 = 3;
 
-        async {
-            let db_id = Uuid::new_v4();
-            let db_name = get_db_name(db_id);
-            let db_name = db_name.as_str();
+        let db_id = Uuid::new_v4();
+        let db_name = get_db_name(db_id);
+        let db_name = db_name.as_str();
 
+        let conn_pool = create_privileged_connection_pool().await;
+        let conn = &mut conn_pool.get().await.unwrap();
+
+        async {
             backend.init().await.unwrap();
             backend.create(db_id).await.unwrap();
-
-            let conn_pool = create_privileged_connection_pool().await;
-            let conn = &mut conn_pool.get().await.unwrap();
 
             use_database(db_name, conn).await;
 
@@ -518,11 +518,11 @@ pub(super) mod tests {
     }
 
     pub async fn test_drops_database(backend: impl Backend) {
-        async {
-            let db_id = Uuid::new_v4();
-            let db_name = get_db_name(db_id);
-            let db_name = db_name.as_str();
+        let db_id = Uuid::new_v4();
+        let db_name = get_db_name(db_id);
+        let db_name = db_name.as_str();
 
+        async {
             let conn_pool = create_privileged_connection_pool().await;
             let conn = &mut conn_pool.get().await.unwrap();
 

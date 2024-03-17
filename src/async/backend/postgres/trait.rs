@@ -295,6 +295,7 @@ pub(super) mod tests {
         pooled_connection::AsyncDieselConnectionManager, AsyncPgConnection, RunQueryDsl,
     };
     use futures::{future::join_all, Future};
+    use tokio::sync::OnceCell;
     use uuid::Uuid;
 
     use crate::{r#async::backend::r#trait::Backend, tests::PG_DROP_LOCK};
@@ -329,13 +330,17 @@ pub(super) mod tests {
 
     impl<T, F> DropLock<T> for F where F: Future<Output = T> + Sized {}
 
-    async fn create_default_connection_pool() -> Pool {
-        let manager =
-            AsyncDieselConnectionManager::new("postgres://postgres:postgres@localhost:5432");
-        Bb8Pool::builder().build(manager).await.unwrap()
+    async fn get_privileged_connection_pool() -> &'static Pool {
+        static POOL: OnceCell<Pool> = OnceCell::const_new();
+        POOL.get_or_init(|| async {
+            let manager =
+                AsyncDieselConnectionManager::new("postgres://postgres:postgres@localhost:5432");
+            Bb8Pool::builder().build(manager).await.unwrap()
+        })
+        .await
     }
 
-    async fn create_database_connection_pool(db_name: &str) -> Pool {
+    async fn create_restricted_connection_pool(db_name: &str) -> Pool {
         let manager = AsyncDieselConnectionManager::new(format!(
             "postgres://{db_name}:{db_name}@localhost:5432/{db_name}"
         ));
@@ -392,15 +397,15 @@ pub(super) mod tests {
         const NUM_DBS: i64 = 3;
 
         async {
-            let default_pool = create_default_connection_pool().await;
-            let default_conn = &mut default_pool.get().await.unwrap();
+            let conn_pool = get_privileged_connection_pool().await;
+            let conn = &mut conn_pool.get().await.unwrap();
 
             for (backend, cleans) in [(default, true), (enabled, true), (disabled, false)] {
-                let db_names = create_databases(NUM_DBS, &default_pool).await;
-                assert_eq!(count_databases(&db_names, default_conn).await, NUM_DBS);
+                let db_names = create_databases(NUM_DBS, conn_pool).await;
+                assert_eq!(count_databases(&db_names, conn).await, NUM_DBS);
                 backend.init().await.unwrap();
                 assert_eq!(
-                    count_databases(&db_names, default_conn).await,
+                    count_databases(&db_names, conn).await,
                     if cleans { 0 } else { NUM_DBS }
                 );
             }
@@ -410,48 +415,54 @@ pub(super) mod tests {
     }
 
     pub async fn test_creates_database_with_restricted_privileges(backend: impl Backend) {
+        let db_id = Uuid::new_v4();
+        let db_name = get_db_name(db_id);
+        let db_name = db_name.as_str();
+
         async {
-            let default_conn_pool = create_default_connection_pool().await;
-            let default_conn = &mut default_conn_pool.get().await.unwrap();
+            // privileged operations
+            {
+                let conn_pool = get_privileged_connection_pool().await;
+                let conn = &mut conn_pool.get().await.unwrap();
 
-            let db_id = Uuid::new_v4();
-            let db_name = get_db_name(db_id);
-            let db_name = db_name.as_str();
+                // database must not exist
+                assert!(!database_exists(db_name, conn).await);
 
-            // database must not exist
-            assert!(!database_exists(db_name, default_conn).await);
-
-            // database must exist after creating through backend
-            backend.init().await.unwrap();
-            backend.create(db_id).await.unwrap();
-            assert!(database_exists(db_name, default_conn).await);
-
-            let db_conn_pool = &mut create_database_connection_pool(db_name).await;
-            let db_conn = &mut db_conn_pool.get().await.unwrap();
-
-            // DDL statements must fail
-            for stmt in [
-                "CREATE TABLE author()",
-                "ALTER TABLE book RENAME TO new_book",
-                "ALTER TABLE book ADD description TEXT",
-                "ALTER TABLE book ALTER title TYPE TEXT",
-                "ALTER TABLE book ALTER title DROP NOT NULL",
-                "ALTER TABLE book RENAME title TO new_title",
-                "ALTER TABLE book DROP title",
-                "TRUNCATE TABLE book",
-                "DROP TABLE book",
-            ] {
-                assert!(sql_query(stmt).execute(db_conn).await.is_err());
+                // database must exist after creating through backend
+                backend.init().await.unwrap();
+                backend.create(db_id).await.unwrap();
+                assert!(database_exists(db_name, conn).await);
             }
 
-            // DML statements must succeed
-            for stmt in [
-                "SELECT * FROM book",
-                "INSERT INTO book (title) VALUES ('Title')",
-                "UPDATE book SET title = 'Title 2' WHERE id = 1",
-                "DELETE FROM book WHERE id = 1",
-            ] {
-                assert!(sql_query(stmt).execute(db_conn).await.is_ok());
+            // restricted operations
+            {
+                let conn_pool = &mut create_restricted_connection_pool(db_name).await;
+                let conn = &mut conn_pool.get().await.unwrap();
+
+                // DDL statements must fail
+                for stmt in [
+                    "CREATE TABLE author()",
+                    "ALTER TABLE book RENAME TO new_book",
+                    "ALTER TABLE book ADD description TEXT",
+                    "ALTER TABLE book ALTER title TYPE TEXT",
+                    "ALTER TABLE book ALTER title DROP NOT NULL",
+                    "ALTER TABLE book RENAME title TO new_title",
+                    "ALTER TABLE book DROP title",
+                    "TRUNCATE TABLE book",
+                    "DROP TABLE book",
+                ] {
+                    assert!(sql_query(stmt).execute(conn).await.is_err());
+                }
+
+                // DML statements must succeed
+                for stmt in [
+                    "SELECT * FROM book",
+                    "INSERT INTO book (title) VALUES ('Title')",
+                    "UPDATE book SET title = 'Title 2' WHERE id = 1",
+                    "DELETE FROM book WHERE id = 1",
+                ] {
+                    assert!(sql_query(stmt).execute(conn).await.is_ok());
+                }
             }
         }
         .lock_read()
@@ -461,16 +472,16 @@ pub(super) mod tests {
     pub async fn test_cleans_database(backend: impl Backend) {
         const NUM_BOOKS: i64 = 3;
 
-        async {
-            let db_id = Uuid::new_v4();
-            let db_name = get_db_name(db_id);
-            let db_name = db_name.as_str();
+        let db_id = Uuid::new_v4();
+        let db_name = get_db_name(db_id);
+        let db_name = db_name.as_str();
 
+        async {
             backend.init().await.unwrap();
             backend.create(db_id).await.unwrap();
 
-            let db_conn_pool = &mut create_database_connection_pool(db_name).await;
-            let db_conn = &mut db_conn_pool.get().await.unwrap();
+            let conn_pool = &mut create_restricted_connection_pool(db_name).await;
+            let conn = &mut conn_pool.get().await.unwrap();
 
             table! {
                 book (id) {
@@ -492,17 +503,13 @@ pub(super) mod tests {
                 .collect::<Vec<_>>();
             insert_into(book::table)
                 .values(&new_books)
-                .execute(db_conn)
+                .execute(conn)
                 .await
                 .unwrap();
 
             // there must be books
             assert_eq!(
-                book::table
-                    .count()
-                    .get_result::<i64>(db_conn)
-                    .await
-                    .unwrap(),
+                book::table.count().get_result::<i64>(conn).await.unwrap(),
                 NUM_BOOKS
             );
 
@@ -510,11 +517,7 @@ pub(super) mod tests {
 
             // there must be no books
             assert_eq!(
-                book::table
-                    .count()
-                    .get_result::<i64>(db_conn)
-                    .await
-                    .unwrap(),
+                book::table.count().get_result::<i64>(conn).await.unwrap(),
                 0
             );
         }
@@ -523,22 +526,22 @@ pub(super) mod tests {
     }
 
     pub async fn test_drops_database(backend: impl Backend) {
+        let db_id = Uuid::new_v4();
+        let db_name = get_db_name(db_id);
+        let db_name = db_name.as_str();
+
+        let conn_pool = get_privileged_connection_pool().await;
+        let conn = &mut conn_pool.get().await.unwrap();
+
         async {
-            let default_conn_pool = create_default_connection_pool().await;
-            let default_conn = &mut default_conn_pool.get().await.unwrap();
-
-            let db_id = Uuid::new_v4();
-            let db_name = get_db_name(db_id);
-            let db_name = db_name.as_str();
-
             // database must exist
             backend.init().await.unwrap();
             backend.create(db_id).await.unwrap();
-            assert!(database_exists(db_name, default_conn).await);
+            assert!(database_exists(db_name, conn).await);
 
             // database must not exist
             backend.drop(db_id).await.unwrap();
-            assert!(!database_exists(db_name, default_conn).await);
+            assert!(!database_exists(db_name, conn).await);
         }
         .lock_read()
         .await;

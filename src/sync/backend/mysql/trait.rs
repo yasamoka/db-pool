@@ -262,10 +262,10 @@ pub(super) mod tests {
     {
         const NUM_DBS: i64 = 3;
 
-        let guard = lock_drop();
-
         let conn_pool = create_privileged_connection_pool();
         let conn = &mut conn_pool.get().unwrap();
+
+        let guard = lock_drop();
 
         for (backend, cleans) in [(default, true), (enabled, true), (disabled, false)] {
             let db_names = create_databases(NUM_DBS, conn);
@@ -279,11 +279,11 @@ pub(super) mod tests {
     }
 
     pub fn test_creates_database_with_restricted_privileges(backend: &impl Backend) {
-        let guard = lock_read();
-
         let db_id = Uuid::new_v4();
         let db_name = get_db_name(db_id);
         let db_name = db_name.as_str();
+
+        let guard = lock_read();
 
         // privileged operations
         {
@@ -336,11 +336,11 @@ pub(super) mod tests {
     pub fn test_cleans_database(backend: &impl Backend) {
         const NUM_BOOKS: i64 = 3;
 
-        let guard = lock_read();
-
         let db_id = Uuid::new_v4();
         let db_name = get_db_name(db_id);
         let db_name = db_name.as_str();
+
+        let guard = lock_read();
 
         backend.init().unwrap();
         backend.create(db_id).unwrap();
@@ -386,11 +386,11 @@ pub(super) mod tests {
     }
 
     pub fn test_drops_database(backend: &impl Backend) {
-        let guard = lock_read();
-
         let db_id = Uuid::new_v4();
         let db_name = get_db_name(db_id);
         let db_name = db_name.as_str();
+
+        let guard = lock_read();
 
         let conn_pool = create_privileged_connection_pool();
         let conn = &mut conn_pool.get().unwrap();
