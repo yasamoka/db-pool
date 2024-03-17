@@ -208,3 +208,78 @@ where
         MySQLBackendWrapper::new(self).drop(db_id).await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::needless_return)]
+
+    use bb8::Pool;
+    use diesel::sql_query;
+    use diesel_async::RunQueryDsl;
+    use tokio_shared_rt::test;
+
+    use crate::{
+        common::config::PrivilegedMySQLConfig,
+        r#async::backend::common::pool::diesel::bb8::DieselBb8,
+    };
+
+    use super::{
+        super::r#trait::tests::{
+            test_cleans_database, test_creates_database_with_restricted_privileges,
+            test_drops_database, test_drops_previous_databases, CREATE_ENTITIES_STMT,
+        },
+        DieselAsyncMySQLBackend,
+    };
+
+    async fn create_backend(with_table: bool) -> DieselAsyncMySQLBackend<DieselBb8> {
+        DieselAsyncMySQLBackend::new(
+            PrivilegedMySQLConfig::new("root".to_owned()).password(Some("root".to_owned())),
+            Pool::builder,
+            Pool::builder,
+            {
+                move |mut conn| {
+                    if with_table {
+                        Box::pin(async move {
+                            sql_query(CREATE_ENTITIES_STMT)
+                                .execute(&mut conn)
+                                .await
+                                .unwrap();
+                        })
+                    } else {
+                        Box::pin(async {})
+                    }
+                }
+            },
+        )
+        .await
+        .unwrap()
+    }
+
+    #[test(shared)]
+    async fn drops_previous_databases() {
+        test_drops_previous_databases(
+            create_backend(false).await,
+            create_backend(false).await.drop_previous_databases(true),
+            create_backend(false).await.drop_previous_databases(false),
+        )
+        .await;
+    }
+
+    #[test(shared)]
+    async fn creates_database_with_restricted_privileges() {
+        let backend = create_backend(true).await.drop_previous_databases(false);
+        test_creates_database_with_restricted_privileges(backend).await;
+    }
+
+    #[test(shared)]
+    async fn cleans_database() {
+        let backend = create_backend(true).await.drop_previous_databases(false);
+        test_cleans_database(backend).await;
+    }
+
+    #[test(shared)]
+    async fn drops_database() {
+        let backend = create_backend(true).await.drop_previous_databases(false);
+        test_drops_database(backend).await;
+    }
+}

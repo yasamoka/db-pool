@@ -208,8 +208,8 @@ mod tests {
     fn create_backend(with_table: bool) -> SqlxPostgresBackend {
         SqlxPostgresBackend::new(
             PgConnectOptions::new()
-                .host("localhost")
-                .username("postgres"),
+                .username("postgres")
+                .password("postgres"),
             PgPoolOptions::new,
             PgPoolOptions::new,
             {

@@ -297,7 +297,7 @@ pub(super) mod tests {
     use futures::{future::join_all, Future};
     use uuid::Uuid;
 
-    use crate::{r#async::backend::r#trait::Backend, tests::DROP_LOCK};
+    use crate::{r#async::backend::r#trait::Backend, tests::PG_DROP_LOCK};
 
     pub type Pool = Bb8Pool<AsyncDieselConnectionManager<AsyncPgConnection>>;
 
@@ -312,17 +312,17 @@ pub(super) mod tests {
     }
 
     #[allow(unused_variables)]
-    pub(crate) trait DropLock<T>
+    trait DropLock<T>
     where
         Self: Future<Output = T> + Sized,
     {
         async fn lock_drop(self) -> T {
-            let guard = DROP_LOCK.write().await;
+            let guard = PG_DROP_LOCK.write().await;
             self.await
         }
 
         async fn lock_read(self) -> T {
-            let guard = DROP_LOCK.read().await;
+            let guard = PG_DROP_LOCK.read().await;
             self.await
         }
     }
@@ -436,7 +436,7 @@ pub(super) mod tests {
                 "ALTER TABLE book ADD description TEXT",
                 "ALTER TABLE book ALTER title TYPE TEXT",
                 "ALTER TABLE book ALTER title DROP NOT NULL",
-                "ALTER TABLE book RENAME title to new_title",
+                "ALTER TABLE book RENAME title TO new_title",
                 "ALTER TABLE book DROP title",
                 "TRUNCATE TABLE book",
                 "DROP TABLE book",
@@ -446,7 +446,7 @@ pub(super) mod tests {
 
             // DML statements must succeed
             for stmt in [
-                "SELECT FROM book",
+                "SELECT * FROM book",
                 "INSERT INTO book (title) VALUES ('Title')",
                 "UPDATE book SET title = 'Title 2' WHERE id = 1",
                 "DELETE FROM book WHERE id = 1",
@@ -540,7 +540,7 @@ pub(super) mod tests {
             backend.drop(db_id).await.unwrap();
             assert!(!database_exists(db_name, default_conn).await);
         }
-        .lock_drop()
+        .lock_read()
         .await;
     }
 }

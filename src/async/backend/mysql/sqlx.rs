@@ -178,3 +178,70 @@ impl Backend for SqlxMySQLBackend {
         MySQLBackendWrapper::new(self).drop(db_id).await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::needless_return)]
+
+    use sqlx::{
+        mysql::{MySqlConnectOptions, MySqlPoolOptions},
+        Executor,
+    };
+    use tokio_shared_rt::test;
+
+    use super::{
+        super::r#trait::tests::{
+            test_cleans_database, test_creates_database_with_restricted_privileges,
+            test_drops_database, test_drops_previous_databases, CREATE_ENTITIES_STMT,
+        },
+        SqlxMySQLBackend,
+    };
+
+    fn create_backend(with_table: bool) -> SqlxMySQLBackend {
+        SqlxMySQLBackend::new(
+            MySqlConnectOptions::new().username("root").password("root"),
+            MySqlPoolOptions::new,
+            MySqlPoolOptions::new,
+            {
+                move |mut conn| {
+                    if with_table {
+                        Box::pin(async move {
+                            conn.execute(CREATE_ENTITIES_STMT).await.unwrap();
+                            conn
+                        })
+                    } else {
+                        Box::pin(async { conn })
+                    }
+                }
+            },
+        )
+    }
+
+    #[test(shared)]
+    async fn drops_previous_databases() {
+        test_drops_previous_databases(
+            create_backend(false),
+            create_backend(false).drop_previous_databases(true),
+            create_backend(false).drop_previous_databases(false),
+        )
+        .await;
+    }
+
+    #[test(shared)]
+    async fn creates_database_with_restricted_privileges() {
+        let backend = create_backend(true).drop_previous_databases(false);
+        test_creates_database_with_restricted_privileges(backend).await;
+    }
+
+    #[test(shared)]
+    async fn cleans_database() {
+        let backend = create_backend(true).drop_previous_databases(false);
+        test_cleans_database(backend).await;
+    }
+
+    #[test(shared)]
+    async fn drops_database() {
+        let backend = create_backend(true).drop_previous_databases(false);
+        test_drops_database(backend).await;
+    }
+}

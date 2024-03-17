@@ -30,5 +30,6 @@ pub use common::config::*;
 mod tests {
     use tokio::sync::RwLock;
 
-    pub static DROP_LOCK: RwLock<()> = RwLock::const_new(());
+    pub static MYSQL_DROP_LOCK: RwLock<()> = RwLock::const_new(());
+    pub static PG_DROP_LOCK: RwLock<()> = RwLock::const_new(());
 }

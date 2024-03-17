@@ -212,7 +212,7 @@ pub(super) mod tests {
     use tokio::sync::{RwLockReadGuard, RwLockWriteGuard};
     use uuid::Uuid;
 
-    use crate::{r#sync::backend::r#trait::Backend, tests::DROP_LOCK};
+    use crate::{r#sync::backend::r#trait::Backend, tests::PG_DROP_LOCK};
 
     pub type Pool = R2d2Pool<ConnectionManager<PgConnection>>;
 
@@ -227,11 +227,11 @@ pub(super) mod tests {
     }
 
     fn lock_drop<'a>() -> RwLockWriteGuard<'a, ()> {
-        DROP_LOCK.blocking_write()
+        PG_DROP_LOCK.blocking_write()
     }
 
     fn lock_read<'a>() -> RwLockReadGuard<'a, ()> {
-        DROP_LOCK.blocking_read()
+        PG_DROP_LOCK.blocking_read()
     }
 
     fn create_default_connection_pool() -> Pool {
@@ -332,7 +332,7 @@ pub(super) mod tests {
             "ALTER TABLE book ADD description TEXT",
             "ALTER TABLE book ALTER title TYPE TEXT",
             "ALTER TABLE book ALTER title DROP NOT NULL",
-            "ALTER TABLE book RENAME title to new_title",
+            "ALTER TABLE book RENAME title TO new_title",
             "ALTER TABLE book DROP title",
             "TRUNCATE TABLE book",
             "DROP TABLE book",
@@ -342,7 +342,7 @@ pub(super) mod tests {
 
         // DML statements must succeed
         for stmt in [
-            "SELECT FROM book",
+            "SELECT * FROM book",
             "INSERT INTO book (title) VALUES ('Title')",
             "UPDATE book SET title = 'Title 2' WHERE id = 1",
             "DELETE FROM book WHERE id = 1",
@@ -402,7 +402,7 @@ pub(super) mod tests {
     }
 
     pub fn test_drops_database(backend: &impl Backend) {
-        let guard = lock_drop();
+        let guard = lock_read();
 
         let default_conn_pool = create_default_connection_pool();
         let default_conn = &mut default_conn_pool.get().unwrap();
