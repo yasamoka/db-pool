@@ -25,3 +25,10 @@ mod util;
 
 #[allow(unused_imports)]
 pub use common::config::*;
+
+#[cfg(test)]
+mod tests {
+    use tokio::sync::RwLock;
+
+    pub static DROP_LOCK: RwLock<()> = RwLock::const_new(());
+}

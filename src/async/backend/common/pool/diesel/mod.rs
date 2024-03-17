@@ -1,4 +1,4 @@
-#[cfg(feature = "diesel-async-bb8")]
+#[cfg(any(all(test, feature = "_diesel-async"), feature = "diesel-async-bb8"))]
 pub mod bb8;
 #[cfg(feature = "diesel-async-deadpool")]
 pub mod deadpool;

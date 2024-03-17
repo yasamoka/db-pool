@@ -1,4 +1,4 @@
-#[cfg(feature = "tokio-postgres-bb8")]
+#[cfg(any(all(test, feature = "tokio-postgres"), feature = "tokio-postgres-bb8"))]
 pub mod bb8;
 #[cfg(feature = "tokio-postgres-deadpool")]
 pub mod deadpool;

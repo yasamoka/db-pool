@@ -295,17 +295,14 @@ pub(super) mod tests {
         pooled_connection::AsyncDieselConnectionManager, AsyncPgConnection, RunQueryDsl,
     };
     use futures::{future::join_all, Future};
-    use tokio::sync::RwLock;
     use uuid::Uuid;
 
-    use crate::r#async::backend::r#trait::Backend;
+    use crate::{r#async::backend::r#trait::Backend, tests::DROP_LOCK};
 
     pub type Pool = Bb8Pool<AsyncDieselConnectionManager<AsyncPgConnection>>;
 
     pub const CREATE_ENTITIES_STMT: &str =
         "CREATE TABLE book(id SERIAL PRIMARY KEY, title TEXT NOT NULL)";
-
-    static DROP_LOCK: RwLock<()> = RwLock::const_new(());
 
     table! {
         pg_database (oid) {
@@ -315,7 +312,7 @@ pub(super) mod tests {
     }
 
     #[allow(unused_variables)]
-    trait DropLock<T>
+    pub(crate) trait DropLock<T>
     where
         Self: Future<Output = T> + Sized,
     {

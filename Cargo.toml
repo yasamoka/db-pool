@@ -47,20 +47,22 @@ tokio-postgres = { version = "0.7.10", optional = true }
 
 
 [dev-dependencies]
-diesel = { version = "2.1.4", features = ["mysql", "postgres"] }
+bb8 = "0.8.3"
+bb8-postgres = "0.8.1"
+diesel = { version = "2.1.4", features = ["mysql", "postgres", "r2d2"] }
+diesel-async = { version = "0.4.1", features = ["bb8", "postgres"] }
 futures = "0.3.30"
+r2d2 = "0.8.10"
+sqlx = { version = "0.7.4", features = ["runtime-tokio"] }
 tokio = { version = "1.36.0", features = ["macros", "rt-multi-thread"] }
+tokio-shared-rt = "0.1.0"
 
 async-graphql = "7.0.2"
 async-graphql-poem = "7.0.2"
-bb8 = "0.8.3"
-diesel-async = { version = "0.4.1", features = ["bb8", "postgres"] }
 poem = "2.0.1"
 serde = "1.0.197"
 serde_json = "1.0.114"
-sqlx = { version = "0.7.4", features = ["runtime-tokio"] }
 tokio-postgres = "0.7.10"
-tokio-shared-rt = "0.1.0"
 
 
 [features]

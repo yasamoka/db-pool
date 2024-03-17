@@ -175,3 +175,62 @@ impl From<QueryError> for BackendError<ConnectionError, QueryError> {
 }
 
 impl_backend_for_pg_backend!(PostgresBackend, Manager, ConnectionError, QueryError);
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+
+    use r2d2::Pool;
+    use r2d2_postgres::postgres::Config;
+
+    use super::{
+        super::r#trait::tests::{
+            test_cleans_database, test_creates_database_with_restricted_privileges,
+            test_drops_database, test_drops_previous_databases, CREATE_ENTITIES_STMT,
+        },
+        PostgresBackend,
+    };
+
+    fn create_backend(with_table: bool) -> PostgresBackend {
+        let mut config = Config::new();
+        config
+            .host("localhost")
+            .user("postgres")
+            .password("postgres");
+        PostgresBackend::new(config, Pool::builder, Pool::builder, {
+            move |conn| {
+                if with_table {
+                    conn.execute(CREATE_ENTITIES_STMT, &[]).unwrap();
+                }
+            }
+        })
+        .unwrap()
+    }
+
+    #[test]
+    fn drops_previous_databases() {
+        test_drops_previous_databases(
+            create_backend(false),
+            create_backend(false).drop_previous_databases(true),
+            create_backend(false).drop_previous_databases(false),
+        );
+    }
+
+    #[test]
+    fn creates_database_with_restricted_privileges() {
+        let backend = create_backend(true).drop_previous_databases(false);
+        test_creates_database_with_restricted_privileges(&backend);
+    }
+
+    #[test]
+    fn cleans_database() {
+        let backend = create_backend(true).drop_previous_databases(false);
+        test_cleans_database(&backend);
+    }
+
+    #[test]
+    fn drops_database() {
+        let backend = create_backend(true).drop_previous_databases(false);
+        test_drops_database(&backend);
+    }
+}
