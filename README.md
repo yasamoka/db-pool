@@ -1,4 +1,6 @@
+<div align="center">
 <img src="./logo.svg" height="150" />
+</div>
 
 # db-pool
 
@@ -11,8 +13,8 @@ A thread-safe database pool for running database-tied tests in parallel with:
 
 ### Databases
 
-- PostgreSQL
 - MySQL
+- PostgreSQL
 
 ### Backends
 
@@ -20,19 +22,19 @@ A thread-safe database pool for running database-tied tests in parallel with:
 
 | Backend         | Feature         |
 | --------------- | --------------- |
-| diesel/postgres | diesel-postgres |
 | diesel/mysql    | diesel-mysql    |
-| postgres        | postgres        |
+| diesel/postgres | diesel-postgres |
 | mysql           | mysql           |
+| postgres        | postgres        |
 
 #### Async
 
 | Backend               | Feature               |
 | --------------------- | --------------------- |
-| diesel-async/postgres | diesel-async-postgres |
 | diesel-async/mysql    | diesel-async-mysql    |
-| sea-orm/sqlx-postgres | sea-orm-postgres      |
+| diesel-async/postgres | diesel-async-postgres |
 | sea-orm/sqlx-mysql    | sea-orm-mysql         |
-| sqlx/postgres         | sqlx-postgres         |
+| sea-orm/sqlx-postgres | sea-orm-postgres      |
 | sqlx/mysql            | sqlx-mysql            |
+| sqlx/postgres         | sqlx-postgres         |
 | tokio-postgres        | tokio-postgres        |
