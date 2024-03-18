@@ -169,6 +169,8 @@ pub(crate) use impl_backend_for_mysql_backend;
 pub(super) mod tests {
     #![allow(unused_variables, clippy::unwrap_used)]
 
+    use std::sync::OnceLock;
+
     use diesel::{
         dsl::exists, insert_into, prelude::*, r2d2::ConnectionManager, select, sql_query, table,
         MysqlConnection, RunQueryDsl,
@@ -200,9 +202,12 @@ pub(super) mod tests {
         MYSQL_DROP_LOCK.blocking_read()
     }
 
-    fn create_privileged_connection_pool() -> Pool {
-        let manager = ConnectionManager::new("mysql://root:root@localhost:3306");
-        R2d2Pool::builder().build(manager).unwrap()
+    fn get_privileged_connection_pool<'a>() -> &'a Pool {
+        static POOL: OnceLock<Pool> = OnceLock::new();
+        POOL.get_or_init(|| {
+            let manager = ConnectionManager::new("mysql://root:root@localhost:3306");
+            R2d2Pool::builder().build(manager).unwrap()
+        })
     }
 
     fn create_restricted_connection_pool(db_name: &str) -> Pool {
@@ -259,7 +264,7 @@ pub(super) mod tests {
     {
         const NUM_DBS: i64 = 3;
 
-        let conn_pool = create_privileged_connection_pool();
+        let conn_pool = get_privileged_connection_pool();
         let conn = &mut conn_pool.get().unwrap();
 
         let guard = lock_drop();
@@ -284,7 +289,7 @@ pub(super) mod tests {
 
         // privileged operations
         {
-            let conn_pool = create_privileged_connection_pool();
+            let conn_pool = get_privileged_connection_pool();
             let conn = &mut conn_pool.get().unwrap();
 
             // database must not exist
@@ -325,7 +330,7 @@ pub(super) mod tests {
         backend.init().unwrap();
         backend.create(db_id).unwrap();
 
-        let conn_pool = create_privileged_connection_pool();
+        let conn_pool = get_privileged_connection_pool();
         let conn = &mut conn_pool.get().unwrap();
 
         use_database(db_name, conn);
@@ -382,7 +387,7 @@ pub(super) mod tests {
 
         let guard = lock_read();
 
-        let conn_pool = create_privileged_connection_pool();
+        let conn_pool = get_privileged_connection_pool();
         let conn = &mut conn_pool.get().unwrap();
 
         // database must exist

@@ -275,6 +275,7 @@ pub(super) mod tests {
         pooled_connection::AsyncDieselConnectionManager, AsyncMysqlConnection, RunQueryDsl,
     };
     use futures::{future::join_all, Future};
+    use tokio::sync::OnceCell;
     use uuid::Uuid;
 
     use crate::{
@@ -310,9 +311,13 @@ pub(super) mod tests {
 
     impl<T, F> MySQLDropLock<T> for F where F: Future<Output = T> + Sized {}
 
-    async fn create_privileged_connection_pool() -> Pool {
-        let manager = AsyncDieselConnectionManager::new("mysql://root:root@localhost:3306");
-        Bb8Pool::builder().build(manager).await.unwrap()
+    async fn get_privileged_connection_pool<'a>() -> &'a Pool {
+        static POOL: OnceCell<Pool> = OnceCell::const_new();
+        POOL.get_or_init(|| async {
+            let manager = AsyncDieselConnectionManager::new("mysql://root:root@localhost:3306");
+            Bb8Pool::builder().build(manager).await.unwrap()
+        })
+        .await
     }
 
     async fn create_restricted_connection_pool(db_name: &str) -> Pool {
@@ -381,12 +386,12 @@ pub(super) mod tests {
     {
         const NUM_DBS: i64 = 3;
 
-        let conn_pool = create_privileged_connection_pool().await;
+        let conn_pool = get_privileged_connection_pool().await;
         let conn = &mut conn_pool.get().await.unwrap();
 
         async {
             for (backend, cleans) in [(default, true), (enabled, true), (disabled, false)] {
-                let db_names = create_databases(NUM_DBS, &conn_pool).await;
+                let db_names = create_databases(NUM_DBS, conn_pool).await;
                 assert_eq!(count_databases(&db_names, conn).await, NUM_DBS);
                 backend.init().await.unwrap();
                 assert_eq!(
@@ -407,7 +412,7 @@ pub(super) mod tests {
         async {
             // privileged operations
             {
-                let conn_pool = create_privileged_connection_pool().await;
+                let conn_pool = get_privileged_connection_pool().await;
                 let conn = &mut conn_pool.get().await.unwrap();
 
                 // database must not exist
@@ -446,7 +451,7 @@ pub(super) mod tests {
         let db_name = get_db_name(db_id);
         let db_name = db_name.as_str();
 
-        let conn_pool = create_privileged_connection_pool().await;
+        let conn_pool = get_privileged_connection_pool().await;
         let conn = &mut conn_pool.get().await.unwrap();
 
         async {
@@ -515,7 +520,7 @@ pub(super) mod tests {
         let db_name = db_name.as_str();
 
         async {
-            let conn_pool = create_privileged_connection_pool().await;
+            let conn_pool = get_privileged_connection_pool().await;
             let conn = &mut conn_pool.get().await.unwrap();
 
             // database must exist
