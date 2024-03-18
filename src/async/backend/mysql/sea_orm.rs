@@ -101,8 +101,13 @@ impl<'pool> MySQLBackend<'pool> for SeaORMMySQLBackend {
         query: impl IntoIterator<Item = Cow<'a, str>> + Send,
         conn: &mut DatabaseConnection,
     ) -> Result<(), QueryError> {
-        let query = query.into_iter().collect::<Vec<_>>().join(";");
-        self.execute_stmt(query.as_str(), conn).await
+        let chunks = query.into_iter().collect::<Vec<_>>();
+        if chunks.is_empty() {
+            Ok(())
+        } else {
+            let query = chunks.join(";");
+            self.execute_stmt(query.as_str(), conn).await
+        }
     }
 
     fn get_host(&self) -> &str {
@@ -255,8 +260,9 @@ mod tests {
 
     use super::{
         super::r#trait::tests::{
-            test_cleans_database, test_creates_database_with_restricted_privileges,
-            test_drops_database, test_drops_previous_databases,
+            test_cleans_database_with_tables, test_cleans_database_without_tables,
+            test_creates_database_with_restricted_privileges, test_drops_database,
+            test_drops_previous_databases,
         },
         SeaORMMySQLBackend,
     };
@@ -301,9 +307,15 @@ mod tests {
     }
 
     #[test(flavor = "multi_thread", shared)]
-    async fn cleans_database() {
+    async fn cleans_database_with_tables() {
         let backend = create_backend(true).await.drop_previous_databases(false);
-        test_cleans_database(backend).await;
+        test_cleans_database_with_tables(backend).await;
+    }
+
+    #[test(flavor = "multi_thread", shared)]
+    async fn cleans_database_without_tables() {
+        let backend = create_backend(false).await.drop_previous_databases(false);
+        test_cleans_database_without_tables(backend).await;
     }
 
     #[test(flavor = "multi_thread", shared)]

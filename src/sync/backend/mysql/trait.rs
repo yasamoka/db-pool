@@ -313,7 +313,7 @@ pub(super) mod tests {
         }
     }
 
-    pub fn test_cleans_database(backend: &impl Backend) {
+    pub fn test_cleans_database_with_tables(backend: &impl Backend) {
         const NUM_BOOKS: i64 = 3;
 
         let db_id = Uuid::new_v4();
@@ -363,6 +363,16 @@ pub(super) mod tests {
 
         // there must be no books
         assert_eq!(book::table.count().get_result::<i64>(conn).unwrap(), 0);
+    }
+
+    pub fn test_cleans_database_without_tables(backend: &impl Backend) {
+        let db_id = Uuid::new_v4();
+
+        let guard = lock_read();
+
+        backend.init().unwrap();
+        backend.create(db_id).unwrap();
+        backend.clean(db_id).unwrap();
     }
 
     pub fn test_drops_database(backend: &impl Backend) {

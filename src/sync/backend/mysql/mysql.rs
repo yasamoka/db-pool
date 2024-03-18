@@ -69,8 +69,13 @@ impl MySQLBackendTrait for MySQLBackend {
         query: impl IntoIterator<Item = Cow<'a, str>>,
         conn: &mut Conn,
     ) -> Result<(), Error> {
-        let query = query.into_iter().collect::<Vec<_>>().join(";");
-        self.execute(query.as_str(), conn)
+        let chunks = query.into_iter().collect::<Vec<_>>();
+        if chunks.is_empty() {
+            Ok(())
+        } else {
+            let query = chunks.join(";");
+            self.execute(query.as_str(), conn)
+        }
     }
 
     fn get_host(&self) -> Cow<str> {
@@ -127,8 +132,9 @@ mod tests {
 
     use super::{
         super::r#trait::tests::{
-            test_cleans_database, test_creates_database_with_restricted_privileges,
-            test_drops_database, test_drops_previous_databases,
+            test_cleans_database_with_tables, test_cleans_database_without_tables,
+            test_creates_database_with_restricted_privileges, test_drops_database,
+            test_drops_previous_databases,
         },
         MySQLBackend,
     };
@@ -168,9 +174,15 @@ mod tests {
     }
 
     #[test]
-    fn cleans_database() {
+    fn cleans_database_with_tables() {
         let backend = create_backend(true).drop_previous_databases(false);
-        test_cleans_database(&backend);
+        test_cleans_database_with_tables(&backend);
+    }
+
+    #[test]
+    fn cleans_database_without_tables() {
+        let backend = create_backend(false).drop_previous_databases(false);
+        test_cleans_database_without_tables(&backend);
     }
 
     #[test]
