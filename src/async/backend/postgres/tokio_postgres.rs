@@ -227,7 +227,7 @@ mod tests {
             test_backend_cleans_database_with_tables, test_backend_cleans_database_without_tables,
             test_backend_creates_database_with_restricted_privileges, test_backend_drops_database,
             test_backend_drops_previous_databases, test_pool_drops_created_databases,
-            test_pool_drops_previous_databases, DropLock,
+            test_pool_drops_previous_databases, PgDropLock,
         },
         TokioPostgresBackend,
     };

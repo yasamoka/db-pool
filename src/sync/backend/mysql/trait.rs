@@ -172,8 +172,9 @@ pub(super) mod tests {
     use std::sync::OnceLock;
 
     use diesel::{
-        dsl::exists, insert_into, prelude::*, r2d2::ConnectionManager, select, sql_query, table,
-        MysqlConnection, RunQueryDsl,
+        dsl::exists, insert_into, r2d2::ConnectionManager, select, sql_query, table,
+        ExpressionMethods, Insertable, MysqlConnection, QueryDsl, RunQueryDsl,
+        TextExpressionMethods,
     };
     use r2d2::Pool as R2d2Pool;
     use tokio::sync::{RwLockReadGuard, RwLockWriteGuard};
@@ -181,7 +182,7 @@ pub(super) mod tests {
 
     use crate::{
         common::statement::mysql::tests::{DDL_STATEMENTS, DML_STATEMENTS},
-        r#sync::backend::r#trait::Backend,
+        r#sync::{backend::r#trait::Backend, db_pool::DatabasePoolBuilder},
         tests::MYSQL_DROP_LOCK,
         util::get_db_name,
     };
@@ -194,20 +195,22 @@ pub(super) mod tests {
         }
     }
 
-    fn lock_drop<'a>() -> RwLockWriteGuard<'a, ()> {
+    pub fn lock_drop<'a>() -> RwLockWriteGuard<'a, ()> {
         MYSQL_DROP_LOCK.blocking_write()
     }
 
-    fn lock_read<'a>() -> RwLockReadGuard<'a, ()> {
+    pub fn lock_read<'a>() -> RwLockReadGuard<'a, ()> {
         MYSQL_DROP_LOCK.blocking_read()
     }
 
-    fn get_privileged_connection_pool<'a>() -> &'a Pool {
+    fn get_privileged_connection_pool() -> &'static Pool {
         static POOL: OnceLock<Pool> = OnceLock::new();
         POOL.get_or_init(|| {
             let manager = ConnectionManager::new("mysql://root:root@localhost:3306");
             R2d2Pool::builder().build(manager).unwrap()
         })
+        // let manager = ConnectionManager::new("mysql://root:root@localhost:3306");
+        // R2d2Pool::builder().build(manager).unwrap()
     }
 
     fn create_restricted_connection_pool(db_name: &str) -> Pool {
@@ -248,6 +251,16 @@ pub(super) mod tests {
             .unwrap()
     }
 
+    fn count_all_databases(conn: &mut MysqlConnection) -> i64 {
+        use_information_schema(conn);
+
+        schemata::table
+            .filter(schemata::schema_name.like("db_pool_%"))
+            .count()
+            .get_result(conn)
+            .unwrap()
+    }
+
     fn database_exists(db_name: &str, conn: &mut MysqlConnection) -> bool {
         use_information_schema(conn);
 
@@ -258,7 +271,7 @@ pub(super) mod tests {
         .unwrap()
     }
 
-    pub fn test_drops_previous_databases<B>(default: B, enabled: B, disabled: B)
+    pub fn test_backend_drops_previous_databases<B>(default: B, enabled: B, disabled: B)
     where
         B: Backend,
     {
@@ -280,7 +293,7 @@ pub(super) mod tests {
         }
     }
 
-    pub fn test_creates_database_with_restricted_privileges(backend: &impl Backend) {
+    pub fn test_backend_creates_database_with_restricted_privileges(backend: &impl Backend) {
         let db_id = Uuid::new_v4();
         let db_name = get_db_name(db_id);
         let db_name = db_name.as_str();
@@ -318,7 +331,7 @@ pub(super) mod tests {
         }
     }
 
-    pub fn test_cleans_database_with_tables(backend: &impl Backend) {
+    pub fn test_backend_cleans_database_with_tables(backend: &impl Backend) {
         const NUM_BOOKS: i64 = 3;
 
         let db_id = Uuid::new_v4();
@@ -329,11 +342,6 @@ pub(super) mod tests {
 
         backend.init().unwrap();
         backend.create(db_id).unwrap();
-
-        let conn_pool = get_privileged_connection_pool();
-        let conn = &mut conn_pool.get().unwrap();
-
-        use_database(db_name, conn);
 
         table! {
             book (id) {
@@ -348,9 +356,12 @@ pub(super) mod tests {
             title: String,
         }
 
+        let conn_pool = create_restricted_connection_pool(db_name);
+        let conn = &mut conn_pool.get().unwrap();
+
         let new_books = (0..NUM_BOOKS)
             .map(|i| NewBook {
-                title: format!("Title {}", i + 1),
+                title: format!("Title {} {}", db_name, i + 1),
             })
             .collect::<Vec<_>>();
         insert_into(book::table)
@@ -370,7 +381,7 @@ pub(super) mod tests {
         assert_eq!(book::table.count().get_result::<i64>(conn).unwrap(), 0);
     }
 
-    pub fn test_cleans_database_without_tables(backend: &impl Backend) {
+    pub fn test_backend_cleans_database_without_tables(backend: &impl Backend) {
         let db_id = Uuid::new_v4();
 
         let guard = lock_read();
@@ -380,15 +391,15 @@ pub(super) mod tests {
         backend.clean(db_id).unwrap();
     }
 
-    pub fn test_drops_database(backend: &impl Backend) {
+    pub fn test_backend_drops_database(backend: &impl Backend) {
         let db_id = Uuid::new_v4();
         let db_name = get_db_name(db_id);
         let db_name = db_name.as_str();
 
-        let guard = lock_read();
-
         let conn_pool = get_privileged_connection_pool();
         let conn = &mut conn_pool.get().unwrap();
+
+        let guard = lock_read();
 
         // database must exist
         backend.init().unwrap();
@@ -398,5 +409,59 @@ pub(super) mod tests {
         // database must not exist
         backend.drop(db_id).unwrap();
         assert!(!database_exists(db_name, conn));
+    }
+
+    pub fn test_pool_drops_previous_databases<B>(default: B, enabled: B, disabled: B)
+    where
+        B: Backend,
+    {
+        const NUM_DBS: i64 = 3;
+
+        let conn_pool = get_privileged_connection_pool();
+        let conn = &mut conn_pool.get().unwrap();
+
+        let guard = lock_drop();
+
+        for (backend, cleans) in [(default, true), (enabled, true), (disabled, false)] {
+            let db_names = create_databases(NUM_DBS, conn);
+            assert_eq!(count_databases(&db_names, conn), NUM_DBS);
+            backend.create_database_pool().unwrap();
+            assert_eq!(
+                count_databases(&db_names, conn),
+                if cleans { 0 } else { NUM_DBS }
+            );
+        }
+    }
+
+    pub fn test_pool_drops_created_databases(backend: impl Backend) {
+        const NUM_DBS: i64 = 3;
+
+        let conn_pool = get_privileged_connection_pool();
+        let conn = &mut conn_pool.get().unwrap();
+
+        let guard = lock_drop();
+
+        let db_pool = backend.create_database_pool().unwrap();
+
+        // there must be no databases
+        assert_eq!(count_all_databases(conn), 0);
+
+        // fetch connection pools
+        let conn_pools = (0..NUM_DBS).map(|_| db_pool.pull()).collect::<Vec<_>>();
+
+        // there must be databases
+        assert_eq!(count_all_databases(conn), NUM_DBS);
+
+        // must release databases back to pool
+        drop(conn_pools);
+
+        // there must be databases
+        assert_eq!(count_all_databases(conn), NUM_DBS);
+
+        // must drop databases
+        drop(db_pool);
+
+        // there must be no databases
+        assert_eq!(count_all_databases(conn), 0);
     }
 }

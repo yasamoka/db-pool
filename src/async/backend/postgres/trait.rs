@@ -322,7 +322,7 @@ pub(super) mod tests {
     }
 
     #[allow(unused_variables)]
-    pub trait DropLock<T>
+    pub trait PgDropLock<T>
     where
         Self: Future<Output = T> + Sized,
     {
@@ -337,7 +337,7 @@ pub(super) mod tests {
         }
     }
 
-    impl<T, F> DropLock<T> for F where F: Future<Output = T> + Sized {}
+    impl<T, F> PgDropLock<T> for F where F: Future<Output = T> + Sized {}
 
     async fn get_privileged_connection_pool() -> &'static Pool {
         static POOL: OnceCell<Pool> = OnceCell::const_new();
