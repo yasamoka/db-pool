@@ -248,9 +248,10 @@ mod tests {
 
     use super::{
         super::r#trait::tests::{
-            test_backend_cleans_database, test_backend_creates_database_with_restricted_privileges,
-            test_backend_drops_database, test_backend_drops_previous_databases,
-            test_pool_drops_created_databases, test_pool_drops_previous_databases, DropLock,
+            test_backend_cleans_database_with_tables, test_backend_cleans_database_without_tables,
+            test_backend_creates_database_with_restricted_privileges, test_backend_drops_database,
+            test_backend_drops_previous_databases, test_pool_drops_created_databases,
+            test_pool_drops_previous_databases, DropLock,
         },
         DieselAsyncPgBackend,
     };
@@ -311,9 +312,15 @@ mod tests {
     }
 
     #[test(flavor = "multi_thread", shared)]
-    async fn backend_cleans_database() {
+    async fn backend_cleans_database_with_tables() {
         let backend = create_backend(true).await.drop_previous_databases(false);
-        test_backend_cleans_database(backend).await;
+        test_backend_cleans_database_with_tables(backend).await;
+    }
+
+    #[test(flavor = "multi_thread", shared)]
+    async fn backend_cleans_database_without_tables() {
+        let backend = create_backend(false).await.drop_previous_databases(false);
+        test_backend_cleans_database_without_tables(backend).await;
     }
 
     #[test(flavor = "multi_thread", shared)]

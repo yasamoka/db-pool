@@ -487,7 +487,7 @@ pub(super) mod tests {
         .await;
     }
 
-    pub async fn test_backend_cleans_database(backend: impl Backend) {
+    pub async fn test_backend_cleans_database_with_tables(backend: impl Backend) {
         const NUM_BOOKS: i64 = 3;
 
         let db_id = Uuid::new_v4();
@@ -516,6 +516,18 @@ pub(super) mod tests {
                 book::table.count().get_result::<i64>(conn).await.unwrap(),
                 0
             );
+        }
+        .lock_read()
+        .await;
+    }
+
+    pub async fn test_backend_cleans_database_without_tables(backend: impl Backend) {
+        let db_id = Uuid::new_v4();
+
+        async {
+            backend.init().await.unwrap();
+            backend.create(db_id).await.unwrap();
+            backend.clean(db_id).await.unwrap();
         }
         .lock_read()
         .await;

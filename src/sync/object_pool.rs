@@ -40,13 +40,15 @@ impl<T> ObjectPool<T> {
     pub fn pull(&self) -> Reusable<T> {
         self.objects.lock().pop().map_or_else(
             || Reusable::new(self, (self.init)()),
-            |data| Reusable::new(self, data),
+            |mut data| {
+                (self.reset)(&mut data);
+                Reusable::new(self, data)
+            },
         )
     }
 
     #[inline]
-    pub fn attach(&self, mut t: T) {
-        (self.reset)(&mut t);
+    pub fn attach(&self, t: T) {
         self.objects.lock().push(t);
     }
 }

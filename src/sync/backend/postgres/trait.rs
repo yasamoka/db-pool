@@ -216,7 +216,7 @@ pub(super) mod tests {
 
     use crate::{
         common::statement::postgres::tests::{DDL_STATEMENTS, DML_STATEMENTS},
-        r#sync::backend::r#trait::Backend,
+        r#sync::{backend::r#trait::Backend, db_pool::DatabasePoolBuilder},
         tests::PG_DROP_LOCK,
         util::get_db_name,
     };
@@ -234,7 +234,7 @@ pub(super) mod tests {
         PG_DROP_LOCK.blocking_write()
     }
 
-    fn lock_read<'a>() -> RwLockReadGuard<'a, ()> {
+    pub fn lock_read<'a>() -> RwLockReadGuard<'a, ()> {
         PG_DROP_LOCK.blocking_read()
     }
 
@@ -274,6 +274,14 @@ pub(super) mod tests {
             .unwrap()
     }
 
+    fn count_all_databases(conn: &mut PgConnection) -> i64 {
+        pg_database::table
+            .filter(pg_database::datname.like("db_pool_%"))
+            .count()
+            .get_result(conn)
+            .unwrap()
+    }
+
     fn database_exists(db_name: &str, conn: &mut PgConnection) -> bool {
         select(exists(
             pg_database::table.filter(pg_database::datname.eq(db_name)),
@@ -282,7 +290,7 @@ pub(super) mod tests {
         .unwrap()
     }
 
-    pub fn test_drops_previous_databases<B>(default: B, enabled: B, disabled: B)
+    pub fn test_backend_drops_previous_databases<B>(default: B, enabled: B, disabled: B)
     where
         B: Backend,
     {
@@ -304,7 +312,7 @@ pub(super) mod tests {
         }
     }
 
-    pub fn test_creates_database_with_restricted_privileges(backend: &impl Backend) {
+    pub fn test_backend_creates_database_with_restricted_privileges(backend: &impl Backend) {
         let db_id = Uuid::new_v4();
         let db_name = get_db_name(db_id);
         let db_name = db_name.as_str();
@@ -342,7 +350,7 @@ pub(super) mod tests {
         }
     }
 
-    pub fn test_cleans_database(backend: &impl Backend) {
+    pub fn test_backend_cleans_database_with_tables(backend: &impl Backend) {
         const NUM_BOOKS: i64 = 3;
 
         let db_id = Uuid::new_v4();
@@ -392,7 +400,17 @@ pub(super) mod tests {
         assert_eq!(book::table.count().get_result::<i64>(conn).unwrap(), 0);
     }
 
-    pub fn test_drops_database(backend: &impl Backend) {
+    pub fn test_backend_cleans_database_without_tables(backend: &impl Backend) {
+        let db_id = Uuid::new_v4();
+
+        let guard = lock_read();
+
+        backend.init().unwrap();
+        backend.create(db_id).unwrap();
+        backend.clean(db_id).unwrap();
+    }
+
+    pub fn test_backend_drops_database(backend: &impl Backend) {
         let db_id = Uuid::new_v4();
         let db_name = get_db_name(db_id);
         let db_name = db_name.as_str();
@@ -410,5 +428,59 @@ pub(super) mod tests {
         // database must not exist
         backend.drop(db_id).unwrap();
         assert!(!database_exists(db_name, conn));
+    }
+
+    pub fn test_pool_drops_previous_databases<B>(default: B, enabled: B, disabled: B)
+    where
+        B: Backend,
+    {
+        const NUM_DBS: i64 = 3;
+
+        let guard = lock_drop();
+
+        let conn_pool = get_privileged_connection_pool();
+        let conn = &mut conn_pool.get().unwrap();
+
+        for (backend, cleans) in [(default, true), (enabled, true), (disabled, false)] {
+            let db_names = create_databases(NUM_DBS, conn);
+            assert_eq!(count_databases(&db_names, conn), NUM_DBS);
+            backend.create_database_pool().unwrap();
+            assert_eq!(
+                count_databases(&db_names, conn),
+                if cleans { 0 } else { NUM_DBS }
+            );
+        }
+    }
+
+    pub fn test_pool_drops_created_databases(backend: impl Backend) {
+        const NUM_DBS: i64 = 3;
+
+        let privileged_conn_pool = get_privileged_connection_pool();
+        let privileged_conn = &mut privileged_conn_pool.get().unwrap();
+
+        let guard = lock_drop();
+
+        let db_pool = backend.create_database_pool().unwrap();
+
+        // there must be no databases
+        assert_eq!(count_all_databases(privileged_conn), 0);
+
+        // fetch connection pools
+        let conn_pools = (0..NUM_DBS).map(|_| db_pool.pull()).collect::<Vec<_>>();
+
+        // there must be databases
+        assert_eq!(count_all_databases(privileged_conn), NUM_DBS);
+
+        // must release databases back to pool
+        drop(conn_pools);
+
+        // there must be databases
+        assert_eq!(count_all_databases(privileged_conn), NUM_DBS);
+
+        // must drop databases
+        drop(db_pool);
+
+        // there must be no databases
+        assert_eq!(count_all_databases(privileged_conn), 0);
     }
 }
