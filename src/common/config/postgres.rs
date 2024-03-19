@@ -1,11 +1,23 @@
-pub struct PrivilegedConfig {
+/// Privileged ``Postgres`` configuration
+pub struct PrivilegedPostgresConfig {
     pub(crate) username: String,
     pub(crate) password: Option<String>,
     pub(crate) host: String,
     pub(crate) port: u16,
 }
 
-impl PrivilegedConfig {
+impl PrivilegedPostgresConfig {
+    /// Creates a new privileged ``Postgres`` configuration
+    /// # Example
+    /// ```
+    /// # use db_pool::PrivilegedPostgresConfig;
+    /// #
+    /// let config = PrivilegedPostgresConfig::new("postgres".to_owned());
+    /// ```
+    /// # Defaults
+    /// * Password: {empty}
+    /// * Host: localhost
+    /// * Port: 5432
     #[must_use]
     pub fn new(username: String) -> Self {
         Self {
@@ -16,6 +28,14 @@ impl PrivilegedConfig {
         }
     }
 
+    /// Sets a new password
+    /// # Example
+    /// ```
+    /// # use db_pool::PrivilegedPostgresConfig;
+    /// #
+    /// let config =
+    ///     PrivilegedPostgresConfig::new("postgres".to_owned()).password(Some("postgres".to_owned()));
+    /// ```
     #[must_use]
     pub fn password(self, value: Option<String>) -> Self {
         Self {
@@ -24,6 +44,13 @@ impl PrivilegedConfig {
         }
     }
 
+    /// Sets a new host
+    /// # Example
+    /// ```
+    /// # use db_pool::PrivilegedPostgresConfig;
+    /// #
+    /// let config = PrivilegedPostgresConfig::new("postgres".to_owned()).host("localhost".to_owned());
+    /// ```
     #[must_use]
     pub fn host(self, value: String) -> Self {
         Self {
@@ -32,6 +59,13 @@ impl PrivilegedConfig {
         }
     }
 
+    /// Sets a new port
+    /// # Example
+    /// ```
+    /// # use db_pool::PrivilegedPostgresConfig;
+    /// #
+    /// let config = PrivilegedPostgresConfig::new("postgres".to_owned()).port(5432);
+    /// ```
     #[must_use]
     pub fn port(self, value: u16) -> Self {
         Self {

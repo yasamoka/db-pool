@@ -10,7 +10,7 @@ use futures::Future;
 use parking_lot::Mutex;
 use uuid::Uuid;
 
-use crate::{common::config::postgres::PrivilegedConfig, util::get_db_name};
+use crate::{common::config::postgres::PrivilegedPostgresConfig, util::get_db_name};
 
 use super::{
     super::{
@@ -30,7 +30,7 @@ pub struct DieselAsyncPgBackend<P>
 where
     P: DieselPoolAssociation<AsyncPgConnection>,
 {
-    privileged_config: PrivilegedConfig,
+    privileged_config: PrivilegedPostgresConfig,
     default_pool: P::Pool,
     db_conns: Mutex<HashMap<Uuid, AsyncPgConnection>>,
     create_restricted_pool: Box<dyn Fn() -> P::Builder + Send + Sync + 'static>,
@@ -76,7 +76,7 @@ where
     /// tokio_test::block_on(f());
     /// ```
     pub async fn new(
-        privileged_config: PrivilegedConfig,
+        privileged_config: PrivilegedPostgresConfig,
         create_privileged_pool: impl Fn() -> P::Builder,
         create_restricted_pool: impl Fn() -> P::Builder + Send + Sync + 'static,
         create_entities: impl Fn(

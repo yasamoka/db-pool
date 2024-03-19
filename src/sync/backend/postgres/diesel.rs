@@ -8,7 +8,7 @@ use parking_lot::Mutex;
 use r2d2::{Builder, Pool, PooledConnection};
 use uuid::Uuid;
 
-use crate::{common::config::postgres::PrivilegedConfig, util::get_db_name};
+use crate::{common::config::postgres::PrivilegedPostgresConfig, util::get_db_name};
 
 use super::r#trait::{impl_backend_for_pg_backend, PostgresBackend};
 
@@ -16,7 +16,7 @@ type Manager = ConnectionManager<PgConnection>;
 
 /// ``Diesel`` ``Postgres`` backend
 pub struct DieselPostgresBackend {
-    privileged_config: PrivilegedConfig,
+    privileged_config: PrivilegedPostgresConfig,
     default_pool: Pool<Manager>,
     db_conns: Mutex<HashMap<Uuid, PgConnection>>,
     create_restricted_pool: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
@@ -45,7 +45,7 @@ impl DieselPostgresBackend {
     /// .unwrap();
     /// ```
     pub fn new(
-        privileged_config: PrivilegedConfig,
+        privileged_config: PrivilegedPostgresConfig,
         create_privileged_pool: impl Fn() -> Builder<Manager>,
         create_restricted_pool: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
         create_entities: impl Fn(&mut PgConnection) + Send + Sync + 'static,

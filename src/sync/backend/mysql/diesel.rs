@@ -11,7 +11,7 @@ use r2d2::{Builder, Pool, PooledConnection};
 use uuid::Uuid;
 
 use crate::{
-    common::{config::mysql::PrivilegedConfig, statement::mysql},
+    common::{config::mysql::PrivilegedMySQLConfig, statement::mysql},
     util::get_db_name,
 };
 
@@ -21,7 +21,7 @@ type Manager = ConnectionManager<MysqlConnection>;
 
 /// ``Diesel`` ``MySQL`` backend
 pub struct DieselMySQLBackend {
-    privileged_config: PrivilegedConfig,
+    privileged_config: PrivilegedMySQLConfig,
     default_pool: Pool<Manager>,
     create_restricted_pool: Box<dyn Fn() -> Builder<Manager> + Send + Sync + 'static>,
     create_entities: Box<dyn Fn(&mut MysqlConnection) + Send + Sync + 'static>,
@@ -49,7 +49,7 @@ impl DieselMySQLBackend {
     /// .unwrap();
     /// ```
     pub fn new(
-        privileged_config: PrivilegedConfig,
+        privileged_config: PrivilegedMySQLConfig,
         create_privileged_pool: impl Fn() -> Builder<Manager>,
         create_restricted_pool: impl Fn() -> Builder<Manager> + Send + Sync + 'static,
         create_entities: impl Fn(&mut MysqlConnection) + Send + Sync + 'static,

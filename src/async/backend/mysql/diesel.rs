@@ -10,7 +10,7 @@ use futures::Future;
 use uuid::Uuid;
 
 use crate::{
-    common::{config::mysql::PrivilegedConfig, statement::mysql},
+    common::{config::mysql::PrivilegedMySQLConfig, statement::mysql},
     util::get_db_name,
 };
 
@@ -32,7 +32,7 @@ pub struct DieselAsyncMySQLBackend<P>
 where
     P: DieselPoolAssociation<AsyncMysqlConnection>,
 {
-    privileged_config: PrivilegedConfig,
+    privileged_config: PrivilegedMySQLConfig,
     default_pool: P::Pool,
     create_restricted_pool: Box<dyn Fn() -> P::Builder + Send + Sync + 'static>,
     create_entities: Box<CreateEntities>,
@@ -75,7 +75,7 @@ where
     /// tokio_test::block_on(f());
     /// ```
     pub async fn new(
-        privileged_config: PrivilegedConfig,
+        privileged_config: PrivilegedMySQLConfig,
         create_privileged_pool: impl Fn() -> P::Builder,
         create_restricted_pool: impl Fn() -> P::Builder + Send + Sync + 'static,
         create_entities: impl Fn(AsyncMysqlConnection) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>>
