@@ -12,6 +12,7 @@ use crate::r#async::backend::{
 
 use super::r#trait::TokioPostgresPoolAssociation;
 
+/// ``tokio-postgres`` ``deadpool`` association
 pub struct TokioPostgresDeadpool;
 
 #[async_trait]

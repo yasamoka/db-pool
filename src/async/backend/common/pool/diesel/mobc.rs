@@ -16,6 +16,39 @@ use super::r#trait::DieselPoolAssociation;
 
 type DieselManager<Connection> = AsyncDieselConnectionManager<Connection>;
 
+/// ``Diesel`` ``mobc`` association
+/// # Example
+/// ```
+/// use db_pool::{
+///     r#async::{DieselAsyncPgBackend, DieselMobc},
+///     PrivilegedPostgresConfig,
+/// };
+/// use diesel::sql_query;
+/// use diesel_async::RunQueryDsl;
+/// use mobc::Pool;
+///
+/// async fn f() {
+///     let backend = DieselAsyncPgBackend::<DieselMobc>::new(
+///         PrivilegedPostgresConfig::new("postgres".to_owned())
+///             .password(Some("postgres".to_owned())),
+///         || Pool::builder().max_open(10),
+///         || Pool::builder().max_open(2),
+///         move |mut conn| {
+///             Box::pin(async {
+///                 sql_query("CREATE TABLE book(id SERIAL PRIMARY KEY, title TEXT NOT NULL)")
+///                     .execute(&mut conn)
+///                     .await
+///                     .unwrap();
+///                 conn
+///             })
+///         },
+///     )
+///     .await
+///     .unwrap();
+/// }
+///
+/// tokio_test::block_on(f());
+/// ```
 pub struct DieselMobc;
 
 #[async_trait]

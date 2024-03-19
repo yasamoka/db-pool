@@ -12,6 +12,7 @@ use super::r#trait::DieselPoolAssociation;
 
 type DieselManager<Connection> = AsyncDieselConnectionManager<Connection>;
 
+/// ``Diesel`` ``deadpool`` association
 pub struct DieselDeadpool;
 
 #[async_trait]

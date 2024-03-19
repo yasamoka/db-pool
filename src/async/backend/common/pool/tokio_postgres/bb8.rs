@@ -14,6 +14,38 @@ use super::r#trait::TokioPostgresPoolAssociation;
 
 type Manager = PostgresConnectionManager<NoTls>;
 
+/// ``tokio-postgres`` ``bb8`` association
+/// # Example
+/// ```
+/// use bb8::Pool;
+/// use db_pool::r#async::{TokioPostgresBackend, TokioPostgresBb8};
+/// use tokio_postgres::Config;
+///
+/// async fn f() {
+///     let backend = TokioPostgresBackend::<TokioPostgresBb8>::new(
+///         "host=localhost user=postgres password=postgres"
+///             .parse::<Config>()
+///             .unwrap(),
+///         || Pool::builder().max_size(10),
+///         || Pool::builder().max_size(2),
+///         move |conn| {
+///             Box::pin(async move {
+///                 conn.execute(
+///                     "CREATE TABLE book(id SERIAL PRIMARY KEY, title TEXT NOT NULL)",
+///                     &[],
+///                 )
+///                 .await
+///                 .unwrap();
+///                 conn
+///             })
+///         },
+///     )
+///     .await
+///     .unwrap();
+/// }
+///
+/// tokio_test::block_on(f());
+/// ```
 pub struct TokioPostgresBb8;
 
 #[async_trait]
