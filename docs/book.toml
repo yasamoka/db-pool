@@ -1,0 +1,12 @@
+[book]
+title = "db-pool"
+
+[output.html]
+git-repository-url = "https://github.com/yasamoka/db-pool"
+git-repository-icon = "fa-github"
+
+[preprocessor.keeper]
+command = "mdbook-keeper"
+manifest_dir = "../"
+externs = ["db_pool", "diesel", "r2d2"]
+build_features = ["diesel-postgres"]
