@@ -29,6 +29,7 @@ type CreateEntities = dyn Fn(DatabaseConnection) -> Pin<Box<dyn Future<Output = 
     + Sync
     + 'static;
 
+/// ``SeaORM`` ``Postgres`` backend
 pub struct SeaORMPostgresBackend {
     privileged_config: PrivilegedPostgresConfig,
     default_pool: DatabaseConnection,
@@ -39,6 +40,41 @@ pub struct SeaORMPostgresBackend {
 }
 
 impl SeaORMPostgresBackend {
+    /// Creates a new ``SeaORM`` ``Postgres`` backend
+    /// # Example
+    /// ```
+    /// use bb8::Pool;
+    /// use db_pool::{r#async::SeaORMPostgresBackend, PrivilegedPostgresConfig};
+    /// use diesel::sql_query;
+    /// use diesel_async::RunQueryDsl;
+    /// use sea_orm::ConnectionTrait;
+    ///
+    /// async fn f() {
+    ///     let backend = SeaORMPostgresBackend::new(
+    ///         PrivilegedPostgresConfig::new("postgres".to_owned())
+    ///             .password(Some("postgres".to_owned())),
+    ///         |opts| {
+    ///             opts.max_connections(10);
+    ///         },
+    ///         |opts| {
+    ///             opts.max_connections(2);
+    ///         },
+    ///         move |conn| {
+    ///             Box::pin(async move {
+    ///                 conn.execute_unprepared(
+    ///                     "CREATE TABLE book(id SERIAL PRIMARY KEY, title TEXT NOT NULL)",
+    ///                 )
+    ///                 .await
+    ///                 .unwrap();
+    ///             })
+    ///         },
+    ///     )
+    ///     .await
+    ///     .unwrap();
+    /// }
+    ///
+    /// tokio_test::block_on(f());
+    /// ```
     pub async fn new(
         privileged_config: PrivilegedPostgresConfig,
         create_privileged_pool: impl for<'tmp> Fn(&'tmp mut ConnectOptions),
@@ -62,6 +98,7 @@ impl SeaORMPostgresBackend {
         })
     }
 
+    /// Drop databases created in previous runs upon initialization
     #[must_use]
     pub fn drop_previous_databases(self, value: bool) -> Self {
         Self {

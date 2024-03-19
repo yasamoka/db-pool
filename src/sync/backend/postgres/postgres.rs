@@ -16,6 +16,7 @@ use super::r#trait::{impl_backend_for_pg_backend, PostgresBackend as PostgresBac
 
 type Manager = PostgresConnectionManager<NoTls>;
 
+/// ``Postgres`` backend
 pub struct PostgresBackend {
     config: Config,
     default_pool: Pool<Manager>,
@@ -26,6 +27,33 @@ pub struct PostgresBackend {
 }
 
 impl PostgresBackend {
+    /// Creates a new ``Postgres`` backend
+    /// # Example
+    /// ```
+    /// use db_pool::sync::PostgresBackend;
+    /// use postgres::{Client, Config};
+    /// use r2d2::Pool;
+    ///
+    /// let mut config = Config::new();
+    /// config
+    ///     .user("postgres")
+    ///     .password("postgres")
+    ///     .host("localhost");
+    ///
+    /// let backend = PostgresBackend::new(
+    ///     config,
+    ///     || Pool::builder().max_size(10),
+    ///     || Pool::builder().max_size(2),
+    ///     move |conn| {
+    ///         conn.query(
+    ///             "CREATE TABLE book(id SERIAL PRIMARY KEY, title TEXT NOT NULL)",
+    ///             &[],
+    ///         )
+    ///         .unwrap();
+    ///     },
+    /// )
+    /// .unwrap();
+    /// ```
     pub fn new(
         config: Config,
         create_privileged_pool: impl Fn() -> Builder<Manager>,
@@ -45,6 +73,7 @@ impl PostgresBackend {
         })
     }
 
+    /// Drop databases created in previous runs upon initialization
     #[must_use]
     pub fn drop_previous_databases(self, value: bool) -> Self {
         Self {

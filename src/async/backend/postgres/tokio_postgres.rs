@@ -25,6 +25,7 @@ type CreateEntities = dyn Fn(Client) -> Pin<Box<dyn Future<Output = Client> + Se
     + Sync
     + 'static;
 
+/// ``tokio-postgres`` backend
 pub struct TokioPostgresBackend<P>
 where
     P: TokioPostgresPoolAssociation,
@@ -41,6 +42,38 @@ impl<P> TokioPostgresBackend<P>
 where
     P: TokioPostgresPoolAssociation,
 {
+    /// Creates a new ``tokio-postgres`` backend
+    /// # Example
+    /// ```
+    /// use bb8::Pool;
+    /// use db_pool::r#async::{TokioPostgresBackend, TokioPostgresBb8};
+    /// use tokio_postgres::Config;
+    ///
+    /// async fn f() {
+    ///     let backend = TokioPostgresBackend::<TokioPostgresBb8>::new(
+    ///         "host=localhost user=postgres password=postgres"
+    ///             .parse::<Config>()
+    ///             .unwrap(),
+    ///         || Pool::builder().max_size(10),
+    ///         || Pool::builder().max_size(2),
+    ///         move |conn| {
+    ///             Box::pin(async move {
+    ///                 conn.execute(
+    ///                     "CREATE TABLE book(id SERIAL PRIMARY KEY, title TEXT NOT NULL)",
+    ///                     &[],
+    ///                 )
+    ///                 .await
+    ///                 .unwrap();
+    ///                 conn
+    ///             })
+    ///         },
+    ///     )
+    ///     .await
+    ///     .unwrap();
+    /// }
+    ///
+    /// tokio_test::block_on(f());
+    /// ```
     pub async fn new(
         privileged_config: Config,
         create_privileged_pool: impl Fn() -> P::Builder,
@@ -63,6 +96,7 @@ where
         })
     }
 
+    /// Drop databases created in previous runs upon initialization
     #[must_use]
     pub fn drop_previous_databases(self, value: bool) -> Self {
         Self {

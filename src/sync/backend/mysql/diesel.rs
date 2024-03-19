@@ -19,6 +19,7 @@ use super::r#trait::{impl_backend_for_mysql_backend, MySQLBackend};
 
 type Manager = ConnectionManager<MysqlConnection>;
 
+/// ``Diesel`` ``MySQL`` backend
 pub struct DieselMySQLBackend {
     privileged_config: PrivilegedConfig,
     default_pool: Pool<Manager>,
@@ -28,6 +29,25 @@ pub struct DieselMySQLBackend {
 }
 
 impl DieselMySQLBackend {
+    /// Creates a new ``Diesel`` ``MySQL`` backend
+    /// # Example
+    /// ```
+    /// use db_pool::{sync::DieselMySQLBackend, PrivilegedMySQLConfig};
+    /// use diesel::{sql_query, RunQueryDsl};
+    /// use r2d2::Pool;
+    ///
+    /// let backend = DieselMySQLBackend::new(
+    ///     PrivilegedMySQLConfig::new("root".to_owned()).password(Some("root".to_owned())),
+    ///     || Pool::builder().max_size(10),
+    ///     || Pool::builder().max_size(2),
+    ///     move |conn| {
+    ///         sql_query("CREATE TABLE book(id INTEGER PRIMARY KEY AUTO_INCREMENT, title TEXT NOT NULL)")
+    ///             .execute(conn)
+    ///             .unwrap();
+    ///     },
+    /// )
+    /// .unwrap();
+    /// ```
     pub fn new(
         privileged_config: PrivilegedConfig,
         create_privileged_pool: impl Fn() -> Builder<Manager>,
@@ -46,6 +66,7 @@ impl DieselMySQLBackend {
         })
     }
 
+    /// Drop databases created in previous runs upon initialization
     #[must_use]
     pub fn drop_previous_databases(self, value: bool) -> Self {
         Self {

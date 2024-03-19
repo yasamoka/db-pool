@@ -32,6 +32,7 @@ type CreateEntities = dyn Fn(DatabaseConnection) -> Pin<Box<dyn Future<Output = 
     + Sync
     + 'static;
 
+/// ``SeaORM`` ``MySQL`` backend
 pub struct SeaORMMySQLBackend {
     privileged_config: PrivilegedMySQLConfig,
     default_pool: DatabaseConnection,
@@ -41,6 +42,40 @@ pub struct SeaORMMySQLBackend {
 }
 
 impl SeaORMMySQLBackend {
+    /// Creates a new ``SeaORM`` ``MySQL`` backend
+    /// # Example
+    /// ```
+    /// use bb8::Pool;
+    /// use db_pool::{r#async::SeaORMMySQLBackend, PrivilegedMySQLConfig};
+    /// use diesel::sql_query;
+    /// use diesel_async::RunQueryDsl;
+    /// use sea_orm::ConnectionTrait;
+    ///
+    /// async fn f() {
+    ///     let backend = SeaORMMySQLBackend::new(
+    ///         PrivilegedMySQLConfig::new("root".to_owned()).password(Some("root".to_owned())),
+    ///         |opts| {
+    ///             opts.max_connections(10);
+    ///         },
+    ///         |opts| {
+    ///             opts.max_connections(2);
+    ///         },
+    ///         move |conn| {
+    ///             Box::pin(async move {
+    ///                 conn.execute_unprepared(
+    ///                     "CREATE TABLE book(id INTEGER PRIMARY KEY AUTO_INCREMENT, title TEXT NOT NULL)",
+    ///                 )
+    ///                 .await
+    ///                 .unwrap();
+    ///             })
+    ///         },
+    ///     )
+    ///     .await
+    ///     .unwrap();
+    /// }
+    ///
+    /// tokio_test::block_on(f());
+    /// ```
     pub async fn new(
         privileged_config: PrivilegedMySQLConfig,
         create_privileged_pool: impl for<'tmp> Fn(&'tmp mut ConnectOptions),
@@ -63,6 +98,7 @@ impl SeaORMMySQLBackend {
         })
     }
 
+    /// Drop databases created in previous runs upon initialization
     #[must_use]
     pub fn drop_previous_databases(self, value: bool) -> Self {
         Self {

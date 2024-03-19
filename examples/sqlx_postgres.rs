@@ -18,7 +18,8 @@ async fn main() {
     let backend = SqlxPostgresBackend::new(
         PgConnectOptions::new()
             .host("localhost")
-            .username("postgres"),
+            .username("postgres")
+            .password("postgres"),
         || PgPoolOptions::new().max_connections(10),
         || PgPoolOptions::new().max_connections(2),
         move |mut conn| {

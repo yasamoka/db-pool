@@ -52,10 +52,13 @@ bb8-postgres = "0.8.1"
 diesel = { version = "2.1.4", features = ["mysql", "postgres", "r2d2"] }
 diesel-async = { version = "0.4.1", features = ["bb8", "mysql", "postgres"] }
 futures = "0.3.30"
+mysql = "25.0.0"
+postgres = "0.19.7"
 r2d2 = "0.8.10"
 sqlx = { version = "0.7.4", features = ["runtime-tokio"] }
 tokio = { version = "1.36.0", features = ["macros", "rt-multi-thread"] }
 tokio-shared-rt = "0.1.0"
+tokio-test = "0.4.4"
 
 async-graphql = "7.0.2"
 async-graphql-poem = "7.0.2"

@@ -25,6 +25,7 @@ type CreateEntities = dyn Fn(MySqlConnection) -> Pin<Box<dyn Future<Output = MyS
     + Sync
     + 'static;
 
+/// ``sqlx`` ``MySQL`` backend
 pub struct SqlxMySQLBackend {
     privileged_opts: MySqlConnectOptions,
     default_pool: MySqlPool,
@@ -34,6 +35,36 @@ pub struct SqlxMySQLBackend {
 }
 
 impl SqlxMySQLBackend {
+    /// Creates a new ``sqlx`` ``MySQL`` backend
+    /// # Example
+    /// ```
+    /// use db_pool::r#async::SqlxMySQLBackend;
+    /// use sqlx::{
+    ///     mysql::{MySqlConnectOptions, MySqlPoolOptions},
+    ///     Executor,
+    /// };
+    ///
+    /// async fn f() {
+    ///     let backend = SqlxMySQLBackend::new(
+    ///         MySqlConnectOptions::new()
+    ///             .host("localhost")
+    ///             .username("root")
+    ///             .password("root"),
+    ///         || MySqlPoolOptions::new().max_connections(10),
+    ///         || MySqlPoolOptions::new().max_connections(2),
+    ///         move |mut conn| {
+    ///             Box::pin(async move {
+    ///                 conn.execute("CREATE TABLE book(id INTEGER PRIMARY KEY AUTO_INCREMENT, title TEXT NOT NULL)")
+    ///                     .await
+    ///                     .unwrap();
+    ///                 conn
+    ///             })
+    ///         },
+    ///     );
+    /// }
+    ///
+    /// tokio_test::block_on(f());
+    /// ```
     pub fn new(
         privileged_options: MySqlConnectOptions,
         create_privileged_pool: impl Fn() -> MySqlPoolOptions,
@@ -55,6 +86,7 @@ impl SqlxMySQLBackend {
         }
     }
 
+    /// Drop databases created in previous runs upon initialization
     #[must_use]
     pub fn drop_previous_databases(self, value: bool) -> Self {
         Self {

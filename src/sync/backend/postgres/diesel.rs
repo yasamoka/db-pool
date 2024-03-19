@@ -14,6 +14,7 @@ use super::r#trait::{impl_backend_for_pg_backend, PostgresBackend};
 
 type Manager = ConnectionManager<PgConnection>;
 
+/// ``Diesel`` ``Postgres`` backend
 pub struct DieselPostgresBackend {
     privileged_config: PrivilegedConfig,
     default_pool: Pool<Manager>,
@@ -24,6 +25,25 @@ pub struct DieselPostgresBackend {
 }
 
 impl DieselPostgresBackend {
+    /// Creates a new ``Diesel`` ``Postgres`` backend
+    /// # Example
+    /// ```
+    /// use db_pool::{sync::DieselPostgresBackend, PrivilegedPostgresConfig};
+    /// use diesel::{sql_query, RunQueryDsl};
+    /// use r2d2::Pool;
+    ///
+    /// let backend = DieselPostgresBackend::new(
+    ///     PrivilegedPostgresConfig::new("postgres".to_owned()).password(Some("postgres".to_owned())),
+    ///     || Pool::builder().max_size(10),
+    ///     || Pool::builder().max_size(2),
+    ///     move |conn| {
+    ///         sql_query("CREATE TABLE book(id SERIAL PRIMARY KEY, title TEXT NOT NULL)")
+    ///             .execute(conn)
+    ///             .unwrap();
+    ///     },
+    /// )
+    /// .unwrap();
+    /// ```
     pub fn new(
         privileged_config: PrivilegedConfig,
         create_privileged_pool: impl Fn() -> Builder<Manager>,
@@ -43,6 +63,7 @@ impl DieselPostgresBackend {
         })
     }
 
+    /// Drop databases created in previous runs upon initialization
     #[must_use]
     pub fn drop_previous_databases(self, value: bool) -> Self {
         Self {

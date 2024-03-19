@@ -15,6 +15,7 @@ use super::r#trait::{impl_backend_for_mysql_backend, MySQLBackend as MySQLBacken
 
 type Manager = MySqlConnectionManager;
 
+/// ``MySQL`` backend
 pub struct MySQLBackend {
     opts: Opts,
     default_pool: Pool<Manager>,
@@ -24,6 +25,27 @@ pub struct MySQLBackend {
 }
 
 impl MySQLBackend {
+    /// Creates a new ``MySQL`` backend
+    /// # Example
+    /// ```
+    /// use db_pool::sync::MySQLBackend;
+    /// use r2d2::Pool;
+    /// use r2d2_mysql::mysql::{params, prelude::Queryable, OptsBuilder};
+    ///
+    /// let backend = MySQLBackend::new(
+    ///     OptsBuilder::new()
+    ///         .user(Some("root"))
+    ///         .pass(Some("root"))
+    ///         .into(),
+    ///     || Pool::builder().max_size(10),
+    ///     || Pool::builder().max_size(2),
+    ///     move |conn| {
+    ///         conn.query_drop("CREATE TABLE book(id INTEGER PRIMARY KEY AUTO_INCREMENT, title TEXT NOT NULL)")
+    ///             .unwrap();
+    ///     },
+    /// )
+    /// .unwrap();
+    /// ```
     pub fn new(
         opts: Opts,
         create_privileged_pool: impl Fn() -> Builder<Manager>,
@@ -42,6 +64,7 @@ impl MySQLBackend {
         })
     }
 
+    /// Drop databases created in previous runs upon initialization
     #[must_use]
     pub fn drop_previous_databases(self, value: bool) -> Self {
         Self {

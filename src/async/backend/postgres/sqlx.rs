@@ -26,6 +26,7 @@ type CreateEntities = dyn Fn(PgConnection) -> Pin<Box<dyn Future<Output = PgConn
     + Sync
     + 'static;
 
+/// ``sqlx`` ``Postgres`` backend
 pub struct SqlxPostgresBackend {
     privileged_opts: PgConnectOptions,
     default_pool: PgPool,
@@ -36,6 +37,36 @@ pub struct SqlxPostgresBackend {
 }
 
 impl SqlxPostgresBackend {
+    /// Creates a new ``sqlx`` ``Postgres`` backend
+    /// # Example
+    /// ```
+    /// use db_pool::r#async::SqlxPostgresBackend;
+    /// use sqlx::{
+    ///     postgres::{PgConnectOptions, PgPoolOptions},
+    ///     Executor,
+    /// };
+    ///
+    /// async fn f() {
+    ///     let backend = SqlxPostgresBackend::new(
+    ///         PgConnectOptions::new()
+    ///             .host("localhost")
+    ///             .username("postgres")
+    ///             .password("postgres"),
+    ///         || PgPoolOptions::new().max_connections(10),
+    ///         || PgPoolOptions::new().max_connections(2),
+    ///         move |mut conn| {
+    ///             Box::pin(async move {
+    ///                 conn.execute("CREATE TABLE book(id SERIAL PRIMARY KEY, title TEXT NOT NULL)")
+    ///                     .await
+    ///                     .unwrap();
+    ///                 conn
+    ///             })
+    ///         },
+    ///     );
+    /// }
+    ///
+    /// tokio_test::block_on(f());
+    /// ```
     pub fn new(
         privileged_options: PgConnectOptions,
         create_privileged_pool: impl Fn() -> PgPoolOptions,
@@ -58,6 +89,7 @@ impl SqlxPostgresBackend {
         }
     }
 
+    /// Drop databases created in previous runs upon initialization
     #[must_use]
     pub fn drop_previous_databases(self, value: bool) -> Self {
         Self {

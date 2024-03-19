@@ -20,7 +20,9 @@ async fn main() {
     .to_owned();
 
     let backend = Backend::new(
-        "host=localhost user=postgres".parse::<Config>().unwrap(),
+        "host=localhost user=postgres password=postgres"
+            .parse::<Config>()
+            .unwrap(),
         || Pool::builder().max_size(10),
         || Pool::builder().max_size(2),
         move |conn| {

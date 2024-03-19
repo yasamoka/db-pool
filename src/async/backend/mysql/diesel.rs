@@ -27,6 +27,7 @@ type CreateEntities = dyn Fn(AsyncMysqlConnection) -> Pin<Box<dyn Future<Output 
     + Sync
     + 'static;
 
+/// ``Diesel`` async ``MySQL`` backend
 pub struct DieselAsyncMySQLBackend<P>
 where
     P: DieselPoolAssociation<AsyncMysqlConnection>,
@@ -42,6 +43,37 @@ impl<P> DieselAsyncMySQLBackend<P>
 where
     P: DieselPoolAssociation<AsyncMysqlConnection>,
 {
+    /// Creates a new ``Diesel`` async ``MySQL`` backend
+    /// # Example
+    /// ```
+    /// use bb8::Pool;
+    /// use db_pool::{
+    ///     r#async::{DieselAsyncMySQLBackend, DieselBb8},
+    ///     PrivilegedMySQLConfig,
+    /// };
+    /// use diesel::sql_query;
+    /// use diesel_async::RunQueryDsl;
+    ///
+    /// async fn f() {
+    ///     let backend = DieselAsyncMySQLBackend::<DieselBb8>::new(
+    ///         PrivilegedMySQLConfig::new("root".to_owned()).password(Some("root".to_owned())),
+    ///         || Pool::builder().max_size(10),
+    ///         || Pool::builder().max_size(2),
+    ///         move |mut conn| {
+    ///             Box::pin(async move {
+    ///                 sql_query("CREATE TABLE book(id INTEGER PRIMARY KEY AUTO_INCREMENT, title TEXT NOT NULL)")
+    ///                     .execute(&mut conn)
+    ///                     .await
+    ///                     .unwrap();
+    ///             })
+    ///         },
+    ///     )
+    ///     .await
+    ///     .unwrap();
+    /// }
+    ///
+    /// tokio_test::block_on(f());
+    /// ```
     pub async fn new(
         privileged_config: PrivilegedConfig,
         create_privileged_pool: impl Fn() -> P::Builder,
@@ -64,6 +96,7 @@ where
         })
     }
 
+    /// Drop databases created in previous runs upon initialization
     #[must_use]
     pub fn drop_previous_databases(self, value: bool) -> Self {
         Self {

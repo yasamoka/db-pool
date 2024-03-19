@@ -1,7 +1,7 @@
 use std::thread;
 
 use r2d2::Pool;
-use r2d2_mysql::mysql::{params, prelude::*, OptsBuilder};
+use r2d2_mysql::mysql::{params, prelude::Queryable, OptsBuilder};
 
 use db_pool::sync::{ConnectionPool, DatabasePoolBuilderTrait, MySQLBackend};
 
