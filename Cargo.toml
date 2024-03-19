@@ -165,6 +165,10 @@ name = "diesel_pg"
 required-features = ["diesel-postgres"]
 
 [[example]]
+name = "diesel_pg2"
+required-features = ["diesel-postgres"]
+
+[[example]]
 name = "mysql"
 required-features = ["mysql"]
 
