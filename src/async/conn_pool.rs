@@ -2,10 +2,9 @@ use std::{ops::Deref, sync::Arc};
 
 use uuid::Uuid;
 
-use crate::util::get_db_name;
-
 use super::backend::{r#trait::Backend, Error as BackendError};
 
+/// Connection pool wrapper
 pub struct ConnectionPool<B>
 where
     B: Backend,
@@ -19,7 +18,7 @@ impl<B> ConnectionPool<B>
 where
     B: Backend,
 {
-    pub async fn new(
+    pub(crate) async fn new(
         backend: Arc<B>,
     ) -> Result<Self, BackendError<B::BuildError, B::PoolError, B::ConnectionError, B::QueryError>>
     {
@@ -33,12 +32,7 @@ where
         })
     }
 
-    #[must_use]
-    pub fn db_name(&self) -> String {
-        get_db_name(self.db_id)
-    }
-
-    pub async fn clean(
+    pub(crate) async fn clean(
         &mut self,
     ) -> Result<(), BackendError<B::BuildError, B::PoolError, B::ConnectionError, B::QueryError>>
     {

@@ -48,8 +48,6 @@ fn main() {
 }
 
 fn run_test(conn_pool: &ConnectionPool<PostgresBackend>) {
-    dbg!(conn_pool.db_name());
-
     let mut conn = conn_pool.get().unwrap();
 
     conn.execute(

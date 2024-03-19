@@ -70,8 +70,6 @@ fn run_test(conn_pool: &ConnectionPool<DieselMySQLBackend>) {
         last_name: &'a str,
     }
 
-    dbg!(conn_pool.db_name());
-
     let mut conn = conn_pool.get().unwrap();
     let new_author = NewAuthor {
         first_name: "John",

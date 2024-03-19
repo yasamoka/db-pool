@@ -51,8 +51,6 @@ fn main() {
 }
 
 fn run_test(conn_pool: &ConnectionPool<MySQLBackend>) {
-    dbg!(conn_pool.db_name());
-
     let mut conn = conn_pool.get().unwrap();
 
     conn.exec_drop(

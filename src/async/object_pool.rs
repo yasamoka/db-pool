@@ -5,22 +5,20 @@ use std::future::Future;
 use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
 
-pub type Stack<T> = Vec<T>;
-
+type Stack<T> = Vec<T>;
 type Init<T> =
     Box<dyn Fn() -> Pin<Box<dyn Future<Output = T> + Send + 'static>> + Send + Sync + 'static>;
 type Reset<T> =
     Box<dyn Fn(T) -> Pin<Box<dyn Future<Output = T> + Send + 'static>> + Send + Sync + 'static>;
 
-pub struct ObjectPool<T> {
+pub(crate) struct ObjectPool<T> {
     objects: Mutex<Stack<T>>,
     init: Init<T>,
     reset: Reset<T>,
 }
 
 impl<T> ObjectPool<T> {
-    #[inline]
-    pub fn new(
+    pub(crate) fn new(
         init: impl Fn() -> Pin<Box<dyn Future<Output = T> + Send + 'static>> + Send + Sync + 'static,
         reset: impl Fn(T) -> Pin<Box<dyn Future<Output = T> + Send + 'static>> + Send + Sync + 'static,
     ) -> ObjectPool<T> {
@@ -31,18 +29,7 @@ impl<T> ObjectPool<T> {
         }
     }
 
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.objects.lock().len()
-    }
-
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.objects.lock().is_empty()
-    }
-
-    #[inline]
-    pub async fn pull(&self) -> Reusable<T> {
+    pub(crate) async fn pull(&self) -> Reusable<T> {
         let object = self.objects.lock().pop();
         let object = if let Some(object) = object {
             (self.reset)(object).await
@@ -52,20 +39,19 @@ impl<T> ObjectPool<T> {
         Reusable::new(self, object)
     }
 
-    #[inline]
-    pub fn attach(&self, t: T) {
+    fn attach(&self, t: T) {
         self.objects.lock().push(t);
     }
 }
 
+/// Reusable object wrapper
 pub struct Reusable<'a, T> {
     pool: &'a ObjectPool<T>,
     data: Option<T>,
 }
 
 impl<'a, T> Reusable<'a, T> {
-    #[inline]
-    pub fn new(pool: &'a ObjectPool<T>, t: T) -> Self {
+    fn new(pool: &'a ObjectPool<T>, t: T) -> Self {
         Self {
             pool,
             data: Some(t),
@@ -103,6 +89,12 @@ impl<'a, T> Drop for Reusable<'a, T> {
 mod tests {
     use super::ObjectPool;
     use std::mem::drop;
+
+    impl<T> ObjectPool<T> {
+        fn len(&self) -> usize {
+            self.objects.lock().len()
+        }
+    }
 
     #[tokio::test]
     async fn len() {
