@@ -4,6 +4,7 @@
 //! - Easy setup
 //! - Proper isolation
 //! - Automatic creation, reuse, and cleanup
+//! - Async support
 //!
 //! ### Databases
 //!

@@ -22,8 +22,6 @@ pub use common::pool::tokio_postgres::deadpool::TokioPostgresDeadpool;
 pub use common::pool::tokio_postgres::mobc::TokioPostgresMobc;
 #[cfg(feature = "diesel-async-mysql")]
 pub use mysql::DieselAsyncMySQLBackend;
-#[cfg(feature = "tokio-postgres-mysql")]
-pub use mysql::DieselAsyncMySQLBackend;
 #[cfg(feature = "sea-orm-mysql")]
 pub use mysql::SeaORMMySQLBackend;
 #[cfg(feature = "sqlx-mysql")]
@@ -36,4 +34,4 @@ pub use postgres::SeaORMPostgresBackend;
 pub use postgres::SqlxPostgresBackend;
 #[cfg(feature = "tokio-postgres")]
 pub use postgres::TokioPostgresBackend;
-pub use r#trait::Backend as AsyncBackendTrait;
+pub use r#trait::Backend as BackendTrait;

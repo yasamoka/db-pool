@@ -10,6 +10,7 @@ A thread-safe database pool for running database-tied tests in parallel with:
 - Easy setup
 - Proper isolation
 - Automatic creation, reuse, and cleanup
+- Async support
 
 ### Databases
 
