@@ -22,6 +22,12 @@ jobs:
           mkdir mdbook
           curl -sSL $url | tar -xz --directory=./mdbook
           echo `pwd`/mdbook >> $GITHUB_PATH
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install latest mdbook-keeper
+        uses: taiki-e/install-action@v2
+        with:
+          tool: mdbook-keeper
       - name: Build Book
         run: |
           cd docs
