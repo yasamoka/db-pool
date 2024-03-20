@@ -6,6 +6,8 @@
 
 [![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-success.svg)](https://github.com/rust-secure-code/safety-dance/)
 
+[Book](https://yasamoka.github.io/db-pool)
+
 A thread-safe database pool for running database-tied tests in parallel with:
 - Easy setup
 - Proper isolation
