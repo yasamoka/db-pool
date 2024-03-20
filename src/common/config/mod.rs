@@ -1,4 +1,5 @@
 #[cfg(any(
+    test,
     feature = "diesel-mysql",
     feature = "diesel-async-mysql",
     feature = "sea-orm-mysql"

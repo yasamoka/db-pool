@@ -38,18 +38,15 @@ impl SqlxMySQLBackend {
     /// Creates a new ``sqlx`` ``MySQL`` backend
     /// # Example
     /// ```
-    /// use db_pool::r#async::SqlxMySQLBackend;
-    /// use sqlx::{
-    ///     mysql::{MySqlConnectOptions, MySqlPoolOptions},
-    ///     Executor,
-    /// };
+    /// use db_pool::{r#async::SqlxMySQLBackend, PrivilegedMySQLConfig};
+    /// use dotenvy::dotenv;
+    /// use sqlx::{mysql::MySqlPoolOptions, Executor};
     ///
     /// async fn f() {
+    ///     dotenv().ok();
+    /// 
     ///     let backend = SqlxMySQLBackend::new(
-    ///         MySqlConnectOptions::new()
-    ///             .host("localhost")
-    ///             .username("root")
-    ///             .password("root"),
+    ///         PrivilegedMySQLConfig::from_env().unwrap().into(),
     ///         || MySqlPoolOptions::new().max_connections(10),
     ///         || MySqlPoolOptions::new().max_connections(2),
     ///         move |mut conn| {
@@ -232,6 +229,7 @@ mod tests {
             CREATE_ENTITIES_STATEMENT, DDL_STATEMENTS, DML_STATEMENTS,
         },
         r#async::db_pool::DatabasePoolBuilder,
+        tests::get_privileged_mysql_config,
     };
 
     use super::{
@@ -245,23 +243,25 @@ mod tests {
     };
 
     fn create_backend(with_table: bool) -> SqlxMySQLBackend {
-        SqlxMySQLBackend::new(
-            MySqlConnectOptions::new().username("root").password("root"),
-            MySqlPoolOptions::new,
-            MySqlPoolOptions::new,
-            {
-                move |mut conn| {
-                    if with_table {
-                        Box::pin(async move {
-                            conn.execute(CREATE_ENTITIES_STATEMENT).await.unwrap();
-                            conn
-                        })
-                    } else {
-                        Box::pin(async { conn })
-                    }
+        let config = get_privileged_mysql_config();
+        let opts = MySqlConnectOptions::new().username(config.username.as_str());
+        let opts = if let Some(password) = &config.password {
+            opts.password(password)
+        } else {
+            opts
+        };
+        SqlxMySQLBackend::new(opts, MySqlPoolOptions::new, MySqlPoolOptions::new, {
+            move |mut conn| {
+                if with_table {
+                    Box::pin(async move {
+                        conn.execute(CREATE_ENTITIES_STATEMENT).await.unwrap();
+                        conn
+                    })
+                } else {
+                    Box::pin(async { conn })
                 }
-            },
-        )
+            }
+        })
     }
 
     #[test(flavor = "multi_thread", shared)]

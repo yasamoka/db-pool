@@ -28,20 +28,23 @@ impl MySQLBackend {
     /// Creates a new ``MySQL`` backend
     /// # Example
     /// ```
-    /// use db_pool::sync::MySQLBackend;
+    /// use db_pool::{sync::MySQLBackend, PrivilegedMySQLConfig};
+    /// use dotenvy::dotenv;
     /// use r2d2::Pool;
-    /// use r2d2_mysql::mysql::{params, prelude::Queryable, OptsBuilder};
+    /// use r2d2_mysql::mysql::{prelude::Queryable, OptsBuilder};
+    ///
+    /// dotenv().ok();
+    /// let config = PrivilegedMySQLConfig::from_env().unwrap();
     ///
     /// let backend = MySQLBackend::new(
-    ///     OptsBuilder::new()
-    ///         .user(Some("root"))
-    ///         .pass(Some("root"))
-    ///         .into(),
+    ///     OptsBuilder::from(config).into(),
     ///     || Pool::builder().max_size(10),
     ///     || Pool::builder().max_size(2),
     ///     move |conn| {
-    ///         conn.query_drop("CREATE TABLE book(id INTEGER PRIMARY KEY AUTO_INCREMENT, title TEXT NOT NULL)")
-    ///             .unwrap();
+    ///         conn.query_drop(
+    ///             "CREATE TABLE book(id INTEGER PRIMARY KEY AUTO_INCREMENT, title TEXT NOT NULL)",
+    ///         )
+    ///         .unwrap();
     ///     },
     /// )
     /// .unwrap();
@@ -156,6 +159,7 @@ mod tests {
             CREATE_ENTITIES_STATEMENT, DDL_STATEMENTS, DML_STATEMENTS,
         },
         sync::DatabasePoolBuilderTrait,
+        tests::get_privileged_mysql_config,
     };
 
     use super::{
@@ -170,11 +174,9 @@ mod tests {
     };
 
     fn create_backend(with_table: bool) -> MySQLBackend {
+        let config = get_privileged_mysql_config().clone();
         MySQLBackend::new(
-            OptsBuilder::new()
-                .user(Some("root"))
-                .pass(Some("root"))
-                .into(),
+            OptsBuilder::from(config).into(),
             Pool::builder,
             Pool::builder,
             {

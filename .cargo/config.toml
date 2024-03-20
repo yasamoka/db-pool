@@ -1,2 +1,2 @@
 [env]
-RUST_TEST_THREADS = "2"
+RUST_TEST_THREADS = "1"

@@ -16,7 +16,7 @@ A thread-safe database pool for running database-tied tests in parallel with:
 
 ### Databases
 
-- MySQL
+- MySQL (MariaDB)
 - PostgreSQL
 
 ### Backends

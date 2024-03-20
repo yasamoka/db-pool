@@ -34,16 +34,21 @@ impl DieselMySQLBackend {
     /// ```
     /// use db_pool::{sync::DieselMySQLBackend, PrivilegedMySQLConfig};
     /// use diesel::{sql_query, RunQueryDsl};
+    /// use dotenvy::dotenv;
     /// use r2d2::Pool;
     ///
+    /// dotenv().ok();
+    /// 
     /// let backend = DieselMySQLBackend::new(
-    ///     PrivilegedMySQLConfig::new("root".to_owned()).password(Some("root".to_owned())),
+    ///     PrivilegedMySQLConfig::from_env().unwrap(),
     ///     || Pool::builder().max_size(10),
     ///     || Pool::builder().max_size(2),
     ///     move |conn| {
-    ///         sql_query("CREATE TABLE book(id INTEGER PRIMARY KEY AUTO_INCREMENT, title TEXT NOT NULL)")
-    ///             .execute(conn)
-    ///             .unwrap();
+    ///         sql_query(
+    ///             "CREATE TABLE book(id INTEGER PRIMARY KEY AUTO_INCREMENT, title TEXT NOT NULL)",
+    ///         )
+    ///         .execute(conn)
+    ///         .unwrap();
     ///     },
     /// )
     /// .unwrap();
@@ -180,11 +185,11 @@ mod tests {
     use r2d2::Pool;
 
     use crate::{
-        common::{
-            config::PrivilegedMySQLConfig,
-            statement::mysql::tests::{CREATE_ENTITIES_STATEMENT, DDL_STATEMENTS, DML_STATEMENTS},
+        common::statement::mysql::tests::{
+            CREATE_ENTITIES_STATEMENT, DDL_STATEMENTS, DML_STATEMENTS,
         },
         sync::db_pool::DatabasePoolBuilder,
+        tests::get_privileged_mysql_config,
     };
 
     use super::{
@@ -212,18 +217,14 @@ mod tests {
     }
 
     fn create_backend(with_table: bool) -> DieselMySQLBackend {
-        DieselMySQLBackend::new(
-            PrivilegedMySQLConfig::new("root".to_owned()).password(Some("root".to_owned())),
-            Pool::builder,
-            Pool::builder,
-            {
-                move |conn| {
-                    if with_table {
-                        sql_query(CREATE_ENTITIES_STATEMENT).execute(conn).unwrap();
-                    }
+        let config = get_privileged_mysql_config().clone();
+        DieselMySQLBackend::new(config, Pool::builder, Pool::builder, {
+            move |conn| {
+                if with_table {
+                    sql_query(CREATE_ENTITIES_STATEMENT).execute(conn).unwrap();
                 }
-            },
-        )
+            }
+        })
         .unwrap()
     }
 

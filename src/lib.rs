@@ -8,7 +8,7 @@
 //!
 //! ### Databases
 //!
-//! - ``MySQL``
+//! - ``MySQL`` (``MariaDB``)
 //! - ``PostgreSQL``
 //!
 //! ### Backends
@@ -72,11 +72,26 @@ pub use common::config::*;
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used)]
+
+    use std::sync::OnceLock;
+
+    use dotenvy::dotenv;
     use tokio::sync::RwLock;
+
+    use crate::common::config::mysql::PrivilegedMySQLConfig;
 
     #[cfg(feature = "_mysql")]
     pub static MYSQL_DROP_LOCK: RwLock<()> = RwLock::const_new(());
 
     #[cfg(feature = "_postgres")]
     pub static PG_DROP_LOCK: RwLock<()> = RwLock::const_new(());
+
+    pub fn get_privileged_mysql_config() -> &'static PrivilegedMySQLConfig {
+        static CONFIG: OnceLock<PrivilegedMySQLConfig> = OnceLock::new();
+        CONFIG.get_or_init(|| {
+            dotenv().ok();
+            PrivilegedMySQLConfig::from_env().unwrap()
+        })
+    }
 }

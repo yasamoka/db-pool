@@ -45,33 +45,33 @@ impl SeaORMMySQLBackend {
     /// Creates a new ``SeaORM`` ``MySQL`` backend
     /// # Example
     /// ```
-    /// use bb8::Pool;
     /// use db_pool::{r#async::SeaORMMySQLBackend, PrivilegedMySQLConfig};
-    /// use diesel::sql_query;
-    /// use diesel_async::RunQueryDsl;
+    /// use dotenvy::dotenv;
     /// use sea_orm::ConnectionTrait;
     ///
     /// async fn f() {
+    ///     dotenv().ok();
+    /// 
     ///     let backend = SeaORMMySQLBackend::new(
-    ///         PrivilegedMySQLConfig::new("root".to_owned()).password(Some("root".to_owned())),
-    ///         |opts| {
-    ///             opts.max_connections(10);
-    ///         },
-    ///         |opts| {
-    ///             opts.max_connections(2);
-    ///         },
-    ///         move |conn| {
-    ///             Box::pin(async move {
-    ///                 conn.execute_unprepared(
-    ///                     "CREATE TABLE book(id INTEGER PRIMARY KEY AUTO_INCREMENT, title TEXT NOT NULL)",
-    ///                 )
-    ///                 .await
-    ///                 .unwrap();
-    ///             })
-    ///         },
-    ///     )
-    ///     .await
-    ///     .unwrap();
+    ///             PrivilegedMySQLConfig::from_env().unwrap(),
+    ///             |opts| {
+    ///                 opts.max_connections(10);
+    ///             },
+    ///             |opts| {
+    ///                 opts.max_connections(2);
+    ///             },
+    ///             move |conn| {
+    ///                 Box::pin(async move {
+    ///                     conn.execute_unprepared(
+    ///                         "CREATE TABLE book(id INTEGER PRIMARY KEY AUTO_INCREMENT, title TEXT NOT NULL)",
+    ///                     )
+    ///                     .await
+    ///                     .unwrap();
+    ///                 })
+    ///             },
+    ///         )
+    ///         .await
+    ///         .unwrap();
     /// }
     ///
     /// tokio_test::block_on(f());
@@ -296,11 +296,11 @@ mod tests {
     use tokio_shared_rt::test;
 
     use crate::{
-        common::{
-            config::PrivilegedMySQLConfig,
-            statement::mysql::tests::{CREATE_ENTITIES_STATEMENT, DDL_STATEMENTS, DML_STATEMENTS},
+        common::statement::mysql::tests::{
+            CREATE_ENTITIES_STATEMENT, DDL_STATEMENTS, DML_STATEMENTS,
         },
         r#async::db_pool::DatabasePoolBuilder,
+        tests::get_privileged_mysql_config,
     };
 
     use super::{
@@ -327,24 +327,20 @@ mod tests {
     impl ActiveModelBehavior for ActiveModel {}
 
     async fn create_backend(with_table: bool) -> SeaORMMySQLBackend {
-        SeaORMMySQLBackend::new(
-            PrivilegedMySQLConfig::new("root".to_owned()).password(Some("root".to_owned())),
-            |_| {},
-            |_| {},
-            {
-                move |conn| {
-                    if with_table {
-                        Box::pin(async move {
-                            conn.execute_unprepared(CREATE_ENTITIES_STATEMENT)
-                                .await
-                                .unwrap();
-                        })
-                    } else {
-                        Box::pin(async {})
-                    }
+        let config = get_privileged_mysql_config().clone();
+        SeaORMMySQLBackend::new(config, |_| {}, |_| {}, {
+            move |conn| {
+                if with_table {
+                    Box::pin(async move {
+                        conn.execute_unprepared(CREATE_ENTITIES_STATEMENT)
+                            .await
+                            .unwrap();
+                    })
+                } else {
+                    Box::pin(async {})
                 }
-            },
-        )
+            }
+        })
         .await
         .unwrap()
     }

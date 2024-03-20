@@ -53,10 +53,13 @@ where
     /// };
     /// use diesel::sql_query;
     /// use diesel_async::RunQueryDsl;
+    /// use dotenvy::dotenv;
     ///
     /// async fn f() {
+    ///     dotenv().ok();
+    /// 
     ///     let backend = DieselAsyncMySQLBackend::<DieselBb8>::new(
-    ///         PrivilegedMySQLConfig::new("root".to_owned()).password(Some("root".to_owned())),
+    ///         PrivilegedMySQLConfig::from_env().unwrap(),
     ///         || Pool::builder().max_size(10),
     ///         || Pool::builder().max_size(2),
     ///         move |mut conn| {
@@ -260,11 +263,11 @@ mod tests {
     use tokio_shared_rt::test;
 
     use crate::{
-        common::{
-            config::PrivilegedMySQLConfig,
-            statement::mysql::tests::{CREATE_ENTITIES_STATEMENT, DDL_STATEMENTS, DML_STATEMENTS},
+        common::statement::mysql::tests::{
+            CREATE_ENTITIES_STATEMENT, DDL_STATEMENTS, DML_STATEMENTS,
         },
         r#async::{backend::common::pool::diesel::bb8::DieselBb8, db_pool::DatabasePoolBuilder},
+        tests::get_privileged_mysql_config,
     };
 
     use super::{
@@ -291,25 +294,21 @@ mod tests {
     }
 
     async fn create_backend(with_table: bool) -> DieselAsyncMySQLBackend<DieselBb8> {
-        DieselAsyncMySQLBackend::new(
-            PrivilegedMySQLConfig::new("root".to_owned()).password(Some("root".to_owned())),
-            Pool::builder,
-            Pool::builder,
-            {
-                move |mut conn| {
-                    if with_table {
-                        Box::pin(async move {
-                            sql_query(CREATE_ENTITIES_STATEMENT)
-                                .execute(&mut conn)
-                                .await
-                                .unwrap();
-                        })
-                    } else {
-                        Box::pin(async {})
-                    }
+        let config = get_privileged_mysql_config().clone();
+        DieselAsyncMySQLBackend::new(config, Pool::builder, Pool::builder, {
+            move |mut conn| {
+                if with_table {
+                    Box::pin(async move {
+                        sql_query(CREATE_ENTITIES_STATEMENT)
+                            .execute(&mut conn)
+                            .await
+                            .unwrap();
+                    })
+                } else {
+                    Box::pin(async {})
                 }
-            },
-        )
+            }
+        })
         .await
         .unwrap()
     }

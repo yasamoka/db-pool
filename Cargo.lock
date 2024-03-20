@@ -690,6 +690,7 @@ dependencies = [
  "deadpool-postgres",
  "diesel",
  "diesel-async",
+ "dotenvy",
  "futures",
  "mobc",
  "mobc-postgres",
