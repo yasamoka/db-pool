@@ -41,7 +41,7 @@ async fn create_database_pool() -> DatabasePool<SeaORMPostgresBackend> {
     .to_owned();
 
     let backend = SeaORMPostgresBackend::new(
-        PrivilegedPostgresConfig::new("postgres".to_owned()).password(Some("postgres".to_owned())),
+        PrivilegedPostgresConfig::from_env().unwrap(),
         |opts| {
             opts.max_connections(10);
         },

@@ -1,8 +1,3 @@
-#[cfg(feature = "mysql")]
-use r2d2_mysql::mysql::OptsBuilder;
-#[cfg(feature = "sqlx-mysql")]
-use sqlx::mysql::MySqlConnectOptions;
-
 /// Privileged ``MySQL`` configuration
 #[derive(Clone)]
 pub struct PrivilegedMySQLConfig {
@@ -13,24 +8,30 @@ pub struct PrivilegedMySQLConfig {
 }
 
 impl PrivilegedMySQLConfig {
+    const DEFAULT_USERNAME: &'static str = "root";
+    const DEFAULT_PASSWORD: Option<String> = None;
+    const DEFAULT_HOST: &'static str = "localhost";
+    const DEFAULT_PORT: u16 = 3306;
+
     /// Creates a new privileged ``MySQL`` configuration
     /// # Example
     /// ```
     /// # use db_pool::PrivilegedMySQLConfig;
     /// #
-    /// let config = PrivilegedMySQLConfig::new("root".to_owned());
+    /// let config = PrivilegedMySQLConfig::new();
     /// ```
     /// # Defaults
-    /// * Password: {empty}
-    /// * Host: localhost
-    /// * Port: 3306
+    /// - Username: root
+    /// - Password: {empty}
+    /// - Host: localhost
+    /// - Port: 3306
     #[must_use]
-    pub fn new(username: String) -> Self {
+    pub fn new() -> Self {
         Self {
-            username,
-            password: None,
-            host: "localhost".to_owned(),
-            port: 3306,
+            username: Self::DEFAULT_USERNAME.to_owned(),
+            password: Self::DEFAULT_PASSWORD,
+            host: Self::DEFAULT_HOST.to_owned(),
+            port: Self::DEFAULT_PORT,
         }
     }
 
@@ -41,17 +42,18 @@ impl PrivilegedMySQLConfig {
     /// - `MYSQL_HOST`
     /// - `MYSQL_PORT`
     /// # Defaults
-    /// * Password: {empty}
-    /// * Host: localhost
-    /// * Port: 3306
+    /// - Username: root
+    /// - Password: {empty}
+    /// - Host: localhost
+    /// - Port: 3306
     pub fn from_env() -> Result<Self, Error> {
         use std::env;
 
-        let username = env::var("MYSQL_USERNAME").map_err(|_| Error::MissingUsername)?;
+        let username = env::var("MYSQL_USERNAME").unwrap_or(Self::DEFAULT_USERNAME.to_owned());
         let password = env::var("MYSQL_PASSWORD").ok();
-        let host = env::var("MYSQL_HOST").unwrap_or("localhost".to_owned());
+        let host = env::var("MYSQL_HOST").unwrap_or(Self::DEFAULT_HOST.to_owned());
         let port = env::var("MYSQL_PORT")
-            .map_or(Ok(3306), |port| port.parse())
+            .map_or(Ok(Self::DEFAULT_PORT), |port| port.parse())
             .map_err(Error::InvalidPort)?;
 
         Ok(Self {
@@ -67,7 +69,7 @@ impl PrivilegedMySQLConfig {
     /// ```
     /// # use db_pool::PrivilegedMySQLConfig;
     /// #
-    /// let config = PrivilegedMySQLConfig::new("root".to_owned()).password(Some("root".to_owned()));
+    /// let config = PrivilegedMySQLConfig::new().password(Some("root".to_owned()));
     /// ```
     #[must_use]
     pub fn password(self, value: Option<String>) -> Self {
@@ -82,7 +84,7 @@ impl PrivilegedMySQLConfig {
     /// ```
     /// # use db_pool::PrivilegedMySQLConfig;
     /// #
-    /// let config = PrivilegedMySQLConfig::new("root".to_owned()).host("localhost".to_owned());
+    /// let config = PrivilegedMySQLConfig::new().host("localhost".to_owned());
     /// ```
     #[must_use]
     pub fn host(self, value: String) -> Self {
@@ -97,7 +99,7 @@ impl PrivilegedMySQLConfig {
     /// ```
     /// # use db_pool::PrivilegedMySQLConfig;
     /// #
-    /// let config = PrivilegedMySQLConfig::new("root".to_owned()).port(3306);
+    /// let config = PrivilegedMySQLConfig::new().port(3306);
     /// ```
     #[must_use]
     pub fn port(self, value: u16) -> Self {
@@ -153,12 +155,17 @@ impl PrivilegedMySQLConfig {
 
 #[derive(Debug)]
 pub enum Error {
-    MissingUsername,
     InvalidPort(std::num::ParseIntError),
 }
 
+impl Default for PrivilegedMySQLConfig {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(feature = "mysql")]
-impl From<PrivilegedMySQLConfig> for OptsBuilder {
+impl From<PrivilegedMySQLConfig> for r2d2_mysql::mysql::OptsBuilder {
     fn from(value: PrivilegedMySQLConfig) -> Self {
         Self::new()
             .user(Some(value.username.clone()))
@@ -169,11 +176,11 @@ impl From<PrivilegedMySQLConfig> for OptsBuilder {
 }
 
 #[cfg(feature = "sqlx-mysql")]
-impl From<PrivilegedMySQLConfig> for MySqlConnectOptions {
+impl From<PrivilegedMySQLConfig> for sqlx::mysql::MySqlConnectOptions {
     fn from(value: PrivilegedMySQLConfig) -> Self {
         let PrivilegedMySQLConfig { username, password, host, port } = value;
         
-        let opts = MySqlConnectOptions::new()
+        let opts = Self::new()
             .username(username.as_str())
             .host(host.as_str())
             .port(port);

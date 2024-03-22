@@ -47,12 +47,14 @@ impl SeaORMPostgresBackend {
     /// use db_pool::{r#async::SeaORMPostgresBackend, PrivilegedPostgresConfig};
     /// use diesel::sql_query;
     /// use diesel_async::RunQueryDsl;
+    /// use dotenvy::dotenv;
     /// use sea_orm::ConnectionTrait;
     ///
     /// async fn f() {
+    ///     dotenv().ok();
+    ///
     ///     let backend = SeaORMPostgresBackend::new(
-    ///         PrivilegedPostgresConfig::new("postgres".to_owned())
-    ///             .password(Some("postgres".to_owned())),
+    ///         PrivilegedPostgresConfig::from_env().unwrap(),
     ///         |opts| {
     ///             opts.max_connections(10);
     ///         },
@@ -328,8 +330,7 @@ mod tests {
 
     async fn create_backend(with_table: bool) -> SeaORMPostgresBackend {
         SeaORMPostgresBackend::new(
-            PrivilegedPostgresConfig::new("postgres".to_owned())
-                .password(Some("postgres".to_owned())),
+            PrivilegedPostgresConfig::from_env().unwrap(),
             |_| {},
             |_| {},
             {

@@ -32,7 +32,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       - name: Run Tests
         run: |
-          echo "MYSQL_USERNAME=root" > .env
-          echo "MYSQL_PASSWORD=root" >> .env
+          echo "MYSQL_PASSWORD=root" > .env
           echo "MYSQL_HOST=127.0.0.1" >> .env
+          echo "POSTGRES_PASSWORD=postgres" >> .env
           cargo test --all-features

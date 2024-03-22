@@ -26,7 +26,7 @@ fn main() {
     .to_owned();
 
     let backend = DieselMySQLBackend::new(
-        PrivilegedMySQLConfig::new("root".to_owned()).password(Some("root".to_owned())),
+        PrivilegedMySQLConfig::from_env().unwrap(),
         || Pool::builder().max_size(10),
         || Pool::builder().max_size(2),
         move |conn| {

@@ -55,8 +55,7 @@ where
     ///
     /// async fn f() {
     ///     let backend = DieselAsyncPgBackend::<DieselBb8>::new(
-    ///         PrivilegedPostgresConfig::new("postgres".to_owned())
-    ///             .password(Some("postgres".to_owned())),
+    ///         PrivilegedPostgresConfig::from_env().unwrap(),
     ///         || Pool::builder().max_size(10),
     ///         || Pool::builder().max_size(2),
     ///         move |mut conn| {
@@ -306,8 +305,7 @@ mod tests {
 
     async fn create_backend(with_table: bool) -> DieselAsyncPgBackend<DieselBb8> {
         DieselAsyncPgBackend::new(
-            PrivilegedPostgresConfig::new("postgres".to_owned())
-                .password(Some("postgres".to_owned())),
+            PrivilegedPostgresConfig::from_env().unwrap(),
             Pool::builder,
             Pool::builder,
             {

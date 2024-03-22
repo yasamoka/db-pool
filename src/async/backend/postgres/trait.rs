@@ -301,7 +301,7 @@ pub(super) mod tests {
     use crate::{
         common::statement::postgres::tests::{DDL_STATEMENTS, DML_STATEMENTS},
         r#async::{backend::r#trait::Backend, db_pool::DatabasePoolBuilder},
-        tests::PG_DROP_LOCK,
+        tests::{get_privileged_postgres_config, PG_DROP_LOCK},
         util::get_db_name,
     };
 
@@ -342,17 +342,19 @@ pub(super) mod tests {
     async fn get_privileged_connection_pool() -> &'static Pool {
         static POOL: OnceCell<Pool> = OnceCell::const_new();
         POOL.get_or_init(|| async {
-            let manager =
-                AsyncDieselConnectionManager::new("postgres://postgres:postgres@localhost:5432");
+            let config = get_privileged_postgres_config();
+            let connection_url = config.default_connection_url();
+            let manager = AsyncDieselConnectionManager::new(connection_url);
             Bb8Pool::builder().build(manager).await.unwrap()
         })
         .await
     }
 
     async fn create_restricted_connection_pool(db_name: &str) -> Pool {
-        let manager = AsyncDieselConnectionManager::new(format!(
-            "postgres://{db_name}:{db_name}@localhost:5432/{db_name}"
-        ));
+        let config = get_privileged_postgres_config();
+        let connection_url =
+            config.restricted_database_connection_url(db_name, Some(db_name), db_name);
+        let manager = AsyncDieselConnectionManager::new(connection_url);
         Bb8Pool::builder().build(manager).await.unwrap()
     }
 

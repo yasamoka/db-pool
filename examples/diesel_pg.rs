@@ -18,7 +18,7 @@ fn main() {
     .to_owned();
 
     let backend = DieselPostgresBackend::new(
-        PrivilegedPostgresConfig::new("postgres".to_owned()).password(Some("postgres".to_owned())),
+        PrivilegedPostgresConfig::from_env().unwrap(),
         || Pool::builder().max_size(10),
         || Pool::builder().max_size(2),
         move |conn| {

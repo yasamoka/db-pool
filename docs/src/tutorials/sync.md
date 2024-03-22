@@ -67,11 +67,9 @@ fn main() {}
     fn get_connection_pool() {
         static POOL: OnceLock<()> = OnceLock::new();
         let db_pool = POOL.get_or_init(|| {
-            let config = PrivilegedPostgresConfig::new("postgres".to_owned())
-                .password(Some("postgres".to_owned()));
-
             let backend = DieselPostgresBackend::new(
-                config,
+                // create privileged Postgres configuration
+                PrivilegedPostgresConfig::from_env().unwrap(),
                 // create privileged connection pool with max 10 connections
                 || Pool::builder().max_size(10),
                 // create restricted connection pool with max 2 connections
@@ -90,6 +88,8 @@ fn main() {}
 ```
 
 `DieselPostgresBackend` is the backend that will communicate with the PostgreSQL instance using Diesel-specific constructs.
+
+`PrivilegedPostgresConfig::from_env().unwrap()` creates a privileged Postgres configuration from environment variables.
 
 `|| Pool::builder().max_size(10)` creates a privileged connection pool with a max of 10 connections. This pool is used for administration of the created databases and relies on the privileged configuration to establish connections.
 
@@ -123,11 +123,8 @@ fn main() {}
         // change OnceLock inner type
         static POOL: OnceLock<DatabasePool<DieselPostgresBackend>> = OnceLock::new();
         let db_pool = POOL.get_or_init(|| {
-            let config = PrivilegedPostgresConfig::new("postgres".to_owned())
-                .password(Some("postgres".to_owned()));
-
             let backend = DieselPostgresBackend::new(
-                config,
+                PrivilegedPostgresConfig::from_env().unwrap(),
                 || Pool::builder().max_size(10),
                 || Pool::builder().max_size(2),
                 move |conn| {
@@ -175,11 +172,8 @@ fn main() {}
     fn get_connection_pool() -> Reusable<'static, ConnectionPool<DieselPostgresBackend>> {
         static POOL: OnceLock<DatabasePool<DieselPostgresBackend>> = OnceLock::new();
         let db_pool = POOL.get_or_init(|| {
-            let config = PrivilegedPostgresConfig::new("postgres".to_owned())
-                .password(Some("postgres".to_owned()));
-
             let backend = DieselPostgresBackend::new(
-                config,
+                PrivilegedPostgresConfig::from_env().unwrap(),
                 || Pool::builder().max_size(10),
                 || Pool::builder().max_size(2),
                 move |conn| {
@@ -208,8 +202,8 @@ We add a simple test case that inserts a row then counts the number of rows in a
 ```rust
 fn main() {}
 
-// #[cfg(test)]
-// mod tests {
+//// #[cfg(test)]
+//// mod tests {
     use std::sync::OnceLock;
 
     use db_pool::{
@@ -225,11 +219,8 @@ fn main() {}
     fn get_connection_pool() -> Reusable<'static, ConnectionPool<DieselPostgresBackend>> {
         static POOL: OnceLock<DatabasePool<DieselPostgresBackend>> = OnceLock::new();
         let db_pool = POOL.get_or_init(|| {
-            let config = PrivilegedPostgresConfig::new("postgres".to_owned())
-                .password(Some("postgres".to_owned()));
-
             let backend = DieselPostgresBackend::new(
-                config,
+                PrivilegedPostgresConfig::from_env().unwrap(),
                 || Pool::builder().max_size(10),
                 || Pool::builder().max_size(2),
                 move |conn| {
@@ -275,7 +266,7 @@ fn main() {}
         let count = book::table.count().get_result::<i64>(conn).unwrap();
         assert_eq!(count, 1);
     }
-// }
+//// }
 ```
 
 The test gets a connection pool from the database pool every time it runs.
@@ -301,11 +292,8 @@ fn main() {}
     fn get_connection_pool() -> Reusable<'static, ConnectionPool<DieselPostgresBackend>> {
         static POOL: OnceLock<DatabasePool<DieselPostgresBackend>> = OnceLock::new();
         let db_pool = POOL.get_or_init(|| {
-            let config = PrivilegedPostgresConfig::new("postgres".to_owned())
-                .password(Some("postgres".to_owned()));
-
             let backend = DieselPostgresBackend::new(
-                config,
+                PrivilegedPostgresConfig::from_env().unwrap(),
                 || Pool::builder().max_size(10),
                 || Pool::builder().max_size(2),
                 move |conn| {

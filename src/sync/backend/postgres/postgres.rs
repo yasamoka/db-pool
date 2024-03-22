@@ -30,18 +30,14 @@ impl PostgresBackend {
     /// Creates a new ``Postgres`` backend
     /// # Example
     /// ```
-    /// use db_pool::sync::PostgresBackend;
-    /// use postgres::{Client, Config};
+    /// use db_pool::{sync::PostgresBackend, PrivilegedPostgresConfig};
     /// use r2d2::Pool;
+    /// use dotenvy::dotenv;
     ///
-    /// let mut config = Config::new();
-    /// config
-    ///     .user("postgres")
-    ///     .password("postgres")
-    ///     .host("localhost");
+    /// dotenv().ok();
     ///
     /// let backend = PostgresBackend::new(
-    ///     config,
+    ///     PrivilegedPostgresConfig::from_env().unwrap().into(),
     ///     || Pool::builder().max_size(10),
     ///     || Pool::builder().max_size(2),
     ///     move |conn| {
@@ -210,13 +206,13 @@ mod tests {
     #![allow(unused_variables, clippy::unwrap_used)]
 
     use r2d2::Pool;
-    use r2d2_postgres::postgres::Config;
 
     use crate::{
         common::statement::postgres::tests::{
             CREATE_ENTITIES_STATEMENT, DDL_STATEMENTS, DML_STATEMENTS,
         },
         sync::db_pool::DatabasePoolBuilder,
+        PrivilegedPostgresConfig,
     };
 
     use super::{
@@ -231,18 +227,18 @@ mod tests {
     };
 
     fn create_backend(with_table: bool) -> PostgresBackend {
-        let mut config = Config::new();
-        config
-            .host("localhost")
-            .user("postgres")
-            .password("postgres");
-        PostgresBackend::new(config, Pool::builder, Pool::builder, {
-            move |conn| {
-                if with_table {
-                    conn.execute(CREATE_ENTITIES_STATEMENT, &[]).unwrap();
+        PostgresBackend::new(
+            PrivilegedPostgresConfig::from_env().unwrap().into(),
+            Pool::builder,
+            Pool::builder,
+            {
+                move |conn| {
+                    if with_table {
+                        conn.execute(CREATE_ENTITIES_STATEMENT, &[]).unwrap();
+                    }
                 }
-            }
-        })
+            },
+        )
         .unwrap()
     }
 

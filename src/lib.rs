@@ -79,7 +79,7 @@ mod tests {
     use dotenvy::dotenv;
     use tokio::sync::RwLock;
 
-    use crate::common::config::mysql::PrivilegedMySQLConfig;
+    use crate::common::config::{mysql::PrivilegedMySQLConfig, postgres::PrivilegedPostgresConfig};
 
     #[cfg(feature = "_mysql")]
     pub static MYSQL_DROP_LOCK: RwLock<()> = RwLock::const_new(());
@@ -92,6 +92,14 @@ mod tests {
         CONFIG.get_or_init(|| {
             dotenv().ok();
             PrivilegedMySQLConfig::from_env().unwrap()
+        })
+    }
+
+    pub fn get_privileged_postgres_config() -> &'static PrivilegedPostgresConfig {
+        static CONFIG: OnceLock<PrivilegedPostgresConfig> = OnceLock::new();
+        CONFIG.get_or_init(|| {
+            dotenv().ok();
+            PrivilegedPostgresConfig::from_env().unwrap()
         })
     }
 }

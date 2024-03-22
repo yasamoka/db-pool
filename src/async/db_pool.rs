@@ -27,11 +27,13 @@ where
     /// };
     /// use diesel::sql_query;
     /// use diesel_async::RunQueryDsl;
+    /// use dotenvy::dotenv;
     ///
     /// async fn f() {
+    ///     dotenv().ok();
+    ///
     ///     let backend = DieselAsyncPgBackend::<DieselBb8>::new(
-    ///         PrivilegedPostgresConfig::new("postgres".to_owned())
-    ///             .password(Some("postgres".to_owned())),
+    ///         PrivilegedPostgresConfig::from_env().unwrap(),
     ///         || Pool::builder().max_size(10),
     ///         || Pool::builder().max_size(2),
     ///         move |mut conn| {
@@ -81,11 +83,13 @@ pub trait DatabasePoolBuilder: Backend {
     /// };
     /// use diesel::sql_query;
     /// use diesel_async::RunQueryDsl;
+    /// use dotenvy::dotenv;
     ///
     /// async fn f() {
+    ///     dotenv().ok();
+    ///
     ///     let backend = DieselAsyncPgBackend::<DieselBb8>::new(
-    ///         PrivilegedPostgresConfig::new("postgres".to_owned())
-    ///             .password(Some("postgres".to_owned())),
+    ///         PrivilegedPostgresConfig::from_env().unwrap(),
     ///         || Pool::builder().max_size(10),
     ///         || Pool::builder().max_size(2),
     ///         move |mut conn| {

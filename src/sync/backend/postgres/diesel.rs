@@ -30,10 +30,13 @@ impl DieselPostgresBackend {
     /// ```
     /// use db_pool::{sync::DieselPostgresBackend, PrivilegedPostgresConfig};
     /// use diesel::{sql_query, RunQueryDsl};
+    /// use dotenvy::dotenv;
     /// use r2d2::Pool;
     ///
+    /// dotenv().ok();
+    ///
     /// let backend = DieselPostgresBackend::new(
-    ///     PrivilegedPostgresConfig::new("postgres".to_owned()).password(Some("postgres".to_owned())),
+    ///     PrivilegedPostgresConfig::from_env().unwrap(),
     ///     || Pool::builder().max_size(10),
     ///     || Pool::builder().max_size(2),
     ///     move |conn| {
@@ -220,8 +223,7 @@ mod tests {
 
     fn create_backend(with_table: bool) -> DieselPostgresBackend {
         DieselPostgresBackend::new(
-            PrivilegedPostgresConfig::new("postgres".to_owned())
-                .password(Some("postgres".to_owned())),
+            PrivilegedPostgresConfig::from_env().unwrap(),
             Pool::builder,
             Pool::builder,
             {

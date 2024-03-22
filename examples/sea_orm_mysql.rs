@@ -41,7 +41,7 @@ async fn create_database_pool() -> DatabasePool<SeaORMMySQLBackend> {
     .to_owned();
 
     let backend = SeaORMMySQLBackend::new(
-        PrivilegedMySQLConfig::new("root".to_owned()).password(Some("root".to_owned())),
+        PrivilegedMySQLConfig::from_env().unwrap(),
         |opts| {
             opts.max_connections(10);
         },
