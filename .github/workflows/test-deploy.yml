@@ -1,4 +1,4 @@
-name: Publish Book
+name: Test & Deploy
 on:
   push:
     branches:
@@ -11,33 +11,53 @@ jobs:
       contents: write
       pages: write
       id-token: write
+    services:
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Install latest mdbook
+      - name: Setup MariaDB
+        uses: shogo82148/actions-setup-mysql@v1
+        with:
+          mysql-version: mariadb-11.1
+          root-password: root
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Run tests
+        run: |
+          echo "MYSQL_PASSWORD=root" > .env
+          echo "MYSQL_HOST=127.0.0.1" >> .env
+          echo "POSTGRES_PASSWORD=postgres" >> .env
+          cargo test --all-features
+      - name: Install latest mdBook
         run: |
           tag=$(curl 'https://api.github.com/repos/rust-lang/mdbook/releases/latest' | jq -r '.tag_name')
           url="https://github.com/rust-lang/mdbook/releases/download/${tag}/mdbook-${tag}-x86_64-unknown-linux-gnu.tar.gz"
           mkdir mdbook
           curl -sSL $url | tar -xz --directory=./mdbook
           echo `pwd`/mdbook >> $GITHUB_PATH
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-      - name: Install latest mdbook-keeper
-        uses: taiki-e/install-action@v2
-        with:
-          tool: mdbook-keeper
       - name: Build Book
         run: |
-          cd docs
-          test $(mdbook build |& grep -c "(Failed to compile)") -eq 0
+          cd book
+          cargo test --all-targets
+          mdbook build
       - name: Setup Pages
         uses: actions/configure-pages@v2
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v1
         with:
-          path: 'docs/book'
+          path: "book/book"
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v1

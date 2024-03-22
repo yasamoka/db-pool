@@ -4,4 +4,4 @@
 
 # Tutorials
 
-- [Sync](tutorials/sync.md)
+- [Sync](tutorials/sync/index.md)

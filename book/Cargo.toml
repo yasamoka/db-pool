@@ -1,0 +1,56 @@
+[package]
+name = "book"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+[dev-dependencies]
+bb8 = "0.8.3"
+bb8-postgres = "0.8.1"
+db-pool = { path = "..", package = "db-pool", features = ["diesel-postgres"] }
+diesel = { version = "2.1.4", features = ["mysql", "postgres", "r2d2"] }
+diesel-async = { version = "0.4.1", features = ["bb8", "mysql", "postgres"] }
+dotenvy = "0.15.7"
+futures = "0.3.30"
+r2d2 = "0.8.10"
+tokio = { version = "1.36.0", features = ["macros", "rt-multi-thread"] }
+tokio-shared-rt = "0.1.0"
+
+
+[[example]]
+name = "sync_tutorial_01"
+path = "src/tutorials/sync/01.rs"
+test = true
+
+[[example]]
+name = "sync_tutorial_02"
+path = "src/tutorials/sync/02.rs"
+test = true
+
+[[example]]
+name = "sync_tutorial_03"
+path = "src/tutorials/sync/03.rs"
+test = true
+
+[[example]]
+name = "sync_tutorial_04"
+path = "src/tutorials/sync/04.rs"
+test = true
+
+[[example]]
+name = "sync_tutorial_05"
+path = "src/tutorials/sync/05.rs"
+test = true
+
+[[example]]
+name = "sync_tutorial_06"
+path = "src/tutorials/sync/06.rs"
+test = true
+
+[[example]]
+name = "sync_tutorial_07"
+path = "src/tutorials/sync/07.rs"
+test = true
