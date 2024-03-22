@@ -20,7 +20,16 @@ fn main() {}
 //// }
 ```
 
-We start the database pool initialization by creating a privileged configuration with the username `postgres` and password `postgres`.
+We start the database pool initialization by creating a privileged configuration from environment variables.
+
+The environment variables used are optional.
+
+| Environment Variable | Default   |
+| -------------------- | --------- |
+| POSTGRES_USERNAME    | postgres  |
+| POSTGRES_PASSWORD    | {blank}   |
+| POSTGRES_HOST        | localhost |
+| POSTGRES_PORT        | 3306      |
 
 ```rust
 fn main() {}
@@ -35,9 +44,8 @@ fn main() {}
     fn get_connection_pool() {
         static POOL: OnceLock<()> = OnceLock::new();
         let db_pool = POOL.get_or_init(|| {
-            //// create privileged configuration
-            let config = PrivilegedPostgresConfig::new("postgres".to_owned())
-                .password(Some("postgres".to_owned()));
+            // create privileged configuration from environment variables
+            let config = PrivilegedPostgresConfig::from_env().unwrap();
         });
     }
 //// }
@@ -67,9 +75,10 @@ fn main() {}
     fn get_connection_pool() {
         static POOL: OnceLock<()> = OnceLock::new();
         let db_pool = POOL.get_or_init(|| {
+            let config = PrivilegedPostgresConfig::from_env().unwrap();
+            
             let backend = DieselPostgresBackend::new(
-                // create privileged Postgres configuration
-                PrivilegedPostgresConfig::from_env().unwrap(),
+                config,
                 // create privileged connection pool with max 10 connections
                 || Pool::builder().max_size(10),
                 // create restricted connection pool with max 2 connections
@@ -123,8 +132,10 @@ fn main() {}
         // change OnceLock inner type
         static POOL: OnceLock<DatabasePool<DieselPostgresBackend>> = OnceLock::new();
         let db_pool = POOL.get_or_init(|| {
+            let config = PrivilegedPostgresConfig::from_env().unwrap();
+            
             let backend = DieselPostgresBackend::new(
-                PrivilegedPostgresConfig::from_env().unwrap(),
+                config,
                 || Pool::builder().max_size(10),
                 || Pool::builder().max_size(2),
                 move |conn| {
@@ -172,8 +183,10 @@ fn main() {}
     fn get_connection_pool() -> Reusable<'static, ConnectionPool<DieselPostgresBackend>> {
         static POOL: OnceLock<DatabasePool<DieselPostgresBackend>> = OnceLock::new();
         let db_pool = POOL.get_or_init(|| {
+            let config = PrivilegedPostgresConfig::from_env().unwrap();
+            
             let backend = DieselPostgresBackend::new(
-                PrivilegedPostgresConfig::from_env().unwrap(),
+                config,
                 || Pool::builder().max_size(10),
                 || Pool::builder().max_size(2),
                 move |conn| {
@@ -219,8 +232,10 @@ fn main() {}
     fn get_connection_pool() -> Reusable<'static, ConnectionPool<DieselPostgresBackend>> {
         static POOL: OnceLock<DatabasePool<DieselPostgresBackend>> = OnceLock::new();
         let db_pool = POOL.get_or_init(|| {
+            let config = PrivilegedPostgresConfig::from_env().unwrap();
+            
             let backend = DieselPostgresBackend::new(
-                PrivilegedPostgresConfig::from_env().unwrap(),
+                config,
                 || Pool::builder().max_size(10),
                 || Pool::builder().max_size(2),
                 move |conn| {
@@ -292,8 +307,10 @@ fn main() {}
     fn get_connection_pool() -> Reusable<'static, ConnectionPool<DieselPostgresBackend>> {
         static POOL: OnceLock<DatabasePool<DieselPostgresBackend>> = OnceLock::new();
         let db_pool = POOL.get_or_init(|| {
+            let config = PrivilegedPostgresConfig::from_env().unwrap();
+            
             let backend = DieselPostgresBackend::new(
-                PrivilegedPostgresConfig::from_env().unwrap(),
+                config,
                 || Pool::builder().max_size(10),
                 || Pool::builder().max_size(2),
                 move |conn| {

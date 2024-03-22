@@ -31,7 +31,7 @@ jobs:
       - name: Build Book
         run: |
           cd docs
-          mdbook build
+          test $(mdbook build |& grep -c "(Failed to compile)") -eq 0
       - name: Setup Pages
         uses: actions/configure-pages@v2
       - name: Upload artifact

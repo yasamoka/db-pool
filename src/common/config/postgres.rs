@@ -21,7 +21,7 @@ impl PrivilegedPostgresConfig {
     /// ```
     /// # Defaults
     /// - Username: postgres
-    /// - Password: {empty}
+    /// - Password: {blank}
     /// - Host: localhost
     /// - Port: 5432
     #[must_use]
@@ -42,7 +42,7 @@ impl PrivilegedPostgresConfig {
     /// - `POSTGRES_PORT`
     /// # Defaults
     /// - Username: postgres
-    /// - Password: {empty}
+    /// - Password: {blank}
     /// - Host: localhost
     /// - Port: 5432
     pub fn from_env() -> Result<Self, Error> {

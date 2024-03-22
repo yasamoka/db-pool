@@ -22,7 +22,7 @@ impl PrivilegedMySQLConfig {
     /// ```
     /// # Defaults
     /// - Username: root
-    /// - Password: {empty}
+    /// - Password: {blank}
     /// - Host: localhost
     /// - Port: 3306
     #[must_use]
@@ -43,7 +43,7 @@ impl PrivilegedMySQLConfig {
     /// - `MYSQL_PORT`
     /// # Defaults
     /// - Username: root
-    /// - Password: {empty}
+    /// - Password: {blank}
     /// - Host: localhost
     /// - Port: 3306
     pub fn from_env() -> Result<Self, Error> {
@@ -178,17 +178,21 @@ impl From<PrivilegedMySQLConfig> for r2d2_mysql::mysql::OptsBuilder {
 #[cfg(feature = "sqlx-mysql")]
 impl From<PrivilegedMySQLConfig> for sqlx::mysql::MySqlConnectOptions {
     fn from(value: PrivilegedMySQLConfig) -> Self {
-        let PrivilegedMySQLConfig { username, password, host, port } = value;
-        
+        let PrivilegedMySQLConfig {
+            username,
+            password,
+            host,
+            port,
+        } = value;
+
         let opts = Self::new()
             .username(username.as_str())
             .host(host.as_str())
             .port(port);
-        
+
         if let Some(password) = password {
             opts.password(password.as_str())
-        } 
-        else {
+        } else {
             opts
         }
     }
