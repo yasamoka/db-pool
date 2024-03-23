@@ -6,8 +6,7 @@
 
 [![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-success.svg)](https://github.com/rust-secure-code/safety-dance/) [![Book Status](https://github.com/yasamoka/db-pool/workflows/Test%20&%20Deploy/badge.svg)](https://yasamoka.github.io/db-pool) [![Crates.io](https://img.shields.io/crates/v/db-pool.svg)](https://crates.io/crates/db-pool)
 
-[Book](https://yasamoka.github.io/db-pool)
-[Docs](https://docs.rs/db-pool/latest)
+[Book](https://yasamoka.github.io/db-pool) - [Docs](https://docs.rs/db-pool/latest)
 
 A thread-safe database pool for running database-tied integration tests in parallel with:
 - Easy setup
