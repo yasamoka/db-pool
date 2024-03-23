@@ -448,9 +448,14 @@ dependencies = [
 name = "db-pool"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
+ "bb8",
  "diesel",
+ "diesel-async",
+ "futures",
  "parking_lot",
  "r2d2",
+ "tokio",
  "uuid",
 ]
 

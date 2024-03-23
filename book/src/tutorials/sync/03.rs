@@ -1,5 +1,9 @@
+fn main() {}
+
 #[cfg(test)]
 mod tests {
+    #![allow(dead_code, unused_variables)]
+
     use std::sync::OnceLock;
 
     use db_pool::{
@@ -15,10 +19,13 @@ mod tests {
 
     fn get_connection_pool() {
         static POOL: OnceLock<()> = OnceLock::new();
+
         let db_pool = POOL.get_or_init(|| {
             dotenv().ok();
+
             let config = PrivilegedPostgresConfig::from_env().unwrap();
 
+            // create backend
             let backend = DieselPostgresBackend::new(
                 config,
                 // create privileged connection pool with max 10 connections

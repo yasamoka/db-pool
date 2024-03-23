@@ -10,7 +10,11 @@ edition = "2021"
 [dev-dependencies]
 bb8 = "0.8.3"
 bb8-postgres = "0.8.1"
-db-pool = { path = "..", package = "db-pool", features = ["diesel-postgres"] }
+db-pool = { path = "..", package = "db-pool", features = [
+    "diesel-postgres",
+    "diesel-async-postgres",
+    "diesel-async-bb8",
+] }
 diesel = { version = "2.1.4", features = ["mysql", "postgres", "r2d2"] }
 diesel-async = { version = "0.4.1", features = ["bb8", "mysql", "postgres"] }
 dotenvy = "0.15.7"
@@ -53,4 +57,39 @@ test = true
 [[example]]
 name = "sync_tutorial_07"
 path = "src/tutorials/sync/07.rs"
+test = true
+
+[[example]]
+name = "async_tutorial_01"
+path = "src/tutorials/async/01.rs"
+test = true
+
+[[example]]
+name = "async_tutorial_02"
+path = "src/tutorials/async/02.rs"
+test = true
+
+[[example]]
+name = "async_tutorial_03"
+path = "src/tutorials/async/03.rs"
+test = true
+
+[[example]]
+name = "async_tutorial_04"
+path = "src/tutorials/async/04.rs"
+test = true
+
+[[example]]
+name = "async_tutorial_05"
+path = "src/tutorials/async/05.rs"
+test = true
+
+[[example]]
+name = "async_tutorial_06"
+path = "src/tutorials/async/06.rs"
+test = true
+
+[[example]]
+name = "async_tutorial_07"
+path = "src/tutorials/async/07.rs"
 test = true

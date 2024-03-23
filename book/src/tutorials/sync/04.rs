@@ -1,5 +1,9 @@
+fn main() {}
+
 #[cfg(test)]
 mod tests {
+    #![allow(dead_code, unused_variables)]
+
     use std::sync::OnceLock;
 
     use db_pool::{
@@ -19,8 +23,10 @@ mod tests {
     fn get_connection_pool() {
         // change OnceLock inner type
         static POOL: OnceLock<DatabasePool<DieselPostgresBackend>> = OnceLock::new();
+
         let db_pool = POOL.get_or_init(|| {
             dotenv().ok();
+
             let config = PrivilegedPostgresConfig::from_env().unwrap();
 
             let backend = DieselPostgresBackend::new(

@@ -1,5 +1,9 @@
+fn main() {}
+
 #[cfg(test)]
 mod tests {
+    #![allow(dead_code, unused_variables)]
+
     use std::sync::OnceLock;
 
     // import privileged configuration
@@ -9,9 +13,11 @@ mod tests {
 
     fn get_connection_pool() {
         static POOL: OnceLock<()> = OnceLock::new();
+
         let db_pool = POOL.get_or_init(|| {
             // load environment variables from .env
             dotenv().ok();
+
             // create privileged configuration from environment variables
             let config = PrivilegedPostgresConfig::from_env().unwrap();
         });
