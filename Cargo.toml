@@ -5,7 +5,6 @@ edition = "2021"
 description = "A thread-safe database pool for running database-tied integration tests in parallel"
 license = "MIT"
 
-homepage = "https://github.com/yasamoka/db-pool"
 repository = "https://github.com/yasamoka/db-pool"
 documentation = "https://docs.rs/db-pool"
 readme = "README.md"
