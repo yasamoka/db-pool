@@ -21,10 +21,10 @@ When moving to parallel execution of tests, even more issues surface:
 
 - Creating and dropping a database for each test can be expensive.
 - Sharing temporary databases across tests requires:
-  - Isolating databases in concurrent use.
-  - Cleaning each database before reuse by a subsequent test.
-  - Restricting user privileges to prevent schema modification by rogue tests.
-  - Dropping temporary databases before or after a test run to reduce clutter.
+  - isolating databases in concurrent use
+  - cleaning each database before reuse by a subsequent test
+  - restricting user privileges to prevent schema modification by rogue tests
+  - dropping temporary databases before or after a test run to reduce clutter
 
 `db-pool` takes care of all of these concerns while supporting multiple DBMSes, backends, and connection pools.
 
