@@ -38,8 +38,8 @@
 //! | [tokio-postgres](struct@async::TokioPostgresBackend)              | [mobc](https://docs.rs/mobc-postgres/0.8.0/mobc_postgres/)                                | `tokio-postgres`, `tokio-postgres-mobc`     |
 
 #![doc(
-    html_favicon_url = "https://github.com/yasamoka/db-pool/raw/master/logo.svg",
-    html_logo_url = "https://github.com/yasamoka/db-pool/raw/master/logo.svg",
+    html_favicon_url = "https://raw.githubusercontent.com/yasamoka/db-pool/main/logo.svg",
+    html_logo_url = "https://raw.githubusercontent.com/yasamoka/db-pool/main/logo.svg",
     issue_tracker_base_url = "https://github.com/yasamoka/db-pool/issues"
 )]
 #![forbid(unsafe_code)]
