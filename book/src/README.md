@@ -1,4 +1,4 @@
-`db-pool` is a thread-safe database pool for running database-tied tests in parallel with:
+`db-pool` is a thread-safe database pool for running database-tied integration tests in parallel with:
 - Easy setup
 - Proper isolation
 - Automatic creation, reuse, and cleanup
