@@ -6,18 +6,18 @@
 
 ## Motivation
 
-When running tests against database-tied services, a test database is generally used. However, this comes with its own set of drawbacks:
+When running tests against a database-tied service, such as a web server, a test database is generally used. However, this comes with its own set of difficulties:
 
 1) The database has to be either (a) dropped and re-created or (b) cleaned before every test.
 2) Tests have to run serially in order to avoid cross-contamination.
 
-This incurs setup requirements and performance issues when running tests serially:
+This leads to several issues when running tests serially:
 
 - Test setup and teardown is now required.
 - Dropping and creating a database from scratch can be expensive.
 - Cleaning a database instead of dropping and re-creating one requires careful execution of dialect-specific statements.
 
-When moving to parallel execution of tests, even more issues surface:
+When switching to parallel execution of tests, even more difficulties arise:
 
 - Creating and dropping a database for each test can be expensive.
 - Sharing temporary databases across tests requires:
