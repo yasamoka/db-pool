@@ -188,6 +188,29 @@ impl From<PrivilegedPostgresConfig> for r2d2_postgres::postgres::Config {
     }
 }
 
+#[cfg(feature = "sqlx-postgres")]
+impl From<PrivilegedPostgresConfig> for sqlx::postgres::PgConnectOptions {
+    fn from(value: PrivilegedPostgresConfig) -> Self {
+        let PrivilegedPostgresConfig {
+            username,
+            password,
+            host,
+            port,
+        } = value;
+
+        let opts = Self::new()
+            .username(username.as_str())
+            .host(host.as_str())
+            .port(port);
+
+        if let Some(password) = password {
+            opts.password(password.as_str())
+        } else {
+            opts
+        }
+    }
+}
+
 #[cfg(feature = "tokio-postgres")]
 impl From<PrivilegedPostgresConfig> for tokio_postgres::Config {
     fn from(value: PrivilegedPostgresConfig) -> Self {

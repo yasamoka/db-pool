@@ -28,8 +28,10 @@ where
     ///
     /// dotenv().ok();
     ///
+    /// let config = PrivilegedPostgresConfig::from_env().unwrap();
+    ///
     /// let backend = DieselPostgresBackend::new(
-    ///     PrivilegedPostgresConfig::from_env().unwrap(),
+    ///     config,
     ///     || Pool::builder().max_size(10),
     ///     || Pool::builder().max_size(2),
     ///     move |conn| {
@@ -73,8 +75,10 @@ pub trait DatabasePoolBuilder: Backend {
     ///
     /// dotenv().ok();
     ///
+    /// let config = PrivilegedPostgresConfig::from_env().unwrap();
+    ///
     /// let backend = DieselPostgresBackend::new(
-    ///     PrivilegedPostgresConfig::from_env().unwrap(),
+    ///     config,
     ///     || Pool::builder().max_size(10),
     ///     || Pool::builder().max_size(2),
     ///     move |conn| {

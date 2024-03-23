@@ -35,8 +35,10 @@ impl DieselPostgresBackend {
     ///
     /// dotenv().ok();
     ///
+    /// let config = PrivilegedPostgresConfig::from_env().unwrap();
+    ///
     /// let backend = DieselPostgresBackend::new(
-    ///     PrivilegedPostgresConfig::from_env().unwrap(),
+    ///     config,
     ///     || Pool::builder().max_size(10),
     ///     || Pool::builder().max_size(2),
     ///     move |conn| {
@@ -185,6 +187,7 @@ mod tests {
     use std::borrow::Cow;
 
     use diesel::{insert_into, sql_query, table, Insertable, QueryDsl, RunQueryDsl};
+    use dotenvy::dotenv;
     use r2d2::Pool;
 
     use crate::{
@@ -222,18 +225,17 @@ mod tests {
     }
 
     fn create_backend(with_table: bool) -> DieselPostgresBackend {
-        DieselPostgresBackend::new(
-            PrivilegedPostgresConfig::from_env().unwrap(),
-            Pool::builder,
-            Pool::builder,
-            {
-                move |conn| {
-                    if with_table {
-                        sql_query(CREATE_ENTITIES_STATEMENT).execute(conn).unwrap();
-                    }
+        dotenv().ok();
+
+        let config = PrivilegedPostgresConfig::from_env().unwrap();
+
+        DieselPostgresBackend::new(config, Pool::builder, Pool::builder, {
+            move |conn| {
+                if with_table {
+                    sql_query(CREATE_ENTITIES_STATEMENT).execute(conn).unwrap();
                 }
-            },
-        )
+            }
+        })
         .unwrap()
     }
 

@@ -1,64 +1,77 @@
-use db_pool::r#async::{DatabasePoolBuilderTrait, SqlxMySQLBackend};
-use futures::future::join_all;
-use sqlx::{
-    mysql::{MySqlConnectOptions, MySqlPoolOptions},
-    query, Executor, MySqlPool,
-};
+fn main() {}
 
-#[tokio::main]
-async fn main() {
-    let create_stmt = r#"
-        CREATE TABLE author(
-            id uuid NOT NULL PRIMARY KEY DEFAULT uuid(),
-            first_name TEXT NOT NULL,
-            last_name TEXT NOT NULL)
-        "#
-    .to_owned();
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::needless_return)]
 
-    let backend = SqlxMySQLBackend::new(
-        MySqlConnectOptions::new()
-            .host("localhost")
-            .username("postgres"),
-        || MySqlPoolOptions::new().max_connections(10),
-        || MySqlPoolOptions::new().max_connections(2),
-        move |mut conn| {
-            let create_stmt = create_stmt.clone();
-            Box::pin(async move {
-                conn.execute(create_stmt.as_str()).await.unwrap();
-                conn
-            })
+    use db_pool::{
+        r#async::{
+            ConnectionPool, DatabasePool, DatabasePoolBuilderTrait, Reusable, SqlxMySQLBackend,
         },
-    );
+        PrivilegedMySQLConfig,
+    };
+    use dotenvy::dotenv;
+    use sqlx::{mysql::MySqlPoolOptions, query, Executor, Row};
+    use tokio::sync::OnceCell;
+    use tokio_shared_rt::test;
 
-    let db_pool = backend
-        .create_database_pool()
-        .await
-        .expect("db_pool creation must succeed");
+    async fn get_connection_pool() -> Reusable<'static, ConnectionPool<SqlxMySQLBackend>> {
+        static POOL: OnceCell<DatabasePool<SqlxMySQLBackend>> = OnceCell::const_new();
 
-    {
-        for run in 0..2 {
-            dbg!(run);
+        let db_pool = POOL
+            .get_or_init(|| async {
+                dotenv().ok();
 
-            let futures = (0..10)
-                .map(|_| {
-                    let db_pool = db_pool.clone();
-                    async move {
-                        let conn_pool = db_pool.pull().await;
-                        run_test(&conn_pool).await;
-                    }
-                })
-                .collect::<Vec<_>>();
+                let config = PrivilegedMySQLConfig::from_env().unwrap();
 
-            join_all(futures).await;
-        }
+                let backend = SqlxMySQLBackend::new(
+                    config.into(),
+                    || MySqlPoolOptions::new().max_connections(10),
+                    || MySqlPoolOptions::new().max_connections(2),
+                    move |mut conn| {
+                        Box::pin(async move {
+                            conn.execute(
+                                "CREATE TABLE book(id SERIAL PRIMARY KEY, title TEXT NOT NULL)",
+                            )
+                            .await
+                            .unwrap();
+                        })
+                    },
+                );
+
+                backend.create_database_pool().await.unwrap()
+            })
+            .await;
+
+        db_pool.pull().await
     }
-}
 
-async fn run_test(conn_pool: &MySqlPool) {
-    query("INSERT INTO author (first_name, last_name) VALUES (?, ?)")
-        .bind("John")
-        .bind("Doe")
-        .execute(conn_pool)
-        .await
-        .unwrap();
+    async fn test() {
+        let conn_pool = get_connection_pool().await;
+        let conn_pool = &**conn_pool;
+
+        query("INSERT INTO book (title) VALUES (?)")
+            .bind("Title")
+            .execute(conn_pool)
+            .await
+            .unwrap();
+
+        let count = query("SELECT COUNT(*) FROM book")
+            .fetch_one(conn_pool)
+            .await
+            .unwrap()
+            .get::<i64, _>(0);
+
+        assert_eq!(count, 1);
+    }
+
+    #[test(shared)]
+    async fn test1() {
+        test().await;
+    }
+
+    #[test(shared)]
+    async fn test2() {
+        test().await;
+    }
 }

@@ -20,7 +20,7 @@ use super::{
     r#trait::{MySQLBackend, MySQLBackendWrapper},
 };
 
-type CreateEntities = dyn Fn(MySqlConnection) -> Pin<Box<dyn Future<Output = MySqlConnection> + Send + 'static>>
+type CreateEntities = dyn Fn(MySqlConnection) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>>
     + Send
     + Sync
     + 'static;
@@ -44,17 +44,18 @@ impl SqlxMySQLBackend {
     ///
     /// async fn f() {
     ///     dotenv().ok();
-    /// 
+    ///
+    ///     let config = PrivilegedMySQLConfig::from_env().unwrap();
+    ///
     ///     let backend = SqlxMySQLBackend::new(
-    ///         PrivilegedMySQLConfig::from_env().unwrap().into(),
+    ///         config.into(),
     ///         || MySqlPoolOptions::new().max_connections(10),
     ///         || MySqlPoolOptions::new().max_connections(2),
     ///         move |mut conn| {
     ///             Box::pin(async move {
     ///                 conn.execute("CREATE TABLE book(id INTEGER PRIMARY KEY AUTO_INCREMENT, title TEXT NOT NULL)")
-    ///                     .await
-    ///                     .unwrap();
-    ///                 conn
+    ///                      .await
+    ///                      .unwrap();
     ///             })
     ///         },
     ///     );
@@ -66,7 +67,7 @@ impl SqlxMySQLBackend {
         privileged_options: MySqlConnectOptions,
         create_privileged_pool: impl Fn() -> MySqlPoolOptions,
         create_restricted_pool: impl Fn() -> MySqlPoolOptions + Send + Sync + 'static,
-        create_entities: impl Fn(MySqlConnection) -> Pin<Box<dyn Future<Output = MySqlConnection> + Send + 'static>>
+        create_entities: impl Fn(MySqlConnection) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>>
             + Send
             + Sync
             + 'static,
@@ -255,10 +256,9 @@ mod tests {
                 if with_table {
                     Box::pin(async move {
                         conn.execute(CREATE_ENTITIES_STATEMENT).await.unwrap();
-                        conn
                     })
                 } else {
-                    Box::pin(async { conn })
+                    Box::pin(async {})
                 }
             }
         })

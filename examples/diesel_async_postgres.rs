@@ -7,10 +7,10 @@ mod tests {
     use bb8::Pool;
     use db_pool::{
         r#async::{
-            ConnectionPool, DatabasePool, DatabasePoolBuilderTrait, DieselAsyncMySQLBackend,
+            ConnectionPool, DatabasePool, DatabasePoolBuilderTrait, DieselAsyncPgBackend,
             DieselBb8, Reusable,
         },
-        PrivilegedMySQLConfig,
+        PrivilegedPostgresConfig,
     };
     use diesel::{insert_into, sql_query, table, Insertable, QueryDsl};
     use diesel_async::RunQueryDsl;
@@ -19,28 +19,30 @@ mod tests {
     use tokio_shared_rt::test;
 
     async fn get_connection_pool(
-    ) -> Reusable<'static, ConnectionPool<DieselAsyncMySQLBackend<DieselBb8>>> {
-        static POOL: OnceCell<DatabasePool<DieselAsyncMySQLBackend<DieselBb8>>> =
+    ) -> Reusable<'static, ConnectionPool<DieselAsyncPgBackend<DieselBb8>>> {
+        static POOL: OnceCell<DatabasePool<DieselAsyncPgBackend<DieselBb8>>> =
             OnceCell::const_new();
 
         let db_pool = POOL
             .get_or_init(|| async {
                 dotenv().ok();
 
-                let config = PrivilegedMySQLConfig::from_env().unwrap();
+                let config = PrivilegedPostgresConfig::from_env().unwrap();
 
-                let backend = DieselAsyncMySQLBackend::new(
+                let backend = DieselAsyncPgBackend::new(
                     config,
                     || Pool::builder().max_size(10),
                     || Pool::builder().max_size(2),
                     move |mut conn| {
-                        Box::pin(async move {
+                        Box::pin(async {
                             sql_query(
                                 "CREATE TABLE book(id SERIAL PRIMARY KEY, title TEXT NOT NULL)",
                             )
                             .execute(&mut conn)
                             .await
                             .unwrap();
+
+                            conn
                         })
                     },
                 )

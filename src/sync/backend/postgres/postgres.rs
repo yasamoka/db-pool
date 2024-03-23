@@ -36,8 +36,10 @@ impl PostgresBackend {
     ///
     /// dotenv().ok();
     ///
+    /// let config = PrivilegedPostgresConfig::from_env().unwrap();
+    ///
     /// let backend = PostgresBackend::new(
-    ///     PrivilegedPostgresConfig::from_env().unwrap().into(),
+    ///     config.into(),
     ///     || Pool::builder().max_size(10),
     ///     || Pool::builder().max_size(2),
     ///     move |conn| {
@@ -205,6 +207,7 @@ impl_backend_for_pg_backend!(PostgresBackend, Manager, ConnectionError, QueryErr
 mod tests {
     #![allow(unused_variables, clippy::unwrap_used)]
 
+    use dotenvy::dotenv;
     use r2d2::Pool;
 
     use crate::{
@@ -227,18 +230,17 @@ mod tests {
     };
 
     fn create_backend(with_table: bool) -> PostgresBackend {
-        PostgresBackend::new(
-            PrivilegedPostgresConfig::from_env().unwrap().into(),
-            Pool::builder,
-            Pool::builder,
-            {
-                move |conn| {
-                    if with_table {
-                        conn.execute(CREATE_ENTITIES_STATEMENT, &[]).unwrap();
-                    }
+        dotenv().ok();
+
+        let config = PrivilegedPostgresConfig::from_env().unwrap();
+
+        PostgresBackend::new(config.into(), Pool::builder, Pool::builder, {
+            move |conn| {
+                if with_table {
+                    conn.execute(CREATE_ENTITIES_STATEMENT, &[]).unwrap();
                 }
-            },
-        )
+            }
+        })
         .unwrap()
     }
 

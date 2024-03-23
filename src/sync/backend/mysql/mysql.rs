@@ -34,10 +34,11 @@ impl MySQLBackend {
     /// use r2d2_mysql::mysql::{prelude::Queryable, OptsBuilder};
     ///
     /// dotenv().ok();
+    ///
     /// let config = PrivilegedMySQLConfig::from_env().unwrap();
     ///
     /// let backend = MySQLBackend::new(
-    ///     OptsBuilder::from(config).into(),
+    ///     config.into(),
     ///     || Pool::builder().max_size(10),
     ///     || Pool::builder().max_size(2),
     ///     move |conn| {
@@ -152,7 +153,7 @@ mod tests {
     #![allow(unused_variables, clippy::unwrap_used)]
 
     use r2d2::Pool;
-    use r2d2_mysql::mysql::{params, prelude::Queryable, OptsBuilder};
+    use r2d2_mysql::mysql::{params, prelude::Queryable};
 
     use crate::{
         common::statement::mysql::tests::{
@@ -175,18 +176,13 @@ mod tests {
 
     fn create_backend(with_table: bool) -> MySQLBackend {
         let config = get_privileged_mysql_config().clone();
-        MySQLBackend::new(
-            OptsBuilder::from(config).into(),
-            Pool::builder,
-            Pool::builder,
-            {
-                move |conn| {
-                    if with_table {
-                        conn.query_drop(CREATE_ENTITIES_STATEMENT).unwrap();
-                    }
+        MySQLBackend::new(config.into(), Pool::builder, Pool::builder, {
+            move |conn| {
+                if with_table {
+                    conn.query_drop(CREATE_ENTITIES_STATEMENT).unwrap();
                 }
-            },
-        )
+            }
+        })
         .unwrap()
     }
 

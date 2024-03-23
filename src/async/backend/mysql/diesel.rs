@@ -57,9 +57,11 @@ where
     ///
     /// async fn f() {
     ///     dotenv().ok();
-    /// 
+    ///
+    ///     let config = PrivilegedMySQLConfig::from_env().unwrap();
+    ///
     ///     let backend = DieselAsyncMySQLBackend::<DieselBb8>::new(
-    ///         PrivilegedMySQLConfig::from_env().unwrap(),
+    ///         config,
     ///         || Pool::builder().max_size(10),
     ///         || Pool::builder().max_size(2),
     ///         move |mut conn| {

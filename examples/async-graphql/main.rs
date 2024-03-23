@@ -1,14 +1,16 @@
+use std::env;
+
 use async_graphql::{http::GraphiQLSource, Context, EmptySubscription, Object, SimpleObject};
 use async_graphql_poem::GraphQL;
 use bb8::{Pool, PooledConnection};
+use db_pool::r#async::{DieselAsyncPgBackend, DieselBb8, PoolWrapper};
 use diesel::{insert_into, prelude::*, table, Insertable};
 use diesel_async::{
     pooled_connection::AsyncDieselConnectionManager, AsyncPgConnection, RunQueryDsl,
 };
+use dotenvy::dotenv;
 use poem::{handler, listener::TcpListener, post, web::Html, IntoResponse, Route, Server};
 use serde::Deserialize;
-
-use db_pool::r#async::{DieselAsyncPgBackend, DieselBb8, PoolWrapper};
 
 type Schema = async_graphql::Schema<Query, Mutation, EmptySubscription>;
 type Manager = AsyncDieselConnectionManager<AsyncPgConnection>;
@@ -85,9 +87,24 @@ fn build_schema(conn_pool: PoolWrapper<Backend>) -> Schema {
 }
 
 async fn build_default_connection_pool() -> Pool<Manager> {
-    let manager = AsyncDieselConnectionManager::new(
-        "postgres://postgres:postgres@localhost/async-graphql-diesel-example",
-    );
+    dotenv().ok();
+
+    let username = env::var("POSTGRES_USERNAME").unwrap_or("postgres".to_owned());
+    let password = env::var("POSTGRES_PASSWORD").ok();
+    let host = env::var("POSTGRES_HOST").unwrap_or("localhost".to_owned());
+    let port = env::var("POSTGRES_PORT")
+        .map_or(Ok(3306u16), |port| port.parse())
+        .unwrap();
+
+    let db_name = "async-graphql-diesel-example";
+
+    let connection_url = if let Some(password) = password {
+        format!("postgres://{username}:{password}@{host}:{port}/{db_name}")
+    } else {
+        format!("postgres://{username}@{host}:{port}/{db_name}")
+    };
+
+    let manager = AsyncDieselConnectionManager::new(connection_url);
     Pool::builder()
         .test_on_check_out(true)
         .build(manager)
@@ -118,59 +135,66 @@ async fn main() {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::needless_return)]
+
     use std::{collections::HashMap, sync::Arc};
 
     use async_graphql::{Request, Variables};
     use bb8::Pool;
+    use db_pool::{
+        r#async::{DatabasePool, DatabasePoolBuilderTrait, DieselAsyncPgBackend, DieselBb8},
+        PrivilegedPostgresConfig,
+    };
     use diesel::sql_query;
+    use dotenvy::dotenv;
     use futures::future::join_all;
     use serde::{Deserialize, Serialize};
     use serde_json::{from_value, to_value, Value};
     use tokio::sync::OnceCell;
+    use tokio_shared_rt::test;
 
-    use db_pool::{
-        r#async::{
-            ConnectionPool, DatabasePool, DatabasePoolBuilderTrait, DieselAsyncPgBackend, Reusable,
-        },
-        PrivilegedPostgresConfig,
-    };
+    use crate::{build_schema, Book, PoolWrapper};
 
-    use crate::{build_default_connection_pool, build_schema, Book, PoolWrapper};
+    async fn get_connection_pool() -> PoolWrapper<DieselAsyncPgBackend<DieselBb8>> {
+        static DB_POOL: OnceCell<DatabasePool<DieselAsyncPgBackend<DieselBb8>>> =
+            OnceCell::const_new();
 
-    async fn init_db_pool() -> DatabasePool<DieselAsyncPgBackend> {
-        use diesel_async::RunQueryDsl;
+        let db_pool = DB_POOL
+            .get_or_init(|| async {
+                use diesel_async::RunQueryDsl;
 
-        let backend = DieselAsyncPgBackend::new(
-            PrivilegedPostgresConfig::new("postgres".to_owned())
-                .password(Some("postgres".to_owned())),
-            || Pool::builder().max_size(10),
-            || Pool::builder().max_size(1).test_on_check_out(true),
-            move |mut conn| {
-                Box::pin(async move {
-                    sql_query("CREATE TABLE book(id SERIAL PRIMARY KEY, title TEXT NOT NULL)")
-                        .execute(&mut conn)
-                        .await
-                        .unwrap();
-                    conn
-                })
-            },
-        )
-        .await
-        .expect("backend creation must succeed");
+                dotenv().ok();
 
-        backend
-            .create_database_pool()
-            .await
-            .expect("database pool creation must succeed")
+                let config = PrivilegedPostgresConfig::from_env().unwrap();
+
+                let backend = DieselAsyncPgBackend::new(
+                    config,
+                    || Pool::builder().max_size(10),
+                    || Pool::builder().max_size(1).test_on_check_out(true),
+                    move |mut conn| {
+                        Box::pin(async move {
+                            sql_query(
+                                "CREATE TABLE book(id SERIAL PRIMARY KEY, title TEXT NOT NULL)",
+                            )
+                            .execute(&mut conn)
+                            .await
+                            .unwrap();
+                            conn
+                        })
+                    },
+                )
+                .await
+                .unwrap();
+
+                backend.create_database_pool().await.unwrap()
+            })
+            .await;
+
+        let conn_pool = db_pool.pull().await;
+        PoolWrapper::ReusablePool(conn_pool)
     }
 
-    async fn get_connection_pool() -> Reusable<'static, ConnectionPool<DieselAsyncPgBackend>> {
-        static DB_POOL: OnceCell<DatabasePool<DieselAsyncPgBackend>> = OnceCell::const_new();
-        let db_pool = DB_POOL.get_or_init(init_db_pool).await;
-        db_pool.pull().await
-    }
-
-    async fn test(conn_pool: PoolWrapper<DieselAsyncPgBackend>) {
+    async fn test() {
         #[derive(Deserialize)]
         struct Data {
             books: Vec<Book>,
@@ -189,6 +213,8 @@ mod tests {
 
         const QUERY: &str = "{ books { id title } }";
         const MUTATION: &str = "mutation AddBook($title: String!) { addBook(title: $title) }";
+
+        let conn_pool = get_connection_pool().await;
 
         let schema = Arc::new(build_schema(conn_pool));
 
@@ -219,7 +245,7 @@ mod tests {
         let mut titles = titles;
         let mut title_map = ids
             .iter()
-            .map(|id| *id)
+            .copied()
             .zip(titles.drain(..))
             .collect::<HashMap<_, _>>();
 
@@ -238,42 +264,13 @@ mod tests {
         })
     }
 
-    async fn run_failing_test() {
-        let conn_pool = build_default_connection_pool().await;
-        test(PoolWrapper::Pool(conn_pool)).await;
+    #[test(shared)]
+    async fn test1() {
+        test().await;
     }
 
-    async fn run_passing_test() {
-        for _ in 0..5 {
-            let futures = (0..5)
-                .map(|_| async move {
-                    let conn_pool = get_connection_pool().await;
-                    test(PoolWrapper::ReusablePool(conn_pool)).await;
-                })
-                .collect::<Vec<_>>();
-            join_all(futures).await;
-        }
-    }
-
-    #[ignore]
-    #[tokio::test]
-    async fn it_might_fail1() {
-        run_failing_test().await
-    }
-
-    #[ignore]
-    #[tokio::test]
-    async fn it_might_fail2() {
-        run_failing_test().await
-    }
-
-    #[tokio_shared_rt::test(shared)]
-    async fn it_passes1() {
-        run_passing_test().await
-    }
-
-    #[tokio_shared_rt::test(shared)]
-    async fn it_passes2() {
-        run_passing_test().await
+    #[test(shared)]
+    async fn test2() {
+        test().await;
     }
 }

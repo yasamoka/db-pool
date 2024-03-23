@@ -4,19 +4,22 @@ fn main() {}
 mod tests {
     #![allow(clippy::needless_return)]
 
+    use bb8::Pool;
     use db_pool::{
         r#async::{
-            ConnectionPool, DatabasePool, DatabasePoolBuilderTrait, Reusable, SqlxPostgresBackend,
+            ConnectionPool, DatabasePool, DatabasePoolBuilderTrait, Reusable, TokioPostgresBackend,
+            TokioPostgresBb8,
         },
         PrivilegedPostgresConfig,
     };
     use dotenvy::dotenv;
-    use sqlx::{postgres::PgPoolOptions, query, Executor, Row};
     use tokio::sync::OnceCell;
     use tokio_shared_rt::test;
 
-    async fn get_connection_pool() -> Reusable<'static, ConnectionPool<SqlxPostgresBackend>> {
-        static POOL: OnceCell<DatabasePool<SqlxPostgresBackend>> = OnceCell::const_new();
+    async fn get_connection_pool(
+    ) -> Reusable<'static, ConnectionPool<TokioPostgresBackend<TokioPostgresBb8>>> {
+        static POOL: OnceCell<DatabasePool<TokioPostgresBackend<TokioPostgresBb8>>> =
+            OnceCell::const_new();
 
         let db_pool = POOL
             .get_or_init(|| async {
@@ -24,14 +27,15 @@ mod tests {
 
                 let config = PrivilegedPostgresConfig::from_env().unwrap();
 
-                let backend = SqlxPostgresBackend::new(
+                let backend = TokioPostgresBackend::new(
                     config.into(),
-                    || PgPoolOptions::new().max_connections(10),
-                    || PgPoolOptions::new().max_connections(2),
-                    move |mut conn| {
+                    || Pool::builder().max_size(10),
+                    || Pool::builder().max_size(2),
+                    move |conn| {
                         Box::pin(async {
                             conn.execute(
                                 "CREATE TABLE book(id SERIAL PRIMARY KEY, title TEXT NOT NULL)",
+                                &[],
                             )
                             .await
                             .unwrap();
@@ -39,7 +43,9 @@ mod tests {
                             conn
                         })
                     },
-                );
+                )
+                .await
+                .unwrap();
 
                 backend.create_database_pool().await.unwrap()
             })
@@ -50,19 +56,17 @@ mod tests {
 
     async fn test() {
         let conn_pool = get_connection_pool().await;
-        let conn_pool = &**conn_pool;
+        let conn = &mut conn_pool.get().await.unwrap();
 
-        query("INSERT INTO book (title) VALUES ($1)")
-            .bind("Title")
-            .execute(conn_pool)
+        conn.execute("INSERT INTO book (title) VALUES ($1)", &[&"Title"])
             .await
             .unwrap();
 
-        let count = query("SELECT COUNT(*) FROM book")
-            .fetch_one(conn_pool)
+        let count = conn
+            .query_one("SELECT COUNT(*) FROM book", &[])
             .await
             .unwrap()
-            .get::<i64, _>(0);
+            .get::<_, i64>(0);
 
         assert_eq!(count, 1);
     }

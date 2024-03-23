@@ -52,10 +52,15 @@ where
     /// };
     /// use diesel::sql_query;
     /// use diesel_async::RunQueryDsl;
+    /// use dotenvy::dotenv;
     ///
     /// async fn f() {
+    ///     dotenv().ok();
+    ///
+    ///     let config = PrivilegedPostgresConfig::from_env().unwrap();
+    ///
     ///     let backend = DieselAsyncPgBackend::<DieselBb8>::new(
-    ///         PrivilegedPostgresConfig::from_env().unwrap(),
+    ///         config,
     ///         || Pool::builder().max_size(10),
     ///         || Pool::builder().max_size(2),
     ///         move |mut conn| {
@@ -267,6 +272,7 @@ mod tests {
     use bb8::Pool;
     use diesel::{insert_into, sql_query, table, Insertable, QueryDsl};
     use diesel_async::RunQueryDsl;
+    use dotenvy::dotenv;
     use futures::future::join_all;
     use tokio_shared_rt::test;
 
@@ -304,26 +310,25 @@ mod tests {
     }
 
     async fn create_backend(with_table: bool) -> DieselAsyncPgBackend<DieselBb8> {
-        DieselAsyncPgBackend::new(
-            PrivilegedPostgresConfig::from_env().unwrap(),
-            Pool::builder,
-            Pool::builder,
-            {
-                move |mut conn| {
-                    if with_table {
-                        Box::pin(async move {
-                            sql_query(CREATE_ENTITIES_STATEMENT)
-                                .execute(&mut conn)
-                                .await
-                                .unwrap();
-                            conn
-                        })
-                    } else {
-                        Box::pin(async { conn })
-                    }
+        dotenv().ok();
+
+        let config = PrivilegedPostgresConfig::from_env().unwrap();
+
+        DieselAsyncPgBackend::new(config, Pool::builder, Pool::builder, {
+            move |mut conn| {
+                if with_table {
+                    Box::pin(async move {
+                        sql_query(CREATE_ENTITIES_STATEMENT)
+                            .execute(&mut conn)
+                            .await
+                            .unwrap();
+                        conn
+                    })
+                } else {
+                    Box::pin(async { conn })
                 }
-            },
-        )
+            }
+        })
         .await
         .unwrap()
     }

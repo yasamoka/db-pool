@@ -53,8 +53,10 @@ impl SeaORMPostgresBackend {
     /// async fn f() {
     ///     dotenv().ok();
     ///
+    ///     let config = PrivilegedPostgresConfig::from_env().unwrap();
+    ///
     ///     let backend = SeaORMPostgresBackend::new(
-    ///         PrivilegedPostgresConfig::from_env().unwrap(),
+    ///         config,
     ///         |opts| {
     ///             opts.max_connections(10);
     ///         },
@@ -287,6 +289,7 @@ impl Backend for SeaORMPostgresBackend {
 mod tests {
     #![allow(clippy::unwrap_used, clippy::needless_return)]
 
+    use dotenvy::dotenv;
     use futures::future::join_all;
     use sea_orm::{
         ActiveModelBehavior, ActiveModelTrait, ConnectionTrait, DeriveEntityModel,
@@ -329,24 +332,23 @@ mod tests {
     impl ActiveModelBehavior for ActiveModel {}
 
     async fn create_backend(with_table: bool) -> SeaORMPostgresBackend {
-        SeaORMPostgresBackend::new(
-            PrivilegedPostgresConfig::from_env().unwrap(),
-            |_| {},
-            |_| {},
-            {
-                move |conn| {
-                    if with_table {
-                        Box::pin(async move {
-                            conn.execute_unprepared(CREATE_ENTITIES_STATEMENT)
-                                .await
-                                .unwrap();
-                        })
-                    } else {
-                        Box::pin(async {})
-                    }
+        dotenv().ok();
+
+        let config = PrivilegedPostgresConfig::from_env().unwrap();
+
+        SeaORMPostgresBackend::new(config, |_| {}, |_| {}, {
+            move |conn| {
+                if with_table {
+                    Box::pin(async move {
+                        conn.execute_unprepared(CREATE_ENTITIES_STATEMENT)
+                            .await
+                            .unwrap();
+                    })
+                } else {
+                    Box::pin(async {})
                 }
-            },
-        )
+            }
+        })
         .await
         .unwrap()
     }

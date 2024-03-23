@@ -175,6 +175,13 @@ impl From<PrivilegedMySQLConfig> for r2d2_mysql::mysql::OptsBuilder {
     }
 }
 
+#[cfg(feature = "mysql")]
+impl From<PrivilegedMySQLConfig> for r2d2_mysql::mysql::Opts {
+    fn from(value: PrivilegedMySQLConfig) -> Self {
+        r2d2_mysql::mysql::OptsBuilder::from(value).into()
+    }
+}
+
 #[cfg(feature = "sqlx-mysql")]
 impl From<PrivilegedMySQLConfig> for sqlx::mysql::MySqlConnectOptions {
     fn from(value: PrivilegedMySQLConfig) -> Self {

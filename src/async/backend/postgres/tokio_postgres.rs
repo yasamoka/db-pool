@@ -50,10 +50,15 @@ where
     ///     r#async::{TokioPostgresBackend, TokioPostgresBb8},
     ///     PrivilegedPostgresConfig,
     /// };
+    /// use dotenvy::dotenv;
     ///
     /// async fn f() {
+    ///     dotenv().ok();
+    ///
+    ///     let config = PrivilegedPostgresConfig::from_env().unwrap();
+    ///     
     ///     let backend = TokioPostgresBackend::<TokioPostgresBb8>::new(
-    ///         PrivilegedPostgresConfig::from_env().unwrap().into(),
+    ///         config.into(),
     ///         || Pool::builder().max_size(10),
     ///         || Pool::builder().max_size(2),
     ///         move |conn| {

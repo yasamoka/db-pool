@@ -25,11 +25,16 @@ type DieselManager<Connection> = AsyncDieselConnectionManager<Connection>;
 /// };
 /// use diesel::sql_query;
 /// use diesel_async::RunQueryDsl;
+/// use dotenvy::dotenv;
 /// use mobc::Pool;
 ///
 /// async fn f() {
+///     dotenv().ok();
+///
+///     let config = PrivilegedPostgresConfig::from_env().unwrap();
+///
 ///     let backend = DieselAsyncPgBackend::<DieselMobc>::new(
-///         PrivilegedPostgresConfig::from_env().unwrap(),
+///         config,
 ///         || Pool::builder().max_open(10),
 ///         || Pool::builder().max_open(2),
 ///         move |mut conn| {

@@ -51,9 +51,11 @@ impl SeaORMMySQLBackend {
     ///
     /// async fn f() {
     ///     dotenv().ok();
-    /// 
+    ///
+    ///     let config = PrivilegedMySQLConfig::from_env().unwrap();
+    ///
     ///     let backend = SeaORMMySQLBackend::new(
-    ///             PrivilegedMySQLConfig::from_env().unwrap(),
+    ///             config,
     ///             |opts| {
     ///                 opts.max_connections(10);
     ///             },

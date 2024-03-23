@@ -1,58 +1,66 @@
-use std::thread;
+fn main() {}
 
-use r2d2::Pool;
-use r2d2_postgres::postgres::{Client, Config};
+#[cfg(test)]
+mod tests {
+    use std::sync::OnceLock;
 
-use db_pool::sync::{ConnectionPool, DatabasePoolBuilderTrait, PostgresBackend};
+    use db_pool::{
+        sync::{ConnectionPool, DatabasePool, DatabasePoolBuilderTrait, PostgresBackend, Reusable},
+        PrivilegedPostgresConfig,
+    };
+    use dotenvy::dotenv;
+    use r2d2::Pool;
 
-fn main() {
-    let create_entities_stmt = r#"
-        CREATE TABLE author(
-            id uuid NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
-            first_name TEXT NOT NULL,
-            last_name TEXT NOT NULL)
-        "#
-    .to_owned();
+    fn get_connection_pool() -> Reusable<'static, ConnectionPool<PostgresBackend>> {
+        static POOL: OnceLock<DatabasePool<PostgresBackend>> = OnceLock::new();
 
-    let backend = PostgresBackend::new(
-        "host=localhost user=postgres".parse::<Config>().unwrap(),
-        || Pool::builder().max_size(10),
-        || Pool::builder().max_size(2),
-        move |conn: &mut Client| {
-            conn.execute(create_entities_stmt.as_str(), &[]).unwrap();
-        },
-    )
-    .expect("backend creation must succeed");
+        let db_pool = POOL.get_or_init(|| {
+            dotenv().ok();
 
-    let db_pool = backend
-        .create_database_pool()
-        .expect("db_pool creation must succeed");
+            let config = PrivilegedPostgresConfig::from_env().unwrap();
 
-    for run in 0..2 {
-        dbg!(run);
+            let backend = PostgresBackend::new(
+                config.into(),
+                || Pool::builder().max_size(10),
+                || Pool::builder().max_size(2),
+                move |conn| {
+                    conn.execute(
+                        "CREATE TABLE book(id SERIAL PRIMARY KEY, title TEXT NOT NULL)",
+                        &[],
+                    )
+                    .unwrap();
+                },
+            )
+            .unwrap();
 
-        let mut handles = (0..10)
-            .map(|_| {
-                let db_pool = db_pool.clone();
-                thread::spawn(move || {
-                    let conn_pool = db_pool.pull();
-                    run_test(&conn_pool);
-                })
-            })
-            .collect::<Vec<_>>();
-
-        handles.drain(..).for_each(|handle| {
-            handle.join().unwrap();
+            backend.create_database_pool().unwrap()
         });
+
+        db_pool.pull()
     }
-}
 
-fn run_test(conn_pool: &ConnectionPool<PostgresBackend>) {
-    let mut conn = conn_pool.get().unwrap();
+    fn test() {
+        let conn_pool = get_connection_pool();
+        let conn = &mut conn_pool.get().unwrap();
 
-    conn.execute(
-        "INSERT INTO author (first_name, last_name) VALUES ($1, $2)",
-        &[&"John", &"Doe"],
-    )
-    .unwrap();
+        conn.execute("INSERT INTO book (title) VALUES ($1)", &[&"Title"])
+            .unwrap();
+
+        let count = conn
+            .query_one("SELECT COUNT(*) FROM book", &[])
+            .unwrap()
+            .get::<_, i64>(0);
+
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn test1() {
+        test();
+    }
+
+    #[test]
+    fn test2() {
+        test();
+    }
 }

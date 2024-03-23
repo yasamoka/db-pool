@@ -53,7 +53,7 @@ diesel = { version = "2.1.4", features = ["mysql", "postgres", "r2d2"] }
 diesel-async = { version = "0.4.1", features = ["bb8", "mysql", "postgres"] }
 dotenvy = "0.15.7"
 futures = "0.3.30"
-mysql = "25.0.0"
+mysql = "24.0.0"
 postgres = "0.19.7"
 r2d2 = "0.8.10"
 sqlx = { version = "0.7.4", features = ["runtime-tokio"] }
@@ -156,63 +156,67 @@ tokio-postgres-mobc = ["tokio-postgres", "dep:mobc", "dep:mobc-postgres"]
 deadpool-postgres = ["dep:deadpool-postgres"]
 mobc-postgres = ["dep:mobc-postgres"]
 
+# Sync examples
 
 [[example]]
 name = "diesel_mysql"
 required-features = ["diesel-mysql"]
+test = true
 
 [[example]]
-name = "diesel_pg"
+name = "diesel_postgres"
 required-features = ["diesel-postgres"]
-
-[[example]]
-name = "diesel_pg2"
-required-features = ["diesel-postgres"]
+test = true
 
 [[example]]
 name = "mysql"
 required-features = ["mysql"]
+test = true
 
 [[example]]
 name = "postgres"
 required-features = ["postgres"]
+test = true
 
-[[example]]
-name = "postgres2"
-required-features = ["postgres"]
 
-[[example]]
-name = "diesel_async_mysql"
-required-features = ["diesel-async-mysql", "diesel-async-bb8"]
-
-[[example]]
-name = "diesel_async_pg"
-required-features = ["diesel-async-postgres", "diesel-async-bb8"]
-
-[[example]]
-name = "sea_orm_mysql"
-required-features = ["sea-orm-mysql", "sqlx/runtime-tokio"]
-
-[[example]]
-name = "sea_orm_postgres"
-required-features = ["sea-orm-postgres", "sqlx/runtime-tokio"]
-
-[[example]]
-name = "sqlx_mysql"
-required-features = ["sqlx-mysql", "sqlx/runtime-tokio"]
-
-[[example]]
-name = "sqlx_postgres"
-required-features = ["sqlx-postgres", "sqlx/runtime-tokio"]
-
-[[example]]
-name = "tokio_postgres_bb8"
-required-features = ["tokio-postgres", "tokio-postgres-bb8"]
-
-[[example]]
-name = "tokio_postgres_mobc"
-required-features = ["tokio-postgres", "tokio-postgres-mobc"]
+# Async examples
 
 [[example]]
 name = "async-graphql"
 required-features = ["diesel-async-postgres", "diesel-async-bb8"]
+test = true
+
+[[example]]
+name = "diesel_async_mysql"
+required-features = ["diesel-async-mysql", "diesel-async-bb8"]
+test = true
+
+[[example]]
+name = "diesel_async_postgres"
+required-features = ["diesel-async-postgres", "diesel-async-bb8"]
+test = true
+
+[[example]]
+name = "sea_orm_mysql"
+required-features = ["sea-orm-mysql", "sqlx/runtime-tokio"]
+test = true
+
+[[example]]
+name = "sea_orm_postgres"
+required-features = ["sea-orm-postgres", "sqlx/runtime-tokio"]
+test = true
+
+[[example]]
+name = "sqlx_mysql"
+required-features = ["sqlx-mysql", "sqlx/runtime-tokio"]
+test = true
+
+[[example]]
+name = "sqlx_postgres"
+required-features = ["sqlx-postgres", "sqlx/runtime-tokio"]
+test = true
+
+[[example]]
+name = "tokio_postgres"
+required-features = ["tokio-postgres", "tokio-postgres-bb8"]
+test = true
