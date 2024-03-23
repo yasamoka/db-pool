@@ -14,7 +14,7 @@ A thread-safe database pool for running database-tied tests in parallel with:
 - Automatic creation, reuse, and cleanup
 - Async support
 
-### Motivation
+## Motivation
 
 When running tests against database-tied services, a test database is generally used. However, this comes with its own set of drawbacks:
 
@@ -38,14 +38,14 @@ When moving to parallel execution of tests, even more issues surface:
 
 `db-pool` takes care of all of these concerns while supporting multiple DBMSes, backends, and connection pools.
 
-### Databases
+## Databases
 
 - MySQL (MariaDB)
 - PostgreSQL
 
-### Backends & Pools
+## Backends & Pools
 
-#### Sync
+### Sync
 
 | Backend         | Pool                                      | Feature           |
 | --------------- | ----------------------------------------- | ----------------- |
@@ -54,7 +54,7 @@ When moving to parallel execution of tests, even more issues surface:
 | mysql           | [r2d2](https://docs.rs/r2d2/0.8.10/r2d2/) | `mysql`           |
 | postgres        | [r2d2](https://docs.rs/r2d2/0.8.10/r2d2/) | `postgres`        |
 
-#### Async
+### Async
 
 | Backend               | Pool                                                                                      | Features                                     |
 | --------------------- | ----------------------------------------------------------------------------------------- | -------------------------------------------- |
