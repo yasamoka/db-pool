@@ -1,6 +1,6 @@
 [package]
 name = "db-pool"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "A thread-safe database pool for running database-tied integration tests in parallel"
 license = "MIT"
