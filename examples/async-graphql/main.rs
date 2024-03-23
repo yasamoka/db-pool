@@ -3,7 +3,7 @@ use std::env;
 use async_graphql::{http::GraphiQLSource, Context, EmptySubscription, Object, SimpleObject};
 use async_graphql_poem::GraphQL;
 use bb8::{Pool, PooledConnection};
-use db_pool::r#async::{DieselAsyncPgBackend, DieselBb8, PoolWrapper};
+use db_pool::r#async::{DieselAsyncPostgresBackend, DieselBb8, PoolWrapper};
 use diesel::{insert_into, prelude::*, table, Insertable};
 use diesel_async::{
     pooled_connection::AsyncDieselConnectionManager, AsyncPgConnection, RunQueryDsl,
@@ -14,7 +14,7 @@ use serde::Deserialize;
 
 type Schema = async_graphql::Schema<Query, Mutation, EmptySubscription>;
 type Manager = AsyncDieselConnectionManager<AsyncPgConnection>;
-type Backend = DieselAsyncPgBackend<DieselBb8>;
+type Backend = DieselAsyncPostgresBackend<DieselBb8>;
 
 table! {
     book (id) {
@@ -142,7 +142,7 @@ mod tests {
     use async_graphql::{Request, Variables};
     use bb8::Pool;
     use db_pool::{
-        r#async::{DatabasePool, DatabasePoolBuilderTrait, DieselAsyncPgBackend, DieselBb8},
+        r#async::{DatabasePool, DatabasePoolBuilderTrait, DieselAsyncPostgresBackend, DieselBb8},
         PrivilegedPostgresConfig,
     };
     use diesel::sql_query;
@@ -155,8 +155,8 @@ mod tests {
 
     use crate::{build_schema, Book, PoolWrapper};
 
-    async fn get_connection_pool() -> PoolWrapper<DieselAsyncPgBackend<DieselBb8>> {
-        static DB_POOL: OnceCell<DatabasePool<DieselAsyncPgBackend<DieselBb8>>> =
+    async fn get_connection_pool() -> PoolWrapper<DieselAsyncPostgresBackend<DieselBb8>> {
+        static DB_POOL: OnceCell<DatabasePool<DieselAsyncPostgresBackend<DieselBb8>>> =
             OnceCell::const_new();
 
         let db_pool = DB_POOL
@@ -167,7 +167,7 @@ mod tests {
 
                 let config = PrivilegedPostgresConfig::from_env().unwrap();
 
-                let backend = DieselAsyncPgBackend::new(
+                let backend = DieselAsyncPostgresBackend::new(
                     config,
                     || Pool::builder().max_size(10),
                     || Pool::builder().max_size(1).test_on_check_out(true),

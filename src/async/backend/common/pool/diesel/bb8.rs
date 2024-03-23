@@ -17,7 +17,7 @@ use super::r#trait::DieselPoolAssociation;
 /// ```
 /// use bb8::Pool;
 /// use db_pool::{
-///     r#async::{DieselAsyncPgBackend, DieselBb8},
+///     r#async::{DieselAsyncPostgresBackend, DieselBb8},
 ///     PrivilegedPostgresConfig,
 /// };
 /// use diesel::sql_query;
@@ -29,7 +29,7 @@ use super::r#trait::DieselPoolAssociation;
 ///
 ///     let config = PrivilegedPostgresConfig::from_env().unwrap();
 ///
-///     let backend = DieselAsyncPgBackend::<DieselBb8>::new(
+///     let backend = DieselAsyncPostgresBackend::<DieselBb8>::new(
 ///         config,
 ///         || Pool::builder().max_size(10),
 ///         || Pool::builder().max_size(2),

@@ -7,7 +7,7 @@ mod tests {
     use bb8::Pool;
     use db_pool::{
         r#async::{
-            ConnectionPool, DatabasePool, DatabasePoolBuilderTrait, DieselAsyncPgBackend,
+            ConnectionPool, DatabasePool, DatabasePoolBuilderTrait, DieselAsyncPostgresBackend,
             DieselBb8, Reusable,
         },
         PrivilegedPostgresConfig,
@@ -19,8 +19,8 @@ mod tests {
     use tokio_shared_rt::test;
 
     async fn get_connection_pool(
-    ) -> Reusable<'static, ConnectionPool<DieselAsyncPgBackend<DieselBb8>>> {
-        static POOL: OnceCell<DatabasePool<DieselAsyncPgBackend<DieselBb8>>> =
+    ) -> Reusable<'static, ConnectionPool<DieselAsyncPostgresBackend<DieselBb8>>> {
+        static POOL: OnceCell<DatabasePool<DieselAsyncPostgresBackend<DieselBb8>>> =
             OnceCell::const_new();
 
         let db_pool = POOL
@@ -29,7 +29,7 @@ mod tests {
 
                 let config = PrivilegedPostgresConfig::from_env().unwrap();
 
-                let backend = DieselAsyncPgBackend::new(
+                let backend = DieselAsyncPostgresBackend::new(
                     config,
                     || Pool::builder().max_size(10),
                     || Pool::builder().max_size(2),

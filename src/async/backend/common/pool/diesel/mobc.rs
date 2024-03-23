@@ -20,7 +20,7 @@ type DieselManager<Connection> = AsyncDieselConnectionManager<Connection>;
 /// # Example
 /// ```
 /// use db_pool::{
-///     r#async::{DieselAsyncPgBackend, DieselMobc},
+///     r#async::{DieselAsyncPostgresBackend, DieselMobc},
 ///     PrivilegedPostgresConfig,
 /// };
 /// use diesel::sql_query;
@@ -33,7 +33,7 @@ type DieselManager<Connection> = AsyncDieselConnectionManager<Connection>;
 ///
 ///     let config = PrivilegedPostgresConfig::from_env().unwrap();
 ///
-///     let backend = DieselAsyncPgBackend::<DieselMobc>::new(
+///     let backend = DieselAsyncPostgresBackend::<DieselMobc>::new(
 ///         config,
 ///         || Pool::builder().max_open(10),
 ///         || Pool::builder().max_open(2),

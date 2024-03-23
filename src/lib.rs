@@ -11,28 +11,31 @@
 //! - ``MySQL`` (``MariaDB``)
 //! - ``PostgreSQL``
 //!
-//! ### Backends
+//! ### Backends & Pools
 //!
 //! #### Sync
 //!
-//! | Backend                                               | Feature         |
-//! | ----------------------------------------------------- | --------------- |
-//! | [diesel/mysql](struct@sync::DieselMySQLBackend)       | diesel-mysql    |
-//! | [diesel/postgres](struct@sync::DieselPostgresBackend) | diesel-postgres |
-//! | [mysql](struct@sync::MySQLBackend)                    | mysql           |
-//! | [postgres](struct@sync::PostgresBackend)              | postgres        |
+//! | Backend                                               | Pool | Feature           |
+//! | ----------------------------------------------------- | ---- | ----------------- |
+//! | [diesel/mysql](struct@sync::DieselMySQLBackend)       | r2d2 | `diesel-mysql`    |
+//! | [diesel/postgres](struct@sync::DieselPostgresBackend) | r2d2 | `diesel-postgres` |
+//! | [mysql](struct@sync::MySQLBackend)                    | r2d2 | `mysql`           |
+//! | [postgres](struct@sync::PostgresBackend)              | r2d2 | `postgres`        |
 //!
 //! #### Async
 //!
-//! | Backend                                                      | Feature               |
-//! | ------------------------------------------------------------ | --------------------- |
-//! | [diesel-async/mysql](struct@async::DieselAsyncMySQLBackend)  | diesel-async-mysql    |
-//! | [diesel-async/postgres](struct@async::DieselAsyncPgBackend)  | diesel-async-postgres |
-//! | [sea-orm/sqlx-mysql](struct@async::SeaORMMySQLBackend)       | sea-orm-mysql         |
-//! | [sea-orm/sqlx-postgres](struct@async::SeaORMPostgresBackend) | sea-orm-postgres      |
-//! | [sqlx/mysql](struct@async::SqlxMySQLBackend)                 | sqlx-mysql            |
-//! | [sqlx/postgres](struct@async::SqlxPostgresBackend)           | sqlx-postgres         |
-//! | [tokio-postgres](struct@async::TokioPostgresBackend)         | tokio-postgres        |
+//! | Backend                                                           | Pool | Features                                    |
+//! | ----------------------------------------------------------------- | ---- | ------------------------------------------- |
+//! | [diesel-async/mysql](struct@async::DieselAsyncMySQLBackend)       | bb8  | `diesel-async-mysql`, `diesel-async-bb8`    |
+//! | [diesel-async/mysql](struct@async::DieselAsyncMySQLBackend)       | mobc | `diesel-async-mysql`, `diesel-async-mobc`   |
+//! | [diesel-async/postgres](struct@async::DieselAsyncPostgresBackend) | bb8  | `diesel-async-postgres`, `diesel-async-bb8` |
+//! | [diesel-async/postgres](struct@async::DieselAsyncPostgresBackend) | mobc | `diesel-async-postgres`, `diesel-async-bb8` |
+//! | [sea-orm/sqlx-mysql](struct@async::SeaORMMySQLBackend)            | sqlx | `sea-orm-mysql`                             |
+//! | [sea-orm/sqlx-postgres](struct@async::SeaORMPostgresBackend)      | sqlx | `sea-orm-postgres`                          |
+//! | [sqlx/mysql](struct@async::SqlxMySQLBackend)                      | sqlx | `sqlx-mysql`                                |
+//! | [sqlx/postgres](struct@async::SqlxPostgresBackend)                | sqlx | `sqlx-postgres`                             |
+//! | [tokio-postgres](struct@async::TokioPostgresBackend)              | bb8  | `tokio-postgres`, `tokio-postgres-bb8`      |
+//! | [tokio-postgres](struct@async::TokioPostgresBackend)              | mobc | `tokio-postgres`, `tokio-postgres-mobc`     |
 
 #![doc(
     html_favicon_url = "https://github.com/yasamoka/db-pool/raw/master/logo.svg",

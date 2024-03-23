@@ -26,7 +26,7 @@ type CreateEntities = dyn Fn(AsyncPgConnection) -> Pin<Box<dyn Future<Output = A
     + 'static;
 
 /// ``Diesel`` async ``Postgres`` backend
-pub struct DieselAsyncPgBackend<P>
+pub struct DieselAsyncPostgresBackend<P>
 where
     P: DieselPoolAssociation<AsyncPgConnection>,
 {
@@ -38,7 +38,7 @@ where
     drop_previous_databases_flag: bool,
 }
 
-impl<P> DieselAsyncPgBackend<P>
+impl<P> DieselAsyncPostgresBackend<P>
 where
     P: DieselPoolAssociation<AsyncPgConnection>,
 {
@@ -47,7 +47,7 @@ where
     /// ```
     /// use bb8::Pool;
     /// use db_pool::{
-    ///     r#async::{DieselAsyncPgBackend, DieselBb8},
+    ///     r#async::{DieselAsyncPostgresBackend, DieselBb8},
     ///     PrivilegedPostgresConfig,
     /// };
     /// use diesel::sql_query;
@@ -59,7 +59,7 @@ where
     ///
     ///     let config = PrivilegedPostgresConfig::from_env().unwrap();
     ///
-    ///     let backend = DieselAsyncPgBackend::<DieselBb8>::new(
+    ///     let backend = DieselAsyncPostgresBackend::<DieselBb8>::new(
     ///         config,
     ///         || Pool::builder().max_size(10),
     ///         || Pool::builder().max_size(2),
@@ -115,7 +115,7 @@ where
 }
 
 #[async_trait]
-impl<'pool, P> PostgresBackend<'pool> for DieselAsyncPgBackend<P>
+impl<'pool, P> PostgresBackend<'pool> for DieselAsyncPostgresBackend<P>
 where
     P: DieselPoolAssociation<AsyncPgConnection>,
 {
@@ -232,7 +232,7 @@ where
 type BError<BuildError, PoolError> = BackendError<BuildError, PoolError, ConnectionError, Error>;
 
 #[async_trait]
-impl<P> Backend for DieselAsyncPgBackend<P>
+impl<P> Backend for DieselAsyncPostgresBackend<P>
 where
     P: DieselPoolAssociation<AsyncPgConnection>,
 {
@@ -293,7 +293,7 @@ mod tests {
             test_backend_drops_previous_databases, test_pool_drops_created_databases,
             test_pool_drops_previous_databases, PgDropLock,
         },
-        DieselAsyncPgBackend,
+        DieselAsyncPostgresBackend,
     };
 
     table! {
@@ -309,12 +309,12 @@ mod tests {
         title: Cow<'a, str>,
     }
 
-    async fn create_backend(with_table: bool) -> DieselAsyncPgBackend<DieselBb8> {
+    async fn create_backend(with_table: bool) -> DieselAsyncPostgresBackend<DieselBb8> {
         dotenv().ok();
 
         let config = PrivilegedPostgresConfig::from_env().unwrap();
 
-        DieselAsyncPgBackend::new(config, Pool::builder, Pool::builder, {
+        DieselAsyncPostgresBackend::new(config, Pool::builder, Pool::builder, {
             move |mut conn| {
                 if with_table {
                     Box::pin(async move {

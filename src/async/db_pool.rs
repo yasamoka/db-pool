@@ -22,7 +22,7 @@ where
     /// ```
     /// use bb8::Pool;
     /// use db_pool::{
-    ///     r#async::{DatabasePoolBuilderTrait, DieselAsyncPgBackend, DieselBb8},
+    ///     r#async::{DatabasePoolBuilderTrait, DieselAsyncPostgresBackend, DieselBb8},
     ///     PrivilegedPostgresConfig,
     /// };
     /// use diesel::sql_query;
@@ -34,7 +34,7 @@ where
     ///
     ///     let config = PrivilegedPostgresConfig::from_env().unwrap();
     ///
-    ///     let backend = DieselAsyncPgBackend::<DieselBb8>::new(
+    ///     let backend = DieselAsyncPostgresBackend::<DieselBb8>::new(
     ///         config,
     ///         || Pool::builder().max_size(10),
     ///         || Pool::builder().max_size(2),
@@ -80,7 +80,7 @@ pub trait DatabasePoolBuilder: Backend {
     /// ```
     /// use bb8::Pool;
     /// use db_pool::{
-    ///     r#async::{DatabasePoolBuilderTrait, DieselAsyncPgBackend, DieselBb8},
+    ///     r#async::{DatabasePoolBuilderTrait, DieselAsyncPostgresBackend, DieselBb8},
     ///     PrivilegedPostgresConfig,
     /// };
     /// use diesel::sql_query;
@@ -92,7 +92,7 @@ pub trait DatabasePoolBuilder: Backend {
     ///
     ///     let config = PrivilegedPostgresConfig::from_env().unwrap();
     ///
-    ///     let backend = DieselAsyncPgBackend::<DieselBb8>::new(
+    ///     let backend = DieselAsyncPostgresBackend::<DieselBb8>::new(
     ///         config,
     ///         || Pool::builder().max_size(10),
     ///         || Pool::builder().max_size(2),

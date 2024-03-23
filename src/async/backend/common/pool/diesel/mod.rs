@@ -2,6 +2,6 @@
 pub mod bb8;
 #[cfg(feature = "diesel-async-deadpool")]
 pub mod deadpool;
-#[cfg(feature = "diesel-async-mobc")]
-pub mod mobc;
+// #[cfg(feature = "diesel-async-mobc")]
+// pub mod mobc;
 pub(in crate::r#async::backend) mod r#trait;

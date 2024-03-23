@@ -50,7 +50,7 @@ jobs:
       - name: Build Book
         run: |
           cd book
-          cargo test --all-targets
+          cargo test
           mdbook build
       - name: Setup Pages
         uses: actions/configure-pages@v2

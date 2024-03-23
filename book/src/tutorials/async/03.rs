@@ -6,7 +6,7 @@ mod tests {
 
     use db_pool::{
         // import backend
-        r#async::{DieselAsyncPgBackend, DieselBb8},
+        r#async::{DieselAsyncPostgresBackend, DieselBb8},
         PrivilegedPostgresConfig,
     };
     // import diesel-specific constructs
@@ -26,7 +26,7 @@ mod tests {
                 let config = PrivilegedPostgresConfig::from_env().unwrap();
 
                 // create backend for BB8 connection pools
-                let backend = DieselAsyncPgBackend::<DieselBb8>::new(
+                let backend = DieselAsyncPostgresBackend::<DieselBb8>::new(
                     config,
                     // create privileged connection pool with max 10 connections
                     || Pool::builder().max_size(10),

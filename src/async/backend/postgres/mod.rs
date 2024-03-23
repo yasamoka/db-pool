@@ -9,7 +9,7 @@ mod tokio_postgres;
 mod r#trait;
 
 #[cfg(feature = "diesel-async-postgres")]
-pub use diesel::DieselAsyncPgBackend;
+pub use diesel::DieselAsyncPostgresBackend;
 #[cfg(feature = "sea-orm-postgres")]
 pub use sea_orm::SeaORMPostgresBackend;
 #[cfg(feature = "sqlx-postgres")]

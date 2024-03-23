@@ -11,7 +11,7 @@ mod tests {
             DatabasePool,
             // import database pool builder trait
             DatabasePoolBuilderTrait,
-            DieselAsyncPgBackend,
+            DieselAsyncPostgresBackend,
             DieselBb8,
         },
         PrivilegedPostgresConfig,
@@ -23,7 +23,7 @@ mod tests {
 
     async fn get_connection_pool() {
         // change OnceCell inner type
-        static POOL: OnceCell<DatabasePool<DieselAsyncPgBackend<DieselBb8>>> =
+        static POOL: OnceCell<DatabasePool<DieselAsyncPostgresBackend<DieselBb8>>> =
             OnceCell::const_new();
 
         let db_pool = POOL.get_or_init(|| async {
@@ -32,7 +32,7 @@ mod tests {
             let config = PrivilegedPostgresConfig::from_env().unwrap();
 
             // Diesel pool association type can be inferred now
-            let backend = DieselAsyncPgBackend::new(
+            let backend = DieselAsyncPostgresBackend::new(
                 config,
                 || Pool::builder().max_size(10),
                 || Pool::builder().max_size(2),
