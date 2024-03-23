@@ -8,11 +8,12 @@ use r2d2_postgres::{
 };
 use uuid::Uuid;
 
-use crate::{
-    common::statement::postgres, sync::backend::error::Error as BackendError, util::get_db_name,
-};
+use crate::{common::statement::postgres, util::get_db_name};
 
-use super::r#trait::{impl_backend_for_pg_backend, PostgresBackend as PostgresBackendTrait};
+use super::{
+    super::{error::Error as BackendError, r#trait::Backend},
+    r#trait::{PostgresBackend as PostgresBackendTrait, PostgresBackendWrapper},
+};
 
 type Manager = PostgresConnectionManager<NoTls>;
 
@@ -201,7 +202,30 @@ impl From<QueryError> for BackendError<ConnectionError, QueryError> {
     }
 }
 
-impl_backend_for_pg_backend!(PostgresBackend, Manager, ConnectionError, QueryError);
+impl Backend for PostgresBackend {
+    type ConnectionManager = Manager;
+    type ConnectionError = ConnectionError;
+    type QueryError = QueryError;
+
+    fn init(&self) -> Result<(), BackendError<ConnectionError, QueryError>> {
+        PostgresBackendWrapper::new(self).init()
+    }
+
+    fn create(
+        &self,
+        db_id: Uuid,
+    ) -> Result<Pool<Manager>, BackendError<ConnectionError, QueryError>> {
+        PostgresBackendWrapper::new(self).create(db_id)
+    }
+
+    fn clean(&self, db_id: Uuid) -> Result<(), BackendError<ConnectionError, QueryError>> {
+        PostgresBackendWrapper::new(self).clean(db_id)
+    }
+
+    fn drop(&self, db_id: Uuid) -> Result<(), BackendError<ConnectionError, QueryError>> {
+        PostgresBackendWrapper::new(self).drop(db_id)
+    }
+}
 
 #[cfg(test)]
 mod tests {

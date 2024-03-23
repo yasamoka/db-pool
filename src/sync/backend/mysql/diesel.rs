@@ -15,7 +15,10 @@ use crate::{
     util::get_db_name,
 };
 
-use super::r#trait::{impl_backend_for_mysql_backend, MySQLBackend};
+use super::{
+    super::{error::Error as BackendError, r#trait::Backend},
+    r#trait::{MySQLBackend, MySQLBackendWrapper},
+};
 
 type Manager = ConnectionManager<MysqlConnection>;
 
@@ -175,7 +178,27 @@ impl MySQLBackend for DieselMySQLBackend {
     }
 }
 
-impl_backend_for_mysql_backend!(DieselMySQLBackend, Manager, ConnectionError, Error);
+impl Backend for DieselMySQLBackend {
+    type ConnectionManager = Manager;
+    type ConnectionError = ConnectionError;
+    type QueryError = Error;
+
+    fn init(&self) -> Result<(), BackendError<ConnectionError, Error>> {
+        MySQLBackendWrapper::new(self).init()
+    }
+
+    fn create(&self, db_id: Uuid) -> Result<Pool<Manager>, BackendError<ConnectionError, Error>> {
+        MySQLBackendWrapper::new(self).create(db_id)
+    }
+
+    fn clean(&self, db_id: Uuid) -> Result<(), BackendError<ConnectionError, Error>> {
+        MySQLBackendWrapper::new(self).clean(db_id)
+    }
+
+    fn drop(&self, db_id: Uuid) -> Result<(), BackendError<ConnectionError, Error>> {
+        MySQLBackendWrapper::new(self).drop(db_id)
+    }
+}
 
 #[cfg(test)]
 mod tests {

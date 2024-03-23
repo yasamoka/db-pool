@@ -7,11 +7,12 @@ use r2d2_mysql::{
 };
 use uuid::Uuid;
 
-use crate::{
-    common::statement::mysql, sync::backend::error::Error as BackendError, util::get_db_name,
-};
+use crate::{common::statement::mysql, util::get_db_name};
 
-use super::r#trait::{impl_backend_for_mysql_backend, MySQLBackend as MySQLBackendTrait};
+use super::{
+    super::{error::Error as BackendError, r#trait::Backend},
+    r#trait::{MySQLBackend as MySQLBackendTrait, MySQLBackendWrapper},
+};
 
 type Manager = MySqlConnectionManager;
 
@@ -146,7 +147,27 @@ impl From<Error> for BackendError<Error, Error> {
     }
 }
 
-impl_backend_for_mysql_backend!(MySQLBackend, Manager, Error, Error);
+impl Backend for MySQLBackend {
+    type ConnectionManager = Manager;
+    type ConnectionError = Error;
+    type QueryError = Error;
+
+    fn init(&self) -> Result<(), BackendError<Error, Error>> {
+        MySQLBackendWrapper::new(self).init()
+    }
+
+    fn create(&self, db_id: Uuid) -> Result<Pool<Manager>, BackendError<Error, Error>> {
+        MySQLBackendWrapper::new(self).create(db_id)
+    }
+
+    fn clean(&self, db_id: Uuid) -> Result<(), BackendError<Error, Error>> {
+        MySQLBackendWrapper::new(self).clean(db_id)
+    }
+
+    fn drop(&self, db_id: Uuid) -> Result<(), BackendError<Error, Error>> {
+        MySQLBackendWrapper::new(self).drop(db_id)
+    }
+}
 
 #[cfg(test)]
 mod tests {

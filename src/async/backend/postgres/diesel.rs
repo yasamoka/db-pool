@@ -26,10 +26,7 @@ type CreateEntities = dyn Fn(AsyncPgConnection) -> Pin<Box<dyn Future<Output = A
     + 'static;
 
 /// ``Diesel`` async ``Postgres`` backend
-pub struct DieselAsyncPostgresBackend<P>
-where
-    P: DieselPoolAssociation<AsyncPgConnection>,
-{
+pub struct DieselAsyncPostgresBackend<P: DieselPoolAssociation<AsyncPgConnection>> {
     privileged_config: PrivilegedPostgresConfig,
     default_pool: P::Pool,
     db_conns: Mutex<HashMap<Uuid, AsyncPgConnection>>,
@@ -38,10 +35,7 @@ where
     drop_previous_databases_flag: bool,
 }
 
-impl<P> DieselAsyncPostgresBackend<P>
-where
-    P: DieselPoolAssociation<AsyncPgConnection>,
-{
+impl<P: DieselPoolAssociation<AsyncPgConnection>> DieselAsyncPostgresBackend<P> {
     /// Creates a new ``Diesel`` async ``Postgres`` backend
     /// # Example
     /// ```
@@ -115,9 +109,8 @@ where
 }
 
 #[async_trait]
-impl<'pool, P> PostgresBackend<'pool> for DieselAsyncPostgresBackend<P>
-where
-    P: DieselPoolAssociation<AsyncPgConnection>,
+impl<'pool, P: DieselPoolAssociation<AsyncPgConnection>> PostgresBackend<'pool>
+    for DieselAsyncPostgresBackend<P>
 {
     type Connection = AsyncPgConnection;
     type PooledConnection = P::PooledConnection<'pool>;
@@ -232,10 +225,7 @@ where
 type BError<BuildError, PoolError> = BackendError<BuildError, PoolError, ConnectionError, Error>;
 
 #[async_trait]
-impl<P> Backend for DieselAsyncPostgresBackend<P>
-where
-    P: DieselPoolAssociation<AsyncPgConnection>,
-{
+impl<P: DieselPoolAssociation<AsyncPgConnection>> Backend for DieselAsyncPostgresBackend<P> {
     type Pool = P::Pool;
 
     type BuildError = P::BuildError;

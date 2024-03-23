@@ -1,12 +1,16 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, fmt::Debug, ops::Deref};
 
 use r2d2::{ManageConnection, Pool, PooledConnection};
 use uuid::Uuid;
 
+use crate::common::statement::postgres;
+
+use super::super::error::Error as BackendError;
+
 pub(super) trait PostgresBackend {
     type ConnectionManager: ManageConnection;
-    type ConnectionError;
-    type QueryError;
+    type ConnectionError: Into<BackendError<Self::ConnectionError, Self::QueryError>> + Debug;
+    type QueryError: Into<BackendError<Self::ConnectionError, Self::QueryError>> + Debug;
 
     fn execute(
         &self,
@@ -54,151 +58,145 @@ pub(super) trait PostgresBackend {
     fn get_drop_previous_databases(&self) -> bool;
 }
 
-macro_rules! impl_backend_for_pg_backend {
-    ($struct_name: ident, $manager: ident, $connection_error: ident, $query_error: ident) => {
-        impl crate::sync::backend::r#trait::Backend for $struct_name {
-            type ConnectionManager = $manager;
-            type ConnectionError = $connection_error;
-            type QueryError = $query_error;
+pub(super) struct PostgresBackendWrapper<'a, B: PostgresBackend>(&'a B);
 
-            fn init(
-                &self,
-            ) -> Result<
-                (),
-                crate::sync::backend::error::Error<Self::ConnectionError, Self::QueryError>,
-            > {
-                // Drop previous databases if needed
-                if self.get_drop_previous_databases() {
-                    // Get default connection
-                    let conn = &mut self.get_default_connection()?;
-
-                    // Get previous database names
-                    let db_names = self.get_previous_database_names(conn)?;
-
-                    // Drop databases
-                    for db_name in &db_names {
-                        self.execute(
-                            crate::common::statement::postgres::drop_database(db_name.as_str())
-                                .as_str(),
-                            conn,
-                        )?;
-                    }
-                }
-
-                Ok(())
-            }
-
-            fn create(
-                &self,
-                db_id: uuid::Uuid,
-            ) -> Result<
-                Pool<Self::ConnectionManager>,
-                crate::sync::backend::error::Error<Self::ConnectionError, Self::QueryError>,
-            > {
-                // Get database name based on UUID
-                let db_name = crate::util::get_db_name(db_id);
-                let db_name = db_name.as_str();
-
-                {
-                    // Get connection to default database as privileged user
-                    let conn = &mut self.get_default_connection()?;
-
-                    // Create database
-                    self.execute(
-                        crate::common::statement::postgres::create_database(db_name).as_str(),
-                        conn,
-                    )?;
-
-                    // Create CRUD role
-                    self.execute(
-                        crate::common::statement::postgres::create_role(db_name).as_str(),
-                        conn,
-                    )?;
-                }
-
-                {
-                    // Connect to database as privileged user
-                    let mut conn = self.establish_database_connection(db_id)?;
-
-                    // Create entities
-                    self.create_entities(&mut conn);
-
-                    // Grant privileges to CRUD role
-                    self.execute(
-                        crate::common::statement::postgres::grant_table_privileges(db_name)
-                            .as_str(),
-                        &mut conn,
-                    )?;
-                    self.execute(
-                        crate::common::statement::postgres::grant_sequence_privileges(db_name)
-                            .as_str(),
-                        &mut conn,
-                    )?;
-
-                    // Store database connection for reuse when cleaning
-                    self.put_database_connection(db_id, conn);
-                }
-
-                // Create connection pool with CRUD role
-                let pool = self.create_connection_pool(db_id)?;
-                Ok(pool)
-            }
-
-            fn clean(
-                &self,
-                db_id: uuid::Uuid,
-            ) -> Result<
-                (),
-                crate::sync::backend::error::Error<Self::ConnectionError, Self::QueryError>,
-            > {
-                let mut conn = self.get_database_connection(db_id);
-                let table_names = self.get_table_names(&mut conn)?;
-                let stmts = table_names.iter().map(|table_name| {
-                    crate::common::statement::postgres::truncate_table(table_name.as_str()).into()
-                });
-                self.batch_execute(stmts, &mut conn)?;
-                self.put_database_connection(db_id, conn);
-                Ok(())
-            }
-
-            fn drop(
-                &self,
-                db_id: uuid::Uuid,
-            ) -> Result<
-                (),
-                crate::sync::backend::error::Error<Self::ConnectionError, Self::QueryError>,
-            > {
-                // Drop privileged connection to database
-                {
-                    self.get_database_connection(db_id);
-                }
-
-                // Get database name based on UUID
-                let db_name = crate::util::get_db_name(db_id);
-                let db_name = db_name.as_str();
-
-                // Get connection to default database as privileged user
-                let conn = &mut self.get_default_connection()?;
-
-                // Drop database
-                self.execute(
-                    crate::common::statement::postgres::drop_database(db_name).as_str(),
-                    conn,
-                )?;
-
-                // Drop CRUD role
-                self.execute(
-                    crate::common::statement::postgres::drop_role(db_name).as_str(),
-                    conn,
-                )?;
-
-                Ok(())
-            }
-        }
-    };
+impl<'a, B: PostgresBackend> PostgresBackendWrapper<'a, B> {
+    pub(super) fn new(backend: &'a B) -> Self {
+        Self(backend)
+    }
 }
 
-pub(crate) use impl_backend_for_pg_backend;
+impl<'a, B: PostgresBackend> Deref for PostgresBackendWrapper<'a, B> {
+    type Target = B;
+
+    fn deref(&self) -> &Self::Target {
+        self.0
+    }
+}
+
+impl<'a, B: PostgresBackend> PostgresBackendWrapper<'a, B> {
+    pub(super) fn init(&self) -> Result<(), BackendError<B::ConnectionError, B::QueryError>> {
+        // Drop previous databases if needed
+        if self.get_drop_previous_databases() {
+            // Get default connection
+            let conn = &mut self.get_default_connection()?;
+
+            // Get previous database names
+            let db_names = self.get_previous_database_names(conn).map_err(Into::into)?;
+
+            // Drop databases
+            for db_name in &db_names {
+                self.execute(postgres::drop_database(db_name.as_str()).as_str(), conn)
+                    .map_err(Into::into)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    #[allow(clippy::complexity)]
+    pub(super) fn create(
+        &self,
+        db_id: uuid::Uuid,
+    ) -> Result<Pool<B::ConnectionManager>, BackendError<B::ConnectionError, B::QueryError>> {
+        // Get database name based on UUID
+        let db_name = crate::util::get_db_name(db_id);
+        let db_name = db_name.as_str();
+
+        {
+            // Get connection to default database as privileged user
+            let conn = &mut self.get_default_connection()?;
+
+            // Create database
+            self.execute(postgres::create_database(db_name).as_str(), conn)
+                .map_err(Into::into)?;
+
+            // Create CRUD role
+            self.execute(postgres::create_role(db_name).as_str(), conn)
+                .map_err(Into::into)?;
+        }
+
+        {
+            // Connect to database as privileged user
+            let mut conn = self
+                .establish_database_connection(db_id)
+                .map_err(Into::into)?;
+
+            // Create entities
+            self.create_entities(&mut conn);
+
+            // Grant privileges to CRUD role
+            self.execute(
+                postgres::grant_table_privileges(db_name).as_str(),
+                &mut conn,
+            )
+            .map_err(Into::into)?;
+            self.execute(
+                postgres::grant_sequence_privileges(db_name).as_str(),
+                &mut conn,
+            )
+            .map_err(Into::into)?;
+
+            // Store database connection for reuse when cleaning
+            self.put_database_connection(db_id, conn);
+        }
+
+        // Create connection pool with CRUD role
+        let pool = self.create_connection_pool(db_id)?;
+        Ok(pool)
+    }
+
+    pub(super) fn clean(
+        &self,
+        db_id: uuid::Uuid,
+    ) -> Result<(), BackendError<B::ConnectionError, B::QueryError>> {
+        // Get privileged connection to database
+        let mut conn = self.get_database_connection(db_id);
+
+        // Get table names
+        let table_names = self.get_table_names(&mut conn).map_err(Into::into)?;
+
+        // Generate truncate statements
+        let stmts = table_names
+            .iter()
+            .map(|table_name| postgres::truncate_table(table_name.as_str()).into());
+
+        // Truncate tables
+        self.batch_execute(stmts, &mut conn).map_err(Into::into)?;
+
+        // Store database connection back for reuse
+        self.put_database_connection(db_id, conn);
+
+        Ok(())
+    }
+
+    pub(super) fn drop(
+        &self,
+        db_id: uuid::Uuid,
+    ) -> Result<(), BackendError<B::ConnectionError, B::QueryError>> {
+        // Drop privileged connection to database
+        {
+            self.get_database_connection(db_id);
+        }
+
+        // Get database name based on UUID
+        let db_name = crate::util::get_db_name(db_id);
+        let db_name = db_name.as_str();
+
+        // Get connection to default database as privileged user
+        let conn = &mut self.get_default_connection()?;
+
+        // Drop database
+        self.execute(postgres::drop_database(db_name).as_str(), conn)
+            .map_err(Into::into)?;
+
+        // Drop CRUD role
+        self.execute(postgres::drop_role(db_name).as_str(), conn)
+            .map_err(Into::into)?;
+
+        Ok(())
+    }
+}
 
 #[cfg(test)]
 pub(super) mod tests {

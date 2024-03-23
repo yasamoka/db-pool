@@ -1,4 +1,9 @@
-use std::{borrow::Cow, fmt::Debug, marker::PhantomData, ops::DerefMut};
+use std::{
+    borrow::Cow,
+    fmt::Debug,
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+};
 
 use async_trait::async_trait;
 use uuid::Uuid;
@@ -81,23 +86,27 @@ pub(super) trait PostgresBackend<'pool>: Send + Sync + 'static {
     fn get_drop_previous_databases(&self) -> bool;
 }
 
-pub(super) struct PostgresBackendWrapper<'backend, 'pool, B>
-where
-    B: PostgresBackend<'pool>,
-{
+pub(super) struct PostgresBackendWrapper<'backend, 'pool, B: PostgresBackend<'pool>> {
     inner: &'backend B,
     _marker: &'pool PhantomData<()>,
 }
 
-impl<'backend, 'pool, B> PostgresBackendWrapper<'backend, 'pool, B>
-where
-    B: PostgresBackend<'pool>,
-{
+impl<'backend, 'pool, B: PostgresBackend<'pool>> PostgresBackendWrapper<'backend, 'pool, B> {
     pub(super) fn new(backend: &'backend B) -> Self {
         Self {
             inner: backend,
             _marker: &PhantomData,
         }
+    }
+}
+
+impl<'backend, 'pool, B: PostgresBackend<'pool>> Deref
+    for PostgresBackendWrapper<'backend, 'pool, B>
+{
+    type Target = B;
+
+    fn deref(&self) -> &Self::Target {
+        self.inner
     }
 }
 
@@ -111,17 +120,12 @@ where
     ) -> Result<(), BackendError<B::BuildError, B::PoolError, B::ConnectionError, B::QueryError>>
     {
         // Drop previous databases if needed
-        if self.inner.get_drop_previous_databases() {
+        if self.get_drop_previous_databases() {
             // Get connection to default database as privileged user
-            let conn = &mut self
-                .inner
-                .get_default_connection()
-                .await
-                .map_err(Into::into)?;
+            let conn = &mut self.get_default_connection().await.map_err(Into::into)?;
 
             // Get previous database names
             let db_names = self
-                .inner
                 .get_previous_database_names(conn)
                 .await
                 .map_err(Into::into)?;
@@ -130,13 +134,8 @@ where
             let futures = db_names
                 .iter()
                 .map(|db_name| async move {
-                    let conn = &mut self
-                        .inner
-                        .get_default_connection()
-                        .await
-                        .map_err(Into::into)?;
-                    self.inner
-                        .execute_stmt(postgres::drop_database(db_name.as_str()).as_str(), conn)
+                    let conn = &mut self.get_default_connection().await.map_err(Into::into)?;
+                    self.execute_stmt(postgres::drop_database(db_name.as_str()).as_str(), conn)
                         .await
                         .map_err(Into::into)?;
                     Ok::<
@@ -167,21 +166,15 @@ where
 
         {
             // Get connection to default database as privileged user
-            let conn = &mut self
-                .inner
-                .get_default_connection()
-                .await
-                .map_err(Into::into)?;
+            let conn = &mut self.get_default_connection().await.map_err(Into::into)?;
 
             // Create database
-            self.inner
-                .execute_stmt(postgres::create_database(db_name).as_str(), conn)
+            self.execute_stmt(postgres::create_database(db_name).as_str(), conn)
                 .await
                 .map_err(Into::into)?;
 
             // Create CRUD role
-            self.inner
-                .execute_stmt(postgres::create_role(db_name).as_str(), conn)
+            self.execute_stmt(postgres::create_role(db_name).as_str(), conn)
                 .await
                 .map_err(Into::into)?;
         }
@@ -189,37 +182,33 @@ where
         {
             // Connect to database as privileged user
             let conn = self
-                .inner
                 .establish_database_connection(db_id)
                 .await
                 .map_err(Into::into)?;
 
             // Create entities
-            let mut conn = self.inner.create_entities(conn).await;
+            let mut conn = self.create_entities(conn).await;
 
             // Grant privileges to CRUD role
-            self.inner
-                .execute_stmt(
-                    postgres::grant_table_privileges(db_name).as_str(),
-                    &mut conn,
-                )
-                .await
-                .map_err(Into::into)?;
-            self.inner
-                .execute_stmt(
-                    postgres::grant_sequence_privileges(db_name).as_str(),
-                    &mut conn,
-                )
-                .await
-                .map_err(Into::into)?;
+            self.execute_stmt(
+                postgres::grant_table_privileges(db_name).as_str(),
+                &mut conn,
+            )
+            .await
+            .map_err(Into::into)?;
+            self.execute_stmt(
+                postgres::grant_sequence_privileges(db_name).as_str(),
+                &mut conn,
+            )
+            .await
+            .map_err(Into::into)?;
 
             // Store database connection for reuse when cleaning
-            self.inner.put_database_connection(db_id, conn);
+            self.put_database_connection(db_id, conn);
         }
 
         // Create connection pool with CRUD role
         let pool = self
-            .inner
             .create_connection_pool(db_id)
             .await
             .map_err(Into::into)?;
@@ -231,20 +220,25 @@ where
         db_id: Uuid,
     ) -> Result<(), BackendError<B::BuildError, B::PoolError, B::ConnectionError, B::QueryError>>
     {
-        let mut conn = self.inner.get_database_connection(db_id);
-        let table_names = self
-            .inner
-            .get_table_names(&mut conn)
-            .await
-            .map_err(Into::into)?;
+        // Get privileged connection to database
+        let mut conn = self.get_database_connection(db_id);
+
+        // Get table names
+        let table_names = self.get_table_names(&mut conn).await.map_err(Into::into)?;
+
+        // Generate truncate statements
         let stmts = table_names
             .iter()
             .map(|table_name| postgres::truncate_table(table_name.as_str()).into());
-        self.inner
-            .batch_execute_stmt(stmts, &mut conn)
+
+        // Truncate tables
+        self.batch_execute_stmt(stmts, &mut conn)
             .await
             .map_err(Into::into)?;
-        self.inner.put_database_connection(db_id, conn);
+
+        // Store database connection back for reuse
+        self.put_database_connection(db_id, conn);
+
         Ok(())
     }
 
@@ -255,7 +249,7 @@ where
     {
         // Drop privileged connection to database
         {
-            self.inner.get_database_connection(db_id);
+            self.get_database_connection(db_id);
         }
 
         // Get database name based on UUID
@@ -263,21 +257,15 @@ where
         let db_name = db_name.as_str();
 
         // Get connection to default database as privileged user
-        let conn = &mut self
-            .inner
-            .get_default_connection()
-            .await
-            .map_err(Into::into)?;
+        let conn = &mut self.get_default_connection().await.map_err(Into::into)?;
 
         // Drop database
-        self.inner
-            .execute_stmt(postgres::drop_database(db_name).as_str(), conn)
+        self.execute_stmt(postgres::drop_database(db_name).as_str(), conn)
             .await
             .map_err(Into::into)?;
 
         // Drop CRUD role
-        self.inner
-            .execute_stmt(postgres::drop_role(db_name).as_str(), conn)
+        self.execute_stmt(postgres::drop_role(db_name).as_str(), conn)
             .await
             .map_err(Into::into)?;
 
@@ -425,10 +413,11 @@ pub(super) mod tests {
             .unwrap();
     }
 
-    pub async fn test_backend_drops_previous_databases<B>(default: B, enabled: B, disabled: B)
-    where
-        B: Backend,
-    {
+    pub async fn test_backend_drops_previous_databases<B: Backend>(
+        default: B,
+        enabled: B,
+        disabled: B,
+    ) {
         const NUM_DBS: i64 = 3;
 
         async {
@@ -557,10 +546,11 @@ pub(super) mod tests {
         .await;
     }
 
-    pub async fn test_pool_drops_previous_databases<B>(default: B, enabled: B, disabled: B)
-    where
-        B: Backend,
-    {
+    pub async fn test_pool_drops_previous_databases<B: Backend>(
+        default: B,
+        enabled: B,
+        disabled: B,
+    ) {
         const NUM_DBS: i64 = 3;
 
         async {

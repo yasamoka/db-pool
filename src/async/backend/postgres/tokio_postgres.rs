@@ -26,10 +26,7 @@ type CreateEntities = dyn Fn(Client) -> Pin<Box<dyn Future<Output = Client> + Se
     + 'static;
 
 /// ``tokio-postgres`` backend
-pub struct TokioPostgresBackend<P>
-where
-    P: TokioPostgresPoolAssociation,
-{
+pub struct TokioPostgresBackend<P: TokioPostgresPoolAssociation> {
     privileged_config: Config,
     default_pool: P::Pool,
     db_conns: Mutex<HashMap<Uuid, Client>>,
@@ -38,10 +35,7 @@ where
     drop_previous_databases_flag: bool,
 }
 
-impl<P> TokioPostgresBackend<P>
-where
-    P: TokioPostgresPoolAssociation,
-{
+impl<P: TokioPostgresPoolAssociation> TokioPostgresBackend<P> {
     /// Creates a new ``tokio-postgres`` backend
     /// # Example
     /// ```
@@ -112,10 +106,7 @@ where
 }
 
 #[async_trait]
-impl<'pool, P> PostgresBackend<'pool> for TokioPostgresBackend<P>
-where
-    P: TokioPostgresPoolAssociation,
-{
+impl<'pool, P: TokioPostgresPoolAssociation> PostgresBackend<'pool> for TokioPostgresBackend<P> {
     type Connection = Client;
     type PooledConnection = P::PooledConnection<'pool>;
     type Pool = P::Pool;
@@ -211,10 +202,7 @@ type BError<BuildError, PoolError> =
     BackendError<BuildError, PoolError, ConnectionError, QueryError>;
 
 #[async_trait]
-impl<P> Backend for TokioPostgresBackend<P>
-where
-    P: TokioPostgresPoolAssociation,
-{
+impl<P: TokioPostgresPoolAssociation> Backend for TokioPostgresBackend<P> {
     type Pool = P::Pool;
 
     type BuildError = P::BuildError;

@@ -82,18 +82,12 @@ pub(super) trait MySQLBackend<'pool>: Send + Sync + 'static {
     fn get_drop_previous_databases(&self) -> bool;
 }
 
-pub(super) struct MySQLBackendWrapper<'backend, 'pool, B>
-where
-    B: MySQLBackend<'pool>,
-{
+pub(super) struct MySQLBackendWrapper<'backend, 'pool, B: MySQLBackend<'pool>> {
     inner: &'backend B,
     _marker: &'pool PhantomData<()>,
 }
 
-impl<'backend, 'pool, B> MySQLBackendWrapper<'backend, 'pool, B>
-where
-    B: MySQLBackend<'pool>,
-{
+impl<'backend, 'pool, B: MySQLBackend<'pool>> MySQLBackendWrapper<'backend, 'pool, B> {
     pub(super) fn new(backend: &'backend B) -> Self {
         Self {
             inner: backend,
@@ -102,10 +96,7 @@ where
     }
 }
 
-impl<'backend, 'pool, B> Deref for MySQLBackendWrapper<'backend, 'pool, B>
-where
-    B: MySQLBackend<'pool>,
-{
+impl<'backend, 'pool, B: MySQLBackend<'pool>> Deref for MySQLBackendWrapper<'backend, 'pool, B> {
     type Target = B;
 
     fn deref(&self) -> &Self::Target {
@@ -212,28 +203,39 @@ where
         db_id: uuid::Uuid,
     ) -> Result<(), BackendError<B::BuildError, B::PoolError, B::ConnectionError, B::QueryError>>
     {
+        // Get database name based on UUID
         let db_name = get_db_name(db_id);
         let db_name = db_name.as_str();
 
+        // Get privileged connection
         let conn = &mut self.get_connection().await.map_err(Into::into)?;
 
+        // Get table names
         let table_names = self
             .get_table_names(db_name, conn)
             .await
             .map_err(Into::into)?;
+
+        // Generate truncate statements
         let stmts = table_names
             .iter()
             .map(|table_name| mysql::truncate_table(table_name.as_str(), db_name).into());
 
+        // Turn off foreign key checks
         self.execute_stmt(mysql::TURN_OFF_FOREIGN_KEY_CHECKS, conn)
             .await
             .map_err(Into::into)?;
+
+        // Truncate tables
         self.batch_execute_stmt(stmts, conn)
             .await
             .map_err(Into::into)?;
+
+        // Turn on foreign key checks
         self.execute_stmt(mysql::TURN_ON_FOREIGN_KEY_CHECKS, conn)
             .await
             .map_err(Into::into)?;
+
         Ok(())
     }
 
@@ -549,10 +551,11 @@ pub(super) mod tests {
         .await;
     }
 
-    pub async fn test_pool_drops_previous_databases<B>(default: B, enabled: B, disabled: B)
-    where
-        B: Backend,
-    {
+    pub async fn test_pool_drops_previous_databases<B: Backend>(
+        default: B,
+        enabled: B,
+        disabled: B,
+    ) {
         const NUM_DBS: i64 = 3;
 
         async {

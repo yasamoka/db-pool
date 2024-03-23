@@ -28,10 +28,7 @@ type CreateEntities = dyn Fn(AsyncMysqlConnection) -> Pin<Box<dyn Future<Output 
     + 'static;
 
 /// ``Diesel`` async ``MySQL`` backend
-pub struct DieselAsyncMySQLBackend<P>
-where
-    P: DieselPoolAssociation<AsyncMysqlConnection>,
-{
+pub struct DieselAsyncMySQLBackend<P: DieselPoolAssociation<AsyncMysqlConnection>> {
     privileged_config: PrivilegedMySQLConfig,
     default_pool: P::Pool,
     create_restricted_pool: Box<dyn Fn() -> P::Builder + Send + Sync + 'static>,
@@ -39,10 +36,7 @@ where
     drop_previous_databases_flag: bool,
 }
 
-impl<P> DieselAsyncMySQLBackend<P>
-where
-    P: DieselPoolAssociation<AsyncMysqlConnection>,
-{
+impl<P: DieselPoolAssociation<AsyncMysqlConnection>> DieselAsyncMySQLBackend<P> {
     /// Creates a new ``Diesel`` async ``MySQL`` backend
     /// # Example
     /// ```
@@ -112,9 +106,8 @@ where
 }
 
 #[async_trait]
-impl<'pool, P> MySQLBackend<'pool> for DieselAsyncMySQLBackend<P>
-where
-    P: DieselPoolAssociation<AsyncMysqlConnection>,
+impl<'pool, P: DieselPoolAssociation<AsyncMysqlConnection>> MySQLBackend<'pool>
+    for DieselAsyncMySQLBackend<P>
 {
     type Connection = AsyncMysqlConnection;
     type PooledConnection = P::PooledConnection<'pool>;
@@ -221,10 +214,7 @@ where
 type BError<BuildError, PoolError> = BackendError<BuildError, PoolError, ConnectionError, Error>;
 
 #[async_trait]
-impl<P> Backend for DieselAsyncMySQLBackend<P>
-where
-    P: DieselPoolAssociation<AsyncMysqlConnection>,
-{
+impl<P: DieselPoolAssociation<AsyncMysqlConnection>> Backend for DieselAsyncMySQLBackend<P> {
     type Pool = P::Pool;
 
     type BuildError = P::BuildError;

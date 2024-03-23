@@ -10,7 +10,10 @@ use uuid::Uuid;
 
 use crate::{common::config::postgres::PrivilegedPostgresConfig, util::get_db_name};
 
-use super::r#trait::{impl_backend_for_pg_backend, PostgresBackend};
+use super::{
+    super::{error::Error as BackendError, r#trait::Backend},
+    r#trait::{PostgresBackend, PostgresBackendWrapper},
+};
 
 type Manager = ConnectionManager<PgConnection>;
 
@@ -178,7 +181,27 @@ impl PostgresBackend for DieselPostgresBackend {
     }
 }
 
-impl_backend_for_pg_backend!(DieselPostgresBackend, Manager, ConnectionError, Error);
+impl Backend for DieselPostgresBackend {
+    type ConnectionManager = Manager;
+    type ConnectionError = ConnectionError;
+    type QueryError = Error;
+
+    fn init(&self) -> Result<(), BackendError<ConnectionError, Error>> {
+        PostgresBackendWrapper::new(self).init()
+    }
+
+    fn create(&self, db_id: Uuid) -> Result<Pool<Manager>, BackendError<ConnectionError, Error>> {
+        PostgresBackendWrapper::new(self).create(db_id)
+    }
+
+    fn clean(&self, db_id: Uuid) -> Result<(), BackendError<ConnectionError, Error>> {
+        PostgresBackendWrapper::new(self).clean(db_id)
+    }
+
+    fn drop(&self, db_id: Uuid) -> Result<(), BackendError<ConnectionError, Error>> {
+        PostgresBackendWrapper::new(self).drop(db_id)
+    }
+}
 
 #[cfg(test)]
 mod tests {
