@@ -22,21 +22,13 @@ impl From<Error> for QueryError {
     }
 }
 
-impl<B, P> From<ConnectionError> for BackendError<B, P, ConnectionError, QueryError>
-where
-    B: Debug,
-    P: Debug,
-{
+impl<B: Debug, P: Debug> From<ConnectionError> for BackendError<B, P, ConnectionError, QueryError> {
     fn from(value: ConnectionError) -> Self {
         Self::Connection(value)
     }
 }
 
-impl<B, P> From<QueryError> for BackendError<B, P, ConnectionError, QueryError>
-where
-    B: Debug,
-    P: Debug,
-{
+impl<B: Debug, P: Debug> From<QueryError> for BackendError<B, P, ConnectionError, QueryError> {
     fn from(value: QueryError) -> Self {
         Self::Query(value)
     }

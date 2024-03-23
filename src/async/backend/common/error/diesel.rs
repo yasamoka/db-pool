@@ -4,21 +4,13 @@ use diesel::{result::Error, ConnectionError};
 
 use crate::r#async::backend::error::Error as BackendError;
 
-impl<B, P> From<ConnectionError> for BackendError<B, P, ConnectionError, Error>
-where
-    B: Debug,
-    P: Debug,
-{
+impl<B: Debug, P: Debug> From<ConnectionError> for BackendError<B, P, ConnectionError, Error> {
     fn from(value: ConnectionError) -> Self {
         Self::Connection(value)
     }
 }
 
-impl<B, P> From<Error> for BackendError<B, P, ConnectionError, Error>
-where
-    B: Debug,
-    P: Debug,
-{
+impl<B: Debug, P: Debug> From<Error> for BackendError<B, P, ConnectionError, Error> {
     fn from(value: Error) -> Self {
         Self::Query(value)
     }

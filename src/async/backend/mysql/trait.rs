@@ -394,10 +394,11 @@ pub(super) mod tests {
         .unwrap()
     }
 
-    pub async fn test_backend_drops_previous_databases<B>(default: B, enabled: B, disabled: B)
-    where
-        B: Backend,
-    {
+    pub async fn test_backend_drops_previous_databases<B: Backend>(
+        default: B,
+        enabled: B,
+        disabled: B,
+    ) {
         const NUM_DBS: i64 = 3;
 
         let conn_pool = get_privileged_connection_pool().await;

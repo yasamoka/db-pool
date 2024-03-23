@@ -6,19 +6,13 @@ use uuid::Uuid;
 use super::backend::{r#trait::Backend, Error as BackendError};
 
 /// Connection pool wrapper
-pub struct ConnectionPool<B>
-where
-    B: Backend,
-{
+pub struct ConnectionPool<B: Backend> {
     backend: Arc<B>,
     db_id: Uuid,
     conn_pool: Option<Pool<B::ConnectionManager>>,
 }
 
-impl<B> ConnectionPool<B>
-where
-    B: Backend,
-{
+impl<B: Backend> ConnectionPool<B> {
     pub(crate) fn new(
         backend: Arc<B>,
     ) -> Result<Self, BackendError<B::ConnectionError, B::QueryError>> {
@@ -37,10 +31,7 @@ where
     }
 }
 
-impl<B> Deref for ConnectionPool<B>
-where
-    B: Backend,
-{
+impl<B: Backend> Deref for ConnectionPool<B> {
     type Target = Pool<B::ConnectionManager>;
 
     fn deref(&self) -> &Self::Target {
@@ -50,10 +41,7 @@ where
     }
 }
 
-impl<B> Drop for ConnectionPool<B>
-where
-    B: Backend,
-{
+impl<B: Backend> Drop for ConnectionPool<B> {
     fn drop(&mut self) {
         self.conn_pool = None;
         (*self.backend).drop(self.db_id).ok();

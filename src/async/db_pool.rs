@@ -9,14 +9,9 @@ use super::{
 };
 
 /// Database pool
-pub struct DatabasePool<B>(Arc<ObjectPool<ConnectionPool<B>>>)
-where
-    B: Backend;
+pub struct DatabasePool<B: Backend>(Arc<ObjectPool<ConnectionPool<B>>>);
 
-impl<B> DatabasePool<B>
-where
-    B: Backend,
-{
+impl<B: Backend> DatabasePool<B> {
     /// Pulls a reusable connection pool
     /// # Example
     /// ```
@@ -63,10 +58,7 @@ where
     }
 }
 
-impl<B> Clone for DatabasePool<B>
-where
-    B: Backend,
-{
+impl<B: Backend> Clone for DatabasePool<B> {
     fn clone(&self) -> Self {
         Self(self.0.clone())
     }
@@ -145,4 +137,4 @@ pub trait DatabasePoolBuilder: Backend {
     }
 }
 
-impl<AB> DatabasePoolBuilder for AB where AB: Backend {}
+impl<AB: Backend> DatabasePoolBuilder for AB {}

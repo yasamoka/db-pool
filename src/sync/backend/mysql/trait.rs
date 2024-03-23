@@ -272,10 +272,7 @@ pub(super) mod tests {
         .unwrap()
     }
 
-    pub fn test_backend_drops_previous_databases<B>(default: B, enabled: B, disabled: B)
-    where
-        B: Backend,
-    {
+    pub fn test_backend_drops_previous_databases<B: Backend>(default: B, enabled: B, disabled: B) {
         const NUM_DBS: i64 = 3;
 
         let conn_pool = get_privileged_connection_pool();
@@ -412,10 +409,7 @@ pub(super) mod tests {
         assert!(!database_exists(db_name, conn));
     }
 
-    pub fn test_pool_drops_previous_databases<B>(default: B, enabled: B, disabled: B)
-    where
-        B: Backend,
-    {
+    pub fn test_pool_drops_previous_databases<B: Backend>(default: B, enabled: B, disabled: B) {
         const NUM_DBS: i64 = 3;
 
         let conn_pool = get_privileged_connection_pool();
