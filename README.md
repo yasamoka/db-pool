@@ -36,7 +36,7 @@ When switching to parallel execution of tests, even more difficulties arise:
   - restricting user privileges to prevent schema modification by rogue tests
   - dropping temporary databases before or after a test run to reduce clutter
 
-`db-pool` takes care of all of these concerns while supporting multiple DBMSes, backends, and connection pools.
+`db-pool` takes care of all of these concerns while supporting multiple database types, backends, and connection pools.
 
 ## Databases
 
