@@ -1,4 +1,4 @@
-/// Privileged ``Postgres`` configuration
+/// Privileged Postgres configuration
 pub struct PrivilegedPostgresConfig {
     pub(crate) username: String,
     pub(crate) password: Option<String>,
@@ -12,7 +12,7 @@ impl PrivilegedPostgresConfig {
     const DEFAULT_HOST: &'static str = "localhost";
     const DEFAULT_PORT: u16 = 5432;
 
-    /// Creates a new privileged ``Postgres`` configuration with defaults
+    /// Creates a new privileged Postgres configuration with defaults
     /// # Example
     /// ```
     /// # use db_pool::PrivilegedPostgresConfig;
@@ -34,7 +34,7 @@ impl PrivilegedPostgresConfig {
         }
     }
 
-    /// Creates a new privileged ``Postgres`` configuration from environment variables
+    /// Creates a new privileged Postgres configuration from environment variables
     /// # Environment variables
     /// - `POSTGRES_USERNAME`
     /// - `POSTGRES_PASSWORD`

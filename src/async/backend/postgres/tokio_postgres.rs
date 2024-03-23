@@ -25,7 +25,7 @@ type CreateEntities = dyn Fn(Client) -> Pin<Box<dyn Future<Output = Client> + Se
     + Sync
     + 'static;
 
-/// ``tokio-postgres`` backend
+/// [`tokio-postgres`](https://docs.rs/tokio-postgres/0.7.10/tokio_postgres/) backend
 pub struct TokioPostgresBackend<P: TokioPostgresPoolAssociation> {
     privileged_config: Config,
     default_pool: P::Pool,
@@ -36,7 +36,7 @@ pub struct TokioPostgresBackend<P: TokioPostgresPoolAssociation> {
 }
 
 impl<P: TokioPostgresPoolAssociation> TokioPostgresBackend<P> {
-    /// Creates a new ``tokio-postgres`` backend
+    /// Creates a new [`tokio-postgres`](https://docs.rs/tokio-postgres/0.7.10/tokio_postgres/) backend
     /// # Example
     /// ```
     /// use bb8::Pool;

@@ -16,7 +16,7 @@ use super::{
 
 type Manager = MySqlConnectionManager;
 
-/// ``MySQL`` backend
+/// MySQL backend
 pub struct MySQLBackend {
     opts: Opts,
     default_pool: Pool<Manager>,
@@ -26,7 +26,7 @@ pub struct MySQLBackend {
 }
 
 impl MySQLBackend {
-    /// Creates a new ``MySQL`` backend
+    /// Creates a new MySQL backend
     /// # Example
     /// ```
     /// use db_pool::{sync::MySQLBackend, PrivilegedMySQLConfig};

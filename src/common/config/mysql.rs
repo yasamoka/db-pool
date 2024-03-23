@@ -1,4 +1,4 @@
-/// Privileged ``MySQL`` configuration
+/// Privileged MySQL configuration
 #[derive(Clone)]
 pub struct PrivilegedMySQLConfig {
     pub(crate) username: String,
@@ -13,7 +13,7 @@ impl PrivilegedMySQLConfig {
     const DEFAULT_HOST: &'static str = "localhost";
     const DEFAULT_PORT: u16 = 3306;
 
-    /// Creates a new privileged ``MySQL`` configuration
+    /// Creates a new privileged MySQL configuration
     /// # Example
     /// ```
     /// # use db_pool::PrivilegedMySQLConfig;
@@ -35,7 +35,7 @@ impl PrivilegedMySQLConfig {
         }
     }
 
-    /// Creates a new privileged ``MySQL`` configuration from environment variables
+    /// Creates a new privileged MySQL configuration from environment variables
     /// # Environment variables
     /// - `MYSQL_USERNAME`
     /// - `MYSQL_PASSWORD`

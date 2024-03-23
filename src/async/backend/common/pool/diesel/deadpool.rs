@@ -12,7 +12,7 @@ use super::r#trait::DieselPoolAssociation;
 
 type DieselManager<Connection> = AsyncDieselConnectionManager<Connection>;
 
-/// ``Diesel`` ``deadpool`` association
+/// [`Diesel deadpool`](https://docs.rs/diesel-async/0.4.1/diesel_async/pooled_connection/deadpool/index.html) association
 pub struct DieselDeadpool;
 
 #[async_trait]

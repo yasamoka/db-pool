@@ -14,7 +14,7 @@ use super::r#trait::TokioPostgresPoolAssociation;
 
 type Manager = PgConnectionManager<NoTls>;
 
-/// ``tokio-postgres`` ``bb8`` association
+/// [`tokio-postgres mobc`](https://github.com/importcjj/mobc-postgres) association
 /// # Example
 /// ```
 /// use db_pool::r#async::{TokioPostgresBackend, TokioPostgresMobc};

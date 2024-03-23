@@ -25,7 +25,7 @@ type CreateEntities = dyn Fn(MySqlConnection) -> Pin<Box<dyn Future<Output = ()>
     + Sync
     + 'static;
 
-/// ``sqlx`` ``MySQL`` backend
+/// [`sqlx MySQL`](https://docs.rs/sqlx/0.7.4/sqlx/struct.MySql.html) backend
 pub struct SqlxMySQLBackend {
     privileged_opts: MySqlConnectOptions,
     default_pool: MySqlPool,
@@ -35,7 +35,7 @@ pub struct SqlxMySQLBackend {
 }
 
 impl SqlxMySQLBackend {
-    /// Creates a new ``sqlx`` ``MySQL`` backend
+    /// Creates a new [`sqlx MySQL`](https://docs.rs/sqlx/0.7.4/sqlx/struct.MySql.html) backend
     /// # Example
     /// ```
     /// use db_pool::{r#async::SqlxMySQLBackend, PrivilegedMySQLConfig};

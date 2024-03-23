@@ -17,7 +17,7 @@ use super::{
 
 type Manager = PostgresConnectionManager<NoTls>;
 
-/// ``Postgres`` backend
+/// Postgres backend
 pub struct PostgresBackend {
     config: Config,
     default_pool: Pool<Manager>,
@@ -28,7 +28,7 @@ pub struct PostgresBackend {
 }
 
 impl PostgresBackend {
-    /// Creates a new ``Postgres`` backend
+    /// Creates a new Postgres backend
     /// # Example
     /// ```
     /// use db_pool::{sync::PostgresBackend, PrivilegedPostgresConfig};

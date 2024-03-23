@@ -26,7 +26,7 @@ type CreateEntities = dyn Fn(PgConnection) -> Pin<Box<dyn Future<Output = PgConn
     + Sync
     + 'static;
 
-/// ``sqlx`` ``Postgres`` backend
+/// [`sqlx Postgres`](https://docs.rs/sqlx/0.7.4/sqlx/struct.Postgres.html) backend
 pub struct SqlxPostgresBackend {
     privileged_opts: PgConnectOptions,
     default_pool: PgPool,
@@ -37,7 +37,7 @@ pub struct SqlxPostgresBackend {
 }
 
 impl SqlxPostgresBackend {
-    /// Creates a new ``sqlx`` ``Postgres`` backend
+    /// Creates a new [`sqlx Postgres`](https://docs.rs/sqlx/0.7.4/sqlx/struct.Postgres.html) backend
     /// # Example
     /// ```
     /// use db_pool::{r#async::SqlxPostgresBackend, PrivilegedPostgresConfig};

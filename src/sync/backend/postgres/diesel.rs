@@ -17,7 +17,7 @@ use super::{
 
 type Manager = ConnectionManager<PgConnection>;
 
-/// ``Diesel`` ``Postgres`` backend
+/// [`Diesel Postgres`](https://docs.rs/diesel/2.1.5/diesel/pg/struct.PgConnection.html) backend
 pub struct DieselPostgresBackend {
     privileged_config: PrivilegedPostgresConfig,
     default_pool: Pool<Manager>,
@@ -28,7 +28,7 @@ pub struct DieselPostgresBackend {
 }
 
 impl DieselPostgresBackend {
-    /// Creates a new ``Diesel`` ``Postgres`` backend
+    /// Creates a new [`Diesel Postgres`](https://docs.rs/diesel/2.1.5/diesel/pg/struct.PgConnection.html) backend
     /// # Example
     /// ```
     /// use db_pool::{sync::DieselPostgresBackend, PrivilegedPostgresConfig};

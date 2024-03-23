@@ -8,16 +8,16 @@ use super::error::Error;
 /// Backend trait
 #[async_trait]
 pub trait Backend: Sized + Send + Sync + 'static {
-    /// Connection pool type that implements ``Send``
+    /// Connection pool type that implements [`Send`](https://doc.rust-lang.org/std/marker/trait.Send.html)
     type Pool: Send;
 
-    /// Connection pool build error type that implements ``Debug`` and ``Send``
+    /// Connection pool build error type that implements [`Debug`](https://doc.rust-lang.org/std/fmt/trait.Debug.html) and [`Send`](https://doc.rust-lang.org/std/marker/trait.Send.html)
     type BuildError: Debug + Send;
-    /// Connection pool error type that implements ``Debug`` and ``Send``
+    /// Connection pool error type that implements [`Debug`](https://doc.rust-lang.org/std/fmt/trait.Debug.html) and [`Send`](https://doc.rust-lang.org/std/marker/trait.Send.html)
     type PoolError: Debug + Send;
-    /// Connection error type that implements ``Debug``
+    /// Connection error type that implements [`Debug`](https://doc.rust-lang.org/std/fmt/trait.Debug.html)
     type ConnectionError: Debug;
-    /// Query error type that implements ``Debug``
+    /// Query error type that implements [`Debug`](https://doc.rust-lang.org/std/fmt/trait.Debug.html)
     type QueryError: Debug;
 
     /// Initializes the backend

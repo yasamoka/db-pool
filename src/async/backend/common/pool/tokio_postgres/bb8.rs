@@ -14,7 +14,7 @@ use super::r#trait::TokioPostgresPoolAssociation;
 
 type Manager = PostgresConnectionManager<NoTls>;
 
-/// ``tokio-postgres`` ``bb8`` association
+/// [`tokio-postgres bb8`](https://docs.rs/bb8-postgres/0.8.1/bb8_postgres/) association
 /// # Example
 /// ```
 /// use bb8::Pool;

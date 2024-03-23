@@ -27,7 +27,7 @@ type CreateEntities = dyn Fn(AsyncMysqlConnection) -> Pin<Box<dyn Future<Output 
     + Sync
     + 'static;
 
-/// ``Diesel`` async ``MySQL`` backend
+/// [`Diesel async MySQL`](https://docs.rs/diesel-async/0.4.1/diesel_async/struct.AsyncMysqlConnection.html) backend
 pub struct DieselAsyncMySQLBackend<P: DieselPoolAssociation<AsyncMysqlConnection>> {
     privileged_config: PrivilegedMySQLConfig,
     default_pool: P::Pool,
@@ -37,7 +37,7 @@ pub struct DieselAsyncMySQLBackend<P: DieselPoolAssociation<AsyncMysqlConnection
 }
 
 impl<P: DieselPoolAssociation<AsyncMysqlConnection>> DieselAsyncMySQLBackend<P> {
-    /// Creates a new ``Diesel`` async ``MySQL`` backend
+    /// Creates a new [`Diesel async MySQL`](https://docs.rs/diesel-async/0.4.1/diesel_async/struct.AsyncMysqlConnection.html) backend
     /// # Example
     /// ```
     /// use bb8::Pool;

@@ -7,11 +7,11 @@ use super::error::Error;
 
 /// Backend trait
 pub trait Backend: Sized + Send + Sync + 'static {
-    /// Type that implements the ``r2d2::ManageConnection`` trait
+    /// Type that implements the [`r2d2::ManageConnection`](https://docs.rs/r2d2/0.8.10/r2d2/trait.ManageConnection.html) trait
     type ConnectionManager: ManageConnection;
-    /// Connection error type that implements ``Debug``
+    /// Connection error type that implements [`Debug`](https://doc.rust-lang.org/std/fmt/trait.Debug.html)
     type ConnectionError: Debug;
-    /// Query error type that implements ``Debug``
+    /// Query error type that implements [`Debug`](https://doc.rust-lang.org/std/fmt/trait.Debug.html)
     type QueryError: Debug;
 
     /// Initializes the backend

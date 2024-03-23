@@ -1,6 +1,6 @@
-We will use the Diesel async Postgres backend with [BB8](https://docs.rs/bb8/latest/bb8/) in this tutorial.
+We will use the Diesel async Postgres backend with [BB8](https://docs.rs/bb8/0.8.3/bb8/) in this tutorial.
 
-The database pool has to live for the duration of the test run. We use a [`OnceCell`](https://docs.rs/tokio/latest/tokio/sync/struct.OnceCell.html) to store a "lazy static".
+The database pool has to live for the duration of the test run. We use a [`OnceCell`](https://docs.rs/tokio/1.36.0/tokio/sync/struct.OnceCell.html) to store a "lazy static".
 
 ```rust
 {{#include 01.rs}}
@@ -39,7 +39,7 @@ We then create the backend with the privileged configuration, among others.
 
 `DieselPostgresBackend` is the backend that will communicate with the PostgreSQL instance using Diesel-specific constructs.
 
-`DieselBb8` is a construct that allows the backend to work with and issue `BB8` [connection pools](https://docs.rs/bb8/latest/bb8/struct.Pool.html).
+`DieselBb8` is a construct that allows the backend to work with and issue `BB8` [connection pools](https://docs.rs/bb8/0.8.3/bb8/struct.Pool.html).
 
 `PrivilegedPostgresConfig::from_env().unwrap()` creates a privileged Postgres configuration from environment variables.
 
@@ -81,7 +81,7 @@ Finally, we add a couple of separate tests that call the same test case.
 {{#include 07.rs}}
 ```
 
-We use the [`test`](https://docs.rs/tokio-shared-rt/latest/tokio_shared_rt/attr.test.html) macro from [`tokio_shared_rt`](https://docs.rs/tokio-shared-rt/latest/tokio_shared_rt/) instead of [`tokio::test`](https://docs.rs/tokio/latest/tokio/attr.test.html) in order to use a shared Tokio runtime for all tests. This is essential so that the static database pool is created and used by the same runtime and therefore remains valid for all tests.
+We use the [`test`](https://docs.rs/tokio-shared-rt/0.1.0/tokio_shared_rt/attr.test.html) macro from [`tokio_shared_rt`](https://docs.rs/tokio-shared-rt/0.1.0/tokio_shared_rt/) instead of [`tokio::test`](https://docs.rs/tokio/1.36.0/tokio/attr.test.html) in order to use a shared Tokio runtime for all tests. This is essential so that the static database pool is created and used by the same runtime and therefore remains valid for all tests.
 
 We run the test cases in parallel and both pass.
 
