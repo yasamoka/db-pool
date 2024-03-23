@@ -6,9 +6,13 @@
 //! - Automatic creation, reuse, and cleanup
 //! - Async support
 //!
+//! ## Description
+//!
+//! Rather than simply providing a database connection pool that allows multiple connections to the same database, `db-pool` maintains a pool of separate isolated databases in order to allow running database-tied tests in parallel. It also handles the lifecycles of those databases: whenever you pick a database out of the pool, you can be sure that the database is clean and ready to be used. It ensures that databases are isolated so that no other tests are connected to the database you are using in any one test.
+//!
 //! ## Motivation
 //!
-//! When running tests against a database-tied service, such as a web server, a test database is generally used. However, this comes with its own set of difficulties:
+//! Rather than simply providing a database connection pool that allows multiple connections to the same database, `db-pool` maintains a pool of separate isolated databases in order to allow running database-tied tests in parallel. It also handles the lifecycles of those databases: whenever you pick a database out of the pool, you can be sure that the database is clean and ready to be used, and that no other tests are connected to the database you are using in any one test.
 //!
 //! 1) The database has to be either (a) dropped and re-created or (b) cleaned before every test.
 //! 2) Tests have to run serially in order to avoid cross-contamination.

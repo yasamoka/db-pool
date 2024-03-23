@@ -10,28 +10,7 @@ documentation = "https://docs.rs/db-pool"
 readme = "README.md"
 
 categories = ["development-tools::testing", "database", "web-programming"]
-keywords = [
-    "backend",
-    "bb8",
-    "connection pool",
-    "database",
-    "diesel",
-    "diesel-async",
-    "mariadb",
-    "mobc",
-    "mysql",
-    "pg",
-    "pool",
-    "postgres",
-    "postgresql",
-    "parallel",
-    "r2d2",
-    "sea-orm",
-    "sqlx",
-    "test",
-    "tokio-postgres",
-    "web",
-]
+keywords = ["database", "pool", "parallel", "test", "web"]
 
 exclude = [".vscode", ".github", "book"]
 
