@@ -6,8 +6,8 @@
 
 ### Databases
 
-- MySQL
-- PostgreSQL (MariaDB)
+- MySQL (MariaDB)
+- PostgreSQL
 
 ### Backends
 
