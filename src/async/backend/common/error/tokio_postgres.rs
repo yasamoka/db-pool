@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, ops::Deref};
 
 use tokio_postgres::Error;
 
@@ -6,6 +6,14 @@ use crate::r#async::backend::error::Error as BackendError;
 
 #[derive(Debug)]
 pub struct ConnectionError(Error);
+
+impl Deref for ConnectionError {
+    type Target = Error;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 impl From<Error> for ConnectionError {
     fn from(value: Error) -> Self {
@@ -15,6 +23,14 @@ impl From<Error> for ConnectionError {
 
 #[derive(Debug)]
 pub struct QueryError(Error);
+
+impl Deref for QueryError {
+    type Target = Error;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 impl From<Error> for QueryError {
     fn from(value: Error) -> Self {
