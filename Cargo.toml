@@ -1,6 +1,6 @@
 [package]
 name = "db-pool"
-version = "0.1.1"
+version = "0.1.3"
 edition = "2021"
 description = "A thread-safe database pool for running database-tied integration tests in parallel"
 license = "MIT"
@@ -13,6 +13,11 @@ categories = ["development-tools::testing", "database", "web-programming"]
 keywords = ["database", "pool", "parallel", "test", "web"]
 
 exclude = [".vscode", ".github", "book"]
+
+
+[package.metadata.docs.rs]
+all-features = true
+
 
 [dependencies]
 parking_lot = "0.12.1"
