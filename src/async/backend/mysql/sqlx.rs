@@ -109,7 +109,7 @@ impl<'pool> MySQLBackend<'pool> for SqlxMySQLBackend {
         self.default_pool.acquire().await.map_err(Into::into)
     }
 
-    async fn execute_stmt(
+    async fn execute_query(
         &self,
         query: &str,
         conn: &mut MySqlConnection,
@@ -118,7 +118,7 @@ impl<'pool> MySQLBackend<'pool> for SqlxMySQLBackend {
         Ok(())
     }
 
-    async fn batch_execute_stmt<'a>(
+    async fn batch_execute_query<'a>(
         &self,
         query: impl IntoIterator<Item = Cow<'a, str>> + Send,
         conn: &mut MySqlConnection,
@@ -128,7 +128,7 @@ impl<'pool> MySQLBackend<'pool> for SqlxMySQLBackend {
             Ok(())
         } else {
             let query = chunks.join(";");
-            self.execute_stmt(query.as_str(), conn).await
+            self.execute_query(query.as_str(), conn).await
         }
     }
 
@@ -218,7 +218,7 @@ impl Backend for SqlxMySQLBackend {
 mod tests {
     #![allow(clippy::unwrap_used, clippy::needless_return)]
 
-    use futures::future::join_all;
+    use futures::{future::join_all, StreamExt};
     use sqlx::{
         mysql::{MySqlConnectOptions, MySqlPoolOptions},
         query, query_as, Executor, FromRow, Row,
@@ -227,7 +227,7 @@ mod tests {
 
     use crate::{
         common::statement::mysql::tests::{
-            CREATE_ENTITIES_STATEMENT, DDL_STATEMENTS, DML_STATEMENTS,
+            CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
         },
         r#async::db_pool::DatabasePoolBuilder,
         tests::get_privileged_mysql_config,
@@ -255,7 +255,12 @@ mod tests {
             move |mut conn| {
                 if with_table {
                     Box::pin(async move {
-                        conn.execute(CREATE_ENTITIES_STATEMENT).await.unwrap();
+                        conn.execute_many(CREATE_ENTITIES_STATEMENTS.join(";").as_str())
+                            .collect::<Vec<_>>()
+                            .await
+                            .drain(..)
+                            .collect::<Result<Vec<_>, _>>()
+                            .unwrap();
                     })
                 } else {
                     Box::pin(async {})

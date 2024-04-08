@@ -12,12 +12,12 @@ pub(super) trait PostgresBackend {
     type ConnectionError: Into<BackendError<Self::ConnectionError, Self::QueryError>> + Debug;
     type QueryError: Into<BackendError<Self::ConnectionError, Self::QueryError>> + Debug;
 
-    fn execute(
+    fn execute_query(
         &self,
         query: &str,
         conn: &mut <Self::ConnectionManager as ManageConnection>::Connection,
     ) -> Result<(), Self::QueryError>;
-    fn batch_execute<'a>(
+    fn batch_execute_query<'a>(
         &self,
         query: impl IntoIterator<Item = Cow<'a, str>>,
         conn: &mut <Self::ConnectionManager as ManageConnection>::Connection,
@@ -86,7 +86,7 @@ impl<'a, B: PostgresBackend> PostgresBackendWrapper<'a, B> {
 
             // Drop databases
             for db_name in &db_names {
-                self.execute(postgres::drop_database(db_name.as_str()).as_str(), conn)
+                self.execute_query(postgres::drop_database(db_name.as_str()).as_str(), conn)
                     .map_err(Into::into)?;
             }
         }
@@ -108,11 +108,11 @@ impl<'a, B: PostgresBackend> PostgresBackendWrapper<'a, B> {
             let conn = &mut self.get_default_connection()?;
 
             // Create database
-            self.execute(postgres::create_database(db_name).as_str(), conn)
+            self.execute_query(postgres::create_database(db_name).as_str(), conn)
                 .map_err(Into::into)?;
 
             // Create CRUD role
-            self.execute(postgres::create_role(db_name).as_str(), conn)
+            self.execute_query(postgres::create_role(db_name).as_str(), conn)
                 .map_err(Into::into)?;
         }
 
@@ -126,12 +126,12 @@ impl<'a, B: PostgresBackend> PostgresBackendWrapper<'a, B> {
             self.create_entities(&mut conn);
 
             // Grant privileges to CRUD role
-            self.execute(
+            self.execute_query(
                 postgres::grant_table_privileges(db_name).as_str(),
                 &mut conn,
             )
             .map_err(Into::into)?;
-            self.execute(
+            self.execute_query(
                 postgres::grant_sequence_privileges(db_name).as_str(),
                 &mut conn,
             )
@@ -162,7 +162,8 @@ impl<'a, B: PostgresBackend> PostgresBackendWrapper<'a, B> {
             .map(|table_name| postgres::truncate_table(table_name.as_str()).into());
 
         // Truncate tables
-        self.batch_execute(stmts, &mut conn).map_err(Into::into)?;
+        self.batch_execute_query(stmts, &mut conn)
+            .map_err(Into::into)?;
 
         // Store database connection back for reuse
         self.put_database_connection(db_id, conn);
@@ -187,11 +188,11 @@ impl<'a, B: PostgresBackend> PostgresBackendWrapper<'a, B> {
         let conn = &mut self.get_default_connection()?;
 
         // Drop database
-        self.execute(postgres::drop_database(db_name).as_str(), conn)
+        self.execute_query(postgres::drop_database(db_name).as_str(), conn)
             .map_err(Into::into)?;
 
         // Drop CRUD role
-        self.execute(postgres::drop_role(db_name).as_str(), conn)
+        self.execute_query(postgres::drop_role(db_name).as_str(), conn)
             .map_err(Into::into)?;
 
         Ok(())

@@ -1,8 +1,8 @@
 use std::{borrow::Cow, collections::HashMap};
 
 use diesel::{
-    pg::PgConnection, prelude::*, r2d2::ConnectionManager, result::Error, sql_query, QueryResult,
-    RunQueryDsl,
+    connection::SimpleConnection, pg::PgConnection, prelude::*, r2d2::ConnectionManager,
+    result::Error, sql_query, QueryResult, RunQueryDsl,
 };
 use parking_lot::Mutex;
 use r2d2::{Builder, Pool, PooledConnection};
@@ -86,22 +86,21 @@ impl PostgresBackend for DieselPostgresBackend {
     type ConnectionError = ConnectionError;
     type QueryError = Error;
 
-    fn execute(&self, query: &str, conn: &mut PgConnection) -> QueryResult<()> {
+    fn execute_query(&self, query: &str, conn: &mut PgConnection) -> QueryResult<()> {
         sql_query(query).execute(conn)?;
         Ok(())
     }
 
-    fn batch_execute<'a>(
+    fn batch_execute_query<'a>(
         &self,
         query: impl IntoIterator<Item = Cow<'a, str>>,
         conn: &mut PgConnection,
     ) -> QueryResult<()> {
-        let stmts = query.into_iter().collect::<Vec<_>>();
-        if stmts.is_empty() {
+        let query = query.into_iter().collect::<Vec<_>>();
+        if query.is_empty() {
             Ok(())
         } else {
-            let query = stmts.join(";");
-            self.execute(query.as_str(), conn)
+            conn.batch_execute(query.join(";").as_str())
         }
     }
 
@@ -209,7 +208,10 @@ mod tests {
 
     use std::borrow::Cow;
 
-    use diesel::{insert_into, sql_query, table, Insertable, QueryDsl, RunQueryDsl};
+    use diesel::{
+        connection::SimpleConnection, insert_into, sql_query, table, Insertable, QueryDsl,
+        RunQueryDsl,
+    };
     use dotenvy::dotenv;
     use r2d2::Pool;
 
@@ -217,7 +219,7 @@ mod tests {
         common::{
             config::PrivilegedPostgresConfig,
             statement::postgres::tests::{
-                CREATE_ENTITIES_STATEMENT, DDL_STATEMENTS, DML_STATEMENTS,
+                CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
             },
         },
         sync::db_pool::DatabasePoolBuilder,
@@ -255,7 +257,8 @@ mod tests {
         DieselPostgresBackend::new(config, Pool::builder, Pool::builder, {
             move |conn| {
                 if with_table {
-                    sql_query(CREATE_ENTITIES_STATEMENT).execute(conn).unwrap();
+                    let query = CREATE_ENTITIES_STATEMENTS.join(";");
+                    conn.batch_execute(query.as_str()).unwrap();
                 }
             }
         })

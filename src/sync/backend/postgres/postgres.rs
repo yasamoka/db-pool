@@ -87,12 +87,12 @@ impl PostgresBackendTrait for PostgresBackend {
     type ConnectionError = ConnectionError;
     type QueryError = QueryError;
 
-    fn execute(&self, query: &str, conn: &mut Client) -> Result<(), QueryError> {
+    fn execute_query(&self, query: &str, conn: &mut Client) -> Result<(), QueryError> {
         conn.execute(query, &[])?;
         Ok(())
     }
 
-    fn batch_execute<'a>(
+    fn batch_execute_query<'a>(
         &self,
         query: impl IntoIterator<Item = Cow<'a, str>>,
         conn: &mut Client,
@@ -236,7 +236,7 @@ mod tests {
 
     use crate::{
         common::statement::postgres::tests::{
-            CREATE_ENTITIES_STATEMENT, DDL_STATEMENTS, DML_STATEMENTS,
+            CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
         },
         sync::db_pool::DatabasePoolBuilder,
         PrivilegedPostgresConfig,
@@ -261,7 +261,8 @@ mod tests {
         PostgresBackend::new(config.into(), Pool::builder, Pool::builder, {
             move |conn| {
                 if with_table {
-                    conn.execute(CREATE_ENTITIES_STATEMENT, &[]).unwrap();
+                    conn.batch_execute(&CREATE_ENTITIES_STATEMENTS.join(";"))
+                        .unwrap();
                 }
             }
         })

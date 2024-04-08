@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 
 use diesel::{
+    connection::SimpleConnection,
     mysql::MysqlConnection,
     prelude::*,
     r2d2::ConnectionManager,
@@ -105,12 +106,11 @@ impl MySQLBackend for DieselMySQLBackend {
         query: impl IntoIterator<Item = Cow<'a, str>>,
         conn: &mut MysqlConnection,
     ) -> QueryResult<()> {
-        let chunks = query.into_iter().collect::<Vec<_>>();
-        if chunks.is_empty() {
+        let query = query.into_iter().collect::<Vec<_>>();
+        if query.is_empty() {
             Ok(())
         } else {
-            let query = chunks.join(";");
-            self.execute(query.as_str(), conn)
+            conn.batch_execute(query.join(";").as_str())
         }
     }
 
@@ -206,12 +206,15 @@ mod tests {
 
     use std::borrow::Cow;
 
-    use diesel::{insert_into, sql_query, table, Insertable, QueryDsl, RunQueryDsl};
+    use diesel::{
+        connection::SimpleConnection, insert_into, sql_query, table, Insertable, QueryDsl,
+        RunQueryDsl,
+    };
     use r2d2::Pool;
 
     use crate::{
         common::statement::mysql::tests::{
-            CREATE_ENTITIES_STATEMENT, DDL_STATEMENTS, DML_STATEMENTS,
+            CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
         },
         sync::db_pool::DatabasePoolBuilder,
         tests::get_privileged_mysql_config,
@@ -246,7 +249,8 @@ mod tests {
         DieselMySQLBackend::new(config, Pool::builder, Pool::builder, {
             move |conn| {
                 if with_table {
-                    sql_query(CREATE_ENTITIES_STATEMENT).execute(conn).unwrap();
+                    let query = CREATE_ENTITIES_STATEMENTS.join(";");
+                    conn.batch_execute(query.as_str()).unwrap();
                 }
             }
         })

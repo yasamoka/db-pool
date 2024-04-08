@@ -116,12 +116,12 @@ impl<'pool, P: TokioPostgresPoolAssociation> PostgresBackend<'pool> for TokioPos
     type ConnectionError = ConnectionError;
     type QueryError = QueryError;
 
-    async fn execute_stmt(&self, query: &str, conn: &mut Client) -> Result<(), QueryError> {
+    async fn execute_query(&self, query: &str, conn: &mut Client) -> Result<(), QueryError> {
         conn.execute(query, &[]).await?;
         Ok(())
     }
 
-    async fn batch_execute_stmt<'a>(
+    async fn batch_execute_query<'a>(
         &self,
         query: impl IntoIterator<Item = Cow<'a, str>> + Send,
         conn: &mut Client,
@@ -241,7 +241,7 @@ mod tests {
 
     use crate::{
         common::statement::postgres::tests::{
-            CREATE_ENTITIES_STATEMENT, DDL_STATEMENTS, DML_STATEMENTS,
+            CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
         },
         r#async::{
             backend::common::pool::tokio_postgres::bb8::TokioPostgresBb8,
@@ -269,7 +269,9 @@ mod tests {
             move |conn| {
                 if with_table {
                     Box::pin(async move {
-                        conn.execute(CREATE_ENTITIES_STATEMENT, &[]).await.unwrap();
+                        conn.batch_execute(&CREATE_ENTITIES_STATEMENTS.join(";"))
+                            .await
+                            .unwrap();
                         conn
                     })
                 } else {

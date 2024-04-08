@@ -125,7 +125,7 @@ impl<'pool> MySQLBackend<'pool> for SeaORMMySQLBackend {
         Ok(self.default_pool.clone().into())
     }
 
-    async fn execute_stmt(
+    async fn execute_query(
         &self,
         query: &str,
         conn: &mut DatabaseConnection,
@@ -134,7 +134,7 @@ impl<'pool> MySQLBackend<'pool> for SeaORMMySQLBackend {
         Ok(())
     }
 
-    async fn batch_execute_stmt<'a>(
+    async fn batch_execute_query<'a>(
         &self,
         query: impl IntoIterator<Item = Cow<'a, str>> + Send,
         conn: &mut DatabaseConnection,
@@ -144,7 +144,7 @@ impl<'pool> MySQLBackend<'pool> for SeaORMMySQLBackend {
             Ok(())
         } else {
             let query = chunks.join(";");
-            self.execute_stmt(query.as_str(), conn).await
+            self.execute_query(query.as_str(), conn).await
         }
     }
 
@@ -299,7 +299,7 @@ mod tests {
 
     use crate::{
         common::statement::mysql::tests::{
-            CREATE_ENTITIES_STATEMENT, DDL_STATEMENTS, DML_STATEMENTS,
+            CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
         },
         r#async::db_pool::DatabasePoolBuilder,
         tests::get_privileged_mysql_config,
@@ -334,7 +334,7 @@ mod tests {
             move |conn| {
                 if with_table {
                     Box::pin(async move {
-                        conn.execute_unprepared(CREATE_ENTITIES_STATEMENT)
+                        conn.execute_unprepared(CREATE_ENTITIES_STATEMENTS.join(";").as_str())
                             .await
                             .unwrap();
                     })

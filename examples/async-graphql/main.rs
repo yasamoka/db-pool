@@ -145,7 +145,7 @@ mod tests {
         r#async::{DatabasePool, DatabasePoolBuilderTrait, DieselAsyncPostgresBackend, DieselBb8},
         PrivilegedPostgresConfig,
     };
-    use diesel::sql_query;
+    use diesel_async_migrations::{embed_migrations, EmbeddedMigrations};
     use dotenvy::dotenv;
     use futures::future::join_all;
     use serde::{Deserialize, Serialize};
@@ -156,13 +156,14 @@ mod tests {
     use crate::{build_schema, Book, PoolWrapper};
 
     async fn get_connection_pool() -> PoolWrapper<DieselAsyncPostgresBackend<DieselBb8>> {
+        static MIGRATIONS: EmbeddedMigrations =
+            embed_migrations!("examples/async-graphql/migrations");
+
         static DB_POOL: OnceCell<DatabasePool<DieselAsyncPostgresBackend<DieselBb8>>> =
             OnceCell::const_new();
 
         let db_pool = DB_POOL
             .get_or_init(|| async {
-                use diesel_async::RunQueryDsl;
-
                 dotenv().ok();
 
                 let config = PrivilegedPostgresConfig::from_env().unwrap();
@@ -173,12 +174,10 @@ mod tests {
                     || Pool::builder().max_size(1).test_on_check_out(true),
                     move |mut conn| {
                         Box::pin(async move {
-                            sql_query(
-                                "CREATE TABLE book(id SERIAL PRIMARY KEY, title TEXT NOT NULL)",
-                            )
-                            .execute(&mut conn)
-                            .await
-                            .unwrap();
+                            MIGRATIONS
+                                .run_pending_migrations(&mut conn)
+                                .await
+                                .expect("Database migrations must succeed");
                             conn
                         })
                     },

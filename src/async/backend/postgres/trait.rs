@@ -51,12 +51,12 @@ pub(super) trait PostgresBackend<'pool>: Send + Sync + 'static {
             >,
         > + Debug;
 
-    async fn execute_stmt(
+    async fn execute_query(
         &self,
         query: &str,
         conn: &mut Self::Connection,
     ) -> Result<(), Self::QueryError>;
-    async fn batch_execute_stmt<'a>(
+    async fn batch_execute_query<'a>(
         &self,
         query: impl IntoIterator<Item = Cow<'a, str>> + Send,
         conn: &mut Self::Connection,
@@ -135,7 +135,7 @@ where
                 .iter()
                 .map(|db_name| async move {
                     let conn = &mut self.get_default_connection().await.map_err(Into::into)?;
-                    self.execute_stmt(postgres::drop_database(db_name.as_str()).as_str(), conn)
+                    self.execute_query(postgres::drop_database(db_name.as_str()).as_str(), conn)
                         .await
                         .map_err(Into::into)?;
                     Ok::<
@@ -169,12 +169,12 @@ where
             let conn = &mut self.get_default_connection().await.map_err(Into::into)?;
 
             // Create database
-            self.execute_stmt(postgres::create_database(db_name).as_str(), conn)
+            self.execute_query(postgres::create_database(db_name).as_str(), conn)
                 .await
                 .map_err(Into::into)?;
 
             // Create CRUD role
-            self.execute_stmt(postgres::create_role(db_name).as_str(), conn)
+            self.execute_query(postgres::create_role(db_name).as_str(), conn)
                 .await
                 .map_err(Into::into)?;
         }
@@ -190,13 +190,13 @@ where
             let mut conn = self.create_entities(conn).await;
 
             // Grant privileges to CRUD role
-            self.execute_stmt(
+            self.execute_query(
                 postgres::grant_table_privileges(db_name).as_str(),
                 &mut conn,
             )
             .await
             .map_err(Into::into)?;
-            self.execute_stmt(
+            self.execute_query(
                 postgres::grant_sequence_privileges(db_name).as_str(),
                 &mut conn,
             )
@@ -232,7 +232,7 @@ where
             .map(|table_name| postgres::truncate_table(table_name.as_str()).into());
 
         // Truncate tables
-        self.batch_execute_stmt(stmts, &mut conn)
+        self.batch_execute_query(stmts, &mut conn)
             .await
             .map_err(Into::into)?;
 
@@ -260,12 +260,12 @@ where
         let conn = &mut self.get_default_connection().await.map_err(Into::into)?;
 
         // Drop database
-        self.execute_stmt(postgres::drop_database(db_name).as_str(), conn)
+        self.execute_query(postgres::drop_database(db_name).as_str(), conn)
             .await
             .map_err(Into::into)?;
 
         // Drop CRUD role
-        self.execute_stmt(postgres::drop_role(db_name).as_str(), conn)
+        self.execute_query(postgres::drop_role(db_name).as_str(), conn)
             .await
             .map_err(Into::into)?;
 

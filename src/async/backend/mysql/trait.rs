@@ -53,12 +53,12 @@ pub(super) trait MySQLBackend<'pool>: Send + Sync + 'static {
 
     async fn get_connection(&'pool self) -> Result<Self::PooledConnection, Self::PoolError>;
 
-    async fn execute_stmt(
+    async fn execute_query(
         &self,
         query: &str,
         conn: &mut Self::Connection,
     ) -> Result<(), Self::QueryError>;
-    async fn batch_execute_stmt<'a>(
+    async fn batch_execute_query<'a>(
         &self,
         query: impl IntoIterator<Item = Cow<'a, str>> + Send,
         conn: &mut Self::Connection,
@@ -119,7 +119,7 @@ where
             let conn = &mut self.get_connection().await.map_err(Into::into)?;
 
             // Get previous database names
-            self.execute_stmt(mysql::USE_DEFAULT_DATABASE, conn)
+            self.execute_query(mysql::USE_DEFAULT_DATABASE, conn)
                 .await
                 .map_err(Into::into)?;
             let mut db_names = self
@@ -132,7 +132,7 @@ where
                 .drain(..)
                 .map(|db_name| async move {
                     let conn = &mut self.get_connection().await.map_err(Into::into)?;
-                    self.execute_stmt(mysql::drop_database(db_name.as_str()).as_str(), conn)
+                    self.execute_query(mysql::drop_database(db_name.as_str()).as_str(), conn)
                         .await
                         .map_err(Into::into)?;
                     Ok::<
@@ -167,26 +167,26 @@ where
         let conn = &mut self.get_connection().await.map_err(Into::into)?;
 
         // Create database
-        self.execute_stmt(mysql::create_database(db_name).as_str(), conn)
+        self.execute_query(mysql::create_database(db_name).as_str(), conn)
             .await
             .map_err(Into::into)?;
 
         // Create CRUD user
-        self.execute_stmt(mysql::create_user(db_name, host).as_str(), conn)
+        self.execute_query(mysql::create_user(db_name, host).as_str(), conn)
             .await
             .map_err(Into::into)?;
 
         // Create entities
-        self.execute_stmt(mysql::use_database(db_name).as_str(), conn)
+        self.execute_query(mysql::use_database(db_name).as_str(), conn)
             .await
             .map_err(Into::into)?;
         self.create_entities(db_name).await.map_err(Into::into)?;
-        self.execute_stmt(mysql::USE_DEFAULT_DATABASE, conn)
+        self.execute_query(mysql::USE_DEFAULT_DATABASE, conn)
             .await
             .map_err(Into::into)?;
 
         // Grant privileges to CRUD role
-        self.execute_stmt(mysql::grant_privileges(db_name, host).as_str(), conn)
+        self.execute_query(mysql::grant_privileges(db_name, host).as_str(), conn)
             .await
             .map_err(Into::into)?;
 
@@ -222,17 +222,17 @@ where
             .map(|table_name| mysql::truncate_table(table_name.as_str(), db_name).into());
 
         // Turn off foreign key checks
-        self.execute_stmt(mysql::TURN_OFF_FOREIGN_KEY_CHECKS, conn)
+        self.execute_query(mysql::TURN_OFF_FOREIGN_KEY_CHECKS, conn)
             .await
             .map_err(Into::into)?;
 
         // Truncate tables
-        self.batch_execute_stmt(stmts, conn)
+        self.batch_execute_query(stmts, conn)
             .await
             .map_err(Into::into)?;
 
         // Turn on foreign key checks
-        self.execute_stmt(mysql::TURN_ON_FOREIGN_KEY_CHECKS, conn)
+        self.execute_query(mysql::TURN_ON_FOREIGN_KEY_CHECKS, conn)
             .await
             .map_err(Into::into)?;
 
@@ -254,12 +254,12 @@ where
         let conn = &mut self.get_connection().await.map_err(Into::into)?;
 
         // Drop database
-        self.execute_stmt(mysql::drop_database(db_name).as_str(), conn)
+        self.execute_query(mysql::drop_database(db_name).as_str(), conn)
             .await
             .map_err(Into::into)?;
 
         // Drop CRUD role
-        self.execute_stmt(mysql::drop_user(db_name, host).as_str(), conn)
+        self.execute_query(mysql::drop_user(db_name, host).as_str(), conn)
             .await
             .map_err(Into::into)?;
 

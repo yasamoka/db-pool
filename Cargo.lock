@@ -654,7 +654,7 @@ checksum = "7e962a19be5cfc3f3bf6dd8f61eb50107f356ad6270fbb3ed41476571db78be5"
 
 [[package]]
 name = "db-pool"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "async-graphql",
  "async-graphql-poem",
@@ -665,6 +665,7 @@ dependencies = [
  "deadpool-postgres",
  "diesel",
  "diesel-async",
+ "diesel_async_migrations",
  "dotenvy",
  "futures",
  "mobc",
@@ -799,6 +800,29 @@ dependencies = [
  "scoped-futures",
  "tokio",
  "tokio-postgres",
+]
+
+[[package]]
+name = "diesel_async_migrations"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a700d6b83a17973b94d3065970fd2b36f1036c3fe08adcbdce1c9beb8fb25553"
+dependencies = [
+ "diesel",
+ "diesel-async",
+ "diesel_async_migrations_macros",
+ "scoped-futures",
+ "tracing",
+]
+
+[[package]]
+name = "diesel_async_migrations_macros"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "05de210f31e6ac18162501b03c37f839af9f9fd6dd6de2bb4031ae6691c47679"
+dependencies = [
+ "proc-macro2",
+ "quote",
 ]
 
 [[package]]

@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use diesel::{prelude::*, result::Error, sql_query, table, ConnectionError};
 use diesel_async::{
     pooled_connection::AsyncDieselConnectionManager, AsyncConnection as _, AsyncPgConnection,
-    RunQueryDsl,
+    RunQueryDsl, SimpleAsyncConnection,
 };
 use futures::Future;
 use parking_lot::Mutex;
@@ -121,18 +121,22 @@ impl<'pool, P: DieselPoolAssociation<AsyncPgConnection>> PostgresBackend<'pool>
     type ConnectionError = ConnectionError;
     type QueryError = Error;
 
-    async fn execute_stmt(&self, query: &str, conn: &mut AsyncPgConnection) -> QueryResult<()> {
+    async fn execute_query(&self, query: &str, conn: &mut AsyncPgConnection) -> QueryResult<()> {
         sql_query(query).execute(conn).await?;
         Ok(())
     }
 
-    async fn batch_execute_stmt<'a>(
+    async fn batch_execute_query<'a>(
         &self,
         query: impl IntoIterator<Item = Cow<'a, str>> + Send,
         conn: &mut AsyncPgConnection,
     ) -> QueryResult<()> {
-        let query = query.into_iter().collect::<Vec<_>>().join(";");
-        self.execute_stmt(query.as_str(), conn).await
+        let query = query.into_iter().collect::<Vec<_>>();
+        if query.is_empty() {
+            Ok(())
+        } else {
+            conn.batch_execute(query.join(";").as_str()).await
+        }
     }
 
     async fn get_default_connection(
@@ -261,7 +265,7 @@ mod tests {
 
     use bb8::Pool;
     use diesel::{insert_into, sql_query, table, Insertable, QueryDsl};
-    use diesel_async::RunQueryDsl;
+    use diesel_async::{RunQueryDsl, SimpleAsyncConnection};
     use dotenvy::dotenv;
     use futures::future::join_all;
     use tokio_shared_rt::test;
@@ -270,7 +274,7 @@ mod tests {
         common::{
             config::PrivilegedPostgresConfig,
             statement::postgres::tests::{
-                CREATE_ENTITIES_STATEMENT, DDL_STATEMENTS, DML_STATEMENTS,
+                CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
             },
         },
         r#async::{backend::common::pool::diesel::bb8::DieselBb8, db_pool::DatabasePoolBuilder},
@@ -308,10 +312,8 @@ mod tests {
             move |mut conn| {
                 if with_table {
                     Box::pin(async move {
-                        sql_query(CREATE_ENTITIES_STATEMENT)
-                            .execute(&mut conn)
-                            .await
-                            .unwrap();
+                        let query = CREATE_ENTITIES_STATEMENTS.join(";");
+                        conn.batch_execute(query.as_str()).await.unwrap();
                         conn
                     })
                 } else {

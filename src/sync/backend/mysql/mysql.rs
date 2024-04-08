@@ -178,7 +178,7 @@ mod tests {
 
     use crate::{
         common::statement::mysql::tests::{
-            CREATE_ENTITIES_STATEMENT, DDL_STATEMENTS, DML_STATEMENTS,
+            CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
         },
         sync::DatabasePoolBuilderTrait,
         tests::get_privileged_mysql_config,
@@ -200,7 +200,8 @@ mod tests {
         MySQLBackend::new(config.into(), Pool::builder, Pool::builder, {
             move |conn| {
                 if with_table {
-                    conn.query_drop(CREATE_ENTITIES_STATEMENT).unwrap();
+                    conn.query_drop(CREATE_ENTITIES_STATEMENTS.join(";"))
+                        .unwrap();
                 }
             }
         })

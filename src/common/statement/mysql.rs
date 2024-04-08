@@ -42,8 +42,10 @@ pub fn drop_user(name: &str, host: &str) -> String {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    pub const CREATE_ENTITIES_STATEMENT: &str =
-        "CREATE TABLE book(id INTEGER PRIMARY KEY AUTO_INCREMENT, title TEXT NOT NULL)";
+    pub const CREATE_ENTITIES_STATEMENTS: [&str; 2] = [
+        "CREATE TABLE book(id INTEGER PRIMARY KEY AUTO_INCREMENT, title TEXT NOT NULL)",
+        "CREATE TABLE dummy(id INTEGER PRIMARY KEY AUTO_INCREMENT)",
+    ];
 
     pub const DDL_STATEMENTS: [&str; 11] = [
         "CREATE TABLE author(id INTEGER)",

@@ -123,7 +123,7 @@ impl<'pool> PostgresBackend<'pool> for SeaORMPostgresBackend {
     type ConnectionError = ConnectionError;
     type QueryError = QueryError;
 
-    async fn execute_stmt(
+    async fn execute_query(
         &self,
         query: &str,
         conn: &mut DatabaseConnection,
@@ -132,13 +132,13 @@ impl<'pool> PostgresBackend<'pool> for SeaORMPostgresBackend {
         Ok(())
     }
 
-    async fn batch_execute_stmt<'a>(
+    async fn batch_execute_query<'a>(
         &self,
         query: impl IntoIterator<Item = Cow<'a, str>> + Send,
         conn: &mut DatabaseConnection,
     ) -> Result<(), QueryError> {
         let query = query.into_iter().collect::<Vec<_>>().join(";");
-        self.execute_stmt(query.as_str(), conn).await
+        self.execute_query(query.as_str(), conn).await
     }
 
     async fn get_default_connection(&'pool self) -> Result<PooledConnection, PoolError> {
@@ -302,7 +302,7 @@ mod tests {
         common::{
             config::PrivilegedPostgresConfig,
             statement::postgres::tests::{
-                CREATE_ENTITIES_STATEMENT, DDL_STATEMENTS, DML_STATEMENTS,
+                CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
             },
         },
         r#async::db_pool::DatabasePoolBuilder,
@@ -340,7 +340,7 @@ mod tests {
             move |conn| {
                 if with_table {
                     Box::pin(async move {
-                        conn.execute_unprepared(CREATE_ENTITIES_STATEMENT)
+                        conn.execute_unprepared(CREATE_ENTITIES_STATEMENTS.join(";").as_str())
                             .await
                             .unwrap();
                     })

@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use diesel::{prelude::*, result::Error, sql_query, table};
 use diesel_async::{
     pooled_connection::AsyncDieselConnectionManager, AsyncConnection, AsyncMysqlConnection,
-    RunQueryDsl,
+    RunQueryDsl, SimpleAsyncConnection,
 };
 use futures::Future;
 use uuid::Uuid;
@@ -122,22 +122,21 @@ impl<'pool, P: DieselPoolAssociation<AsyncMysqlConnection>> MySQLBackend<'pool>
         P::get_connection(&self.default_pool).await
     }
 
-    async fn execute_stmt(&self, query: &str, conn: &mut AsyncMysqlConnection) -> QueryResult<()> {
+    async fn execute_query(&self, query: &str, conn: &mut AsyncMysqlConnection) -> QueryResult<()> {
         sql_query(query).execute(conn).await?;
         Ok(())
     }
 
-    async fn batch_execute_stmt<'a>(
+    async fn batch_execute_query<'a>(
         &self,
         query: impl IntoIterator<Item = Cow<'a, str>> + Send,
         conn: &mut AsyncMysqlConnection,
     ) -> QueryResult<()> {
-        let chunks = query.into_iter().collect::<Vec<_>>();
-        if chunks.is_empty() {
+        let query = query.into_iter().collect::<Vec<_>>();
+        if query.is_empty() {
             Ok(())
         } else {
-            let query = chunks.join(";");
-            self.execute_stmt(query.as_str(), conn).await
+            conn.batch_execute(query.join(";").as_str()).await
         }
     }
 
@@ -250,13 +249,13 @@ mod tests {
 
     use bb8::Pool;
     use diesel::{insert_into, sql_query, table, Insertable, QueryDsl};
-    use diesel_async::RunQueryDsl;
+    use diesel_async::{RunQueryDsl, SimpleAsyncConnection};
     use futures::future::join_all;
     use tokio_shared_rt::test;
 
     use crate::{
         common::statement::mysql::tests::{
-            CREATE_ENTITIES_STATEMENT, DDL_STATEMENTS, DML_STATEMENTS,
+            CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
         },
         r#async::{backend::common::pool::diesel::bb8::DieselBb8, db_pool::DatabasePoolBuilder},
         tests::get_privileged_mysql_config,
@@ -291,10 +290,8 @@ mod tests {
             move |mut conn| {
                 if with_table {
                     Box::pin(async move {
-                        sql_query(CREATE_ENTITIES_STATEMENT)
-                            .execute(&mut conn)
-                            .await
-                            .unwrap();
+                        let query = CREATE_ENTITIES_STATEMENTS.join(";");
+                        conn.batch_execute(query.as_str()).await.unwrap();
                     })
                 } else {
                     Box::pin(async {})

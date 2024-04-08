@@ -109,18 +109,18 @@ impl<'pool> PostgresBackend<'pool> for SqlxPostgresBackend {
     type ConnectionError = ConnectionError;
     type QueryError = QueryError;
 
-    async fn execute_stmt(&self, query: &str, conn: &mut PgConnection) -> Result<(), QueryError> {
+    async fn execute_query(&self, query: &str, conn: &mut PgConnection) -> Result<(), QueryError> {
         conn.execute(query).await?;
         Ok(())
     }
 
-    async fn batch_execute_stmt<'a>(
+    async fn batch_execute_query<'a>(
         &self,
         query: impl IntoIterator<Item = Cow<'a, str>> + Send,
         conn: &mut PgConnection,
     ) -> Result<(), QueryError> {
         let query = query.into_iter().collect::<Vec<_>>().join(";");
-        self.execute_stmt(query.as_str(), conn).await
+        self.execute_query(query.as_str(), conn).await
     }
 
     async fn get_default_connection(&'pool self) -> Result<PoolConnection<Postgres>, PoolError> {
@@ -222,7 +222,7 @@ impl Backend for SqlxPostgresBackend {
 mod tests {
     #![allow(clippy::unwrap_used, clippy::needless_return)]
 
-    use futures::future::join_all;
+    use futures::{future::join_all, StreamExt};
     use sqlx::{
         postgres::{PgConnectOptions, PgPoolOptions},
         query, query_as, Executor, FromRow, Row,
@@ -231,7 +231,7 @@ mod tests {
 
     use crate::{
         common::statement::postgres::tests::{
-            CREATE_ENTITIES_STATEMENT, DDL_STATEMENTS, DML_STATEMENTS,
+            CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
         },
         r#async::db_pool::DatabasePoolBuilder,
     };
@@ -257,7 +257,12 @@ mod tests {
                 move |mut conn| {
                     if with_table {
                         Box::pin(async move {
-                            conn.execute(CREATE_ENTITIES_STATEMENT).await.unwrap();
+                            conn.execute_many(CREATE_ENTITIES_STATEMENTS.join(";").as_str())
+                                .collect::<Vec<_>>()
+                                .await
+                                .drain(..)
+                                .collect::<Result<Vec<_>, _>>()
+                                .unwrap();
                             conn
                         })
                     } else {
