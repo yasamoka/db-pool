@@ -7,8 +7,8 @@ mod tests {
     use bb8::Pool;
     use db_pool::{
         r#async::{
-            ConnectionPool, DatabasePool, DatabasePoolBuilderTrait, DieselAsyncMySQLBackend,
-            DieselBb8, Reusable,
+            DatabasePool, DatabasePoolBuilderTrait, DieselAsyncMySQLBackend, DieselBb8,
+            ReusableConnectionPool,
         },
         PrivilegedMySQLConfig,
     };
@@ -19,7 +19,7 @@ mod tests {
     use tokio_shared_rt::test;
 
     async fn get_connection_pool(
-    ) -> Reusable<'static, ConnectionPool<DieselAsyncMySQLBackend<DieselBb8>>> {
+    ) -> ReusableConnectionPool<'static, DieselAsyncMySQLBackend<DieselBb8>> {
         static POOL: OnceCell<DatabasePool<DieselAsyncMySQLBackend<DieselBb8>>> =
             OnceCell::const_new();
 
@@ -51,7 +51,7 @@ mod tests {
             })
             .await;
 
-        db_pool.pull().await
+        db_pool.pull_immutable().await
     }
 
     async fn test() {

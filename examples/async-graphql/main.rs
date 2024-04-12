@@ -189,7 +189,7 @@ mod tests {
             })
             .await;
 
-        let conn_pool = db_pool.pull().await;
+        let conn_pool = db_pool.pull_immutable().await;
         PoolWrapper::ReusablePool(conn_pool)
     }
 

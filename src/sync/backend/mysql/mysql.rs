@@ -156,15 +156,19 @@ impl Backend for MySQLBackend {
         MySQLBackendWrapper::new(self).init()
     }
 
-    fn create(&self, db_id: Uuid) -> Result<Pool<Manager>, BackendError<Error, Error>> {
-        MySQLBackendWrapper::new(self).create(db_id)
+    fn create(
+        &self,
+        db_id: Uuid,
+        restrict_privileges: bool,
+    ) -> Result<Pool<Manager>, BackendError<Error, Error>> {
+        MySQLBackendWrapper::new(self).create(db_id, restrict_privileges)
     }
 
     fn clean(&self, db_id: Uuid) -> Result<(), BackendError<Error, Error>> {
         MySQLBackendWrapper::new(self).clean(db_id)
     }
 
-    fn drop(&self, db_id: Uuid) -> Result<(), BackendError<Error, Error>> {
+    fn drop(&self, db_id: Uuid, _is_restricted: bool) -> Result<(), BackendError<Error, Error>> {
         MySQLBackendWrapper::new(self).drop(db_id)
     }
 }
@@ -180,7 +184,13 @@ mod tests {
         common::statement::mysql::tests::{
             CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
         },
-        sync::DatabasePoolBuilderTrait,
+        sync::{
+            backend::mysql::r#trait::tests::{
+                test_backend_creates_database_with_unrestricted_privileges,
+                test_pool_drops_created_unrestricted_database,
+            },
+            DatabasePoolBuilderTrait,
+        },
         tests::get_privileged_mysql_config,
     };
 
@@ -189,7 +199,7 @@ mod tests {
             lock_read, test_backend_cleans_database_with_tables,
             test_backend_cleans_database_without_tables,
             test_backend_creates_database_with_restricted_privileges, test_backend_drops_database,
-            test_backend_drops_previous_databases, test_pool_drops_created_databases,
+            test_backend_drops_previous_databases, test_pool_drops_created_restricted_databases,
             test_pool_drops_previous_databases,
         },
         MySQLBackend,
@@ -224,6 +234,12 @@ mod tests {
     }
 
     #[test]
+    fn backend_creates_database_with_unrestricted_privileges() {
+        let backend = create_backend(true).drop_previous_databases(false);
+        test_backend_creates_database_with_unrestricted_privileges(&backend);
+    }
+
+    #[test]
     fn backend_cleans_database_with_tables() {
         let backend = create_backend(true).drop_previous_databases(false);
         test_backend_cleans_database_with_tables(&backend);
@@ -236,9 +252,15 @@ mod tests {
     }
 
     #[test]
-    fn backend_drops_database() {
+    fn backend_drops_restricted_database() {
         let backend = create_backend(true).drop_previous_databases(false);
-        test_backend_drops_database(&backend);
+        test_backend_drops_database(&backend, true);
+    }
+
+    #[test]
+    fn backend_drops_unrestricted_database() {
+        let backend = create_backend(true).drop_previous_databases(false);
+        test_backend_drops_database(&backend, false);
     }
 
     #[test]
@@ -259,7 +281,9 @@ mod tests {
         let guard = lock_read();
 
         let db_pool = backend.create_database_pool().unwrap();
-        let conn_pools = (0..NUM_DBS).map(|_| db_pool.pull()).collect::<Vec<_>>();
+        let conn_pools = (0..NUM_DBS)
+            .map(|_| db_pool.pull_immutable())
+            .collect::<Vec<_>>();
 
         // insert single row into each database
         conn_pools.iter().enumerate().for_each(|(i, conn_pool)| {
@@ -290,20 +314,42 @@ mod tests {
         let guard = lock_read();
 
         let db_pool = backend.create_database_pool().unwrap();
-        let conn_pool = db_pool.pull();
+        let conn_pool = db_pool.pull_immutable();
         let conn = &mut conn_pool.get().unwrap();
 
-        // restricted operations
-        {
-            // DDL statements must fail
-            for stmt in DDL_STATEMENTS {
-                assert!(conn.query_drop(stmt).is_err());
-            }
+        // DDL statements must fail
+        for stmt in DDL_STATEMENTS {
+            assert!(conn.query_drop(stmt).is_err());
+        }
 
-            // DML statements must succeed
+        // DML statements must succeed
+        for stmt in DML_STATEMENTS {
+            assert!(conn.query_drop(stmt).is_ok());
+        }
+    }
+
+    #[test]
+    fn pool_provides_unrestricted_databases() {
+        let backend = create_backend(true).drop_previous_databases(false);
+
+        let guard = lock_read();
+
+        let db_pool = backend.create_database_pool().unwrap();
+
+        // DML statements must succeed
+        {
+            let conn_pool = db_pool.create_mutable().unwrap();
+            let conn = &mut conn_pool.get().unwrap();
             for stmt in DML_STATEMENTS {
                 assert!(conn.query_drop(stmt).is_ok());
             }
+        }
+
+        // DDL statements must succeed
+        for stmt in DDL_STATEMENTS {
+            let conn_pool = db_pool.create_mutable().unwrap();
+            let conn = &mut conn_pool.get().unwrap();
+            assert!(conn.query_drop(stmt).is_ok());
         }
     }
 
@@ -319,7 +365,9 @@ mod tests {
 
         // fetch connection pools the first time
         {
-            let conn_pools = (0..NUM_DBS).map(|_| db_pool.pull()).collect::<Vec<_>>();
+            let conn_pools = (0..NUM_DBS)
+                .map(|_| db_pool.pull_immutable())
+                .collect::<Vec<_>>();
 
             // databases must be empty
             for conn_pool in &conn_pools {
@@ -347,7 +395,9 @@ mod tests {
 
         // fetch same connection pools a second time
         {
-            let conn_pools = (0..NUM_DBS).map(|_| db_pool.pull()).collect::<Vec<_>>();
+            let conn_pools = (0..NUM_DBS)
+                .map(|_| db_pool.pull_immutable())
+                .collect::<Vec<_>>();
 
             // databases must be empty
             for conn_pool in &conn_pools {
@@ -363,8 +413,14 @@ mod tests {
     }
 
     #[test]
-    fn pool_drops_created_databases() {
+    fn pool_drops_created_restricted_databases() {
         let backend = create_backend(false);
-        test_pool_drops_created_databases(backend);
+        test_pool_drops_created_restricted_databases(backend);
+    }
+
+    #[test]
+    fn pool_drops_created_unrestricted_database() {
+        let backend = create_backend(false);
+        test_pool_drops_created_unrestricted_database(backend);
     }
 }

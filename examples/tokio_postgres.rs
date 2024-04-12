@@ -7,7 +7,7 @@ mod tests {
     use bb8::Pool;
     use db_pool::{
         r#async::{
-            ConnectionPool, DatabasePool, DatabasePoolBuilderTrait, Reusable, TokioPostgresBackend,
+            DatabasePool, DatabasePoolBuilderTrait, ReusableConnectionPool, TokioPostgresBackend,
             TokioPostgresBb8,
         },
         PrivilegedPostgresConfig,
@@ -17,7 +17,7 @@ mod tests {
     use tokio_shared_rt::test;
 
     async fn get_connection_pool(
-    ) -> Reusable<'static, ConnectionPool<TokioPostgresBackend<TokioPostgresBb8>>> {
+    ) -> ReusableConnectionPool<'static, TokioPostgresBackend<TokioPostgresBb8>> {
         static POOL: OnceCell<DatabasePool<TokioPostgresBackend<TokioPostgresBb8>>> =
             OnceCell::const_new();
 
@@ -51,7 +51,7 @@ mod tests {
             })
             .await;
 
-        db_pool.pull().await
+        db_pool.pull_immutable().await
     }
 
     async fn test() {

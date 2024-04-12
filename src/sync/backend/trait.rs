@@ -22,11 +22,16 @@ pub trait Backend: Sized + Send + Sync + 'static {
     fn create(
         &self,
         db_id: Uuid,
+        restrict_privileges: bool,
     ) -> Result<Pool<Self::ConnectionManager>, Error<Self::ConnectionError, Self::QueryError>>;
 
     /// Cleans a database
     fn clean(&self, db_id: Uuid) -> Result<(), Error<Self::ConnectionError, Self::QueryError>>;
 
     /// Drops a database
-    fn drop(&self, db_id: Uuid) -> Result<(), Error<Self::ConnectionError, Self::QueryError>>;
+    fn drop(
+        &self,
+        db_id: Uuid,
+        is_restricted: bool,
+    ) -> Result<(), Error<Self::ConnectionError, Self::QueryError>>;
 }

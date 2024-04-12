@@ -127,12 +127,27 @@ impl<'pool> PostgresBackend<'pool> for SqlxPostgresBackend {
         self.default_pool.acquire().await.map_err(Into::into)
     }
 
-    async fn establish_database_connection(
+    async fn establish_privileged_database_connection(
         &self,
         db_id: Uuid,
     ) -> Result<PgConnection, ConnectionError> {
         let db_name = get_db_name(db_id);
         let opts = self.privileged_opts.clone().database(db_name.as_str());
+        PgConnection::connect_with(&opts).await.map_err(Into::into)
+    }
+
+    async fn establish_restricted_database_connection(
+        &self,
+        db_id: Uuid,
+    ) -> Result<PgConnection, ConnectionError> {
+        let db_name = get_db_name(db_id);
+        let db_name = db_name.as_str();
+        let opts = self
+            .privileged_opts
+            .clone()
+            .username(db_name)
+            .password(db_name)
+            .database(db_name);
         PgConnection::connect_with(&opts).await.map_err(Into::into)
     }
 
@@ -205,16 +220,20 @@ impl Backend for SqlxPostgresBackend {
         PostgresBackendWrapper::new(self).init().await
     }
 
-    async fn create(&self, db_id: uuid::Uuid) -> Result<PgPool, BError> {
-        PostgresBackendWrapper::new(self).create(db_id).await
+    async fn create(&self, db_id: uuid::Uuid, restrict_privileges: bool) -> Result<PgPool, BError> {
+        PostgresBackendWrapper::new(self)
+            .create(db_id, restrict_privileges)
+            .await
     }
 
     async fn clean(&self, db_id: uuid::Uuid) -> Result<(), BError> {
         PostgresBackendWrapper::new(self).clean(db_id).await
     }
 
-    async fn drop(&self, db_id: uuid::Uuid) -> Result<(), BError> {
-        PostgresBackendWrapper::new(self).drop(db_id).await
+    async fn drop(&self, db_id: uuid::Uuid, is_restricted: bool) -> Result<(), BError> {
+        PostgresBackendWrapper::new(self)
+            .drop(db_id, is_restricted)
+            .await
     }
 }
 
@@ -233,14 +252,20 @@ mod tests {
         common::statement::postgres::tests::{
             CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
         },
-        r#async::db_pool::DatabasePoolBuilder,
+        r#async::{
+            backend::postgres::r#trait::tests::{
+                test_backend_creates_database_with_unrestricted_privileges,
+                test_backend_drops_database, test_pool_drops_created_unrestricted_database,
+            },
+            db_pool::DatabasePoolBuilder,
+        },
     };
 
     use super::{
         super::r#trait::tests::{
             test_backend_cleans_database_with_tables, test_backend_cleans_database_without_tables,
-            test_backend_creates_database_with_restricted_privileges, test_backend_drops_database,
-            test_backend_drops_previous_databases, test_pool_drops_created_databases,
+            test_backend_creates_database_with_restricted_privileges,
+            test_backend_drops_previous_databases, test_pool_drops_created_restricted_databases,
             test_pool_drops_previous_databases, PgDropLock,
         },
         SqlxPostgresBackend,
@@ -290,6 +315,12 @@ mod tests {
     }
 
     #[test(flavor = "multi_thread", shared)]
+    async fn backend_creates_database_with_unrestricted_privileges() {
+        let backend = create_backend(true).drop_previous_databases(false);
+        test_backend_creates_database_with_unrestricted_privileges(backend).await;
+    }
+
+    #[test(flavor = "multi_thread", shared)]
     async fn backend_cleans_database_with_tables() {
         let backend = create_backend(true).drop_previous_databases(false);
         test_backend_cleans_database_with_tables(backend).await;
@@ -302,9 +333,15 @@ mod tests {
     }
 
     #[test(flavor = "multi_thread", shared)]
-    async fn backend_drops_database() {
+    async fn backend_drops_restricted_database() {
         let backend = create_backend(true).drop_previous_databases(false);
-        test_backend_drops_database(backend).await;
+        test_backend_drops_database(backend, true).await;
+    }
+
+    #[test(flavor = "multi_thread", shared)]
+    async fn backend_drops_unrestricted_database() {
+        let backend = create_backend(true).drop_previous_databases(false);
+        test_backend_drops_database(backend, false).await;
     }
 
     #[test(flavor = "multi_thread", shared)]
@@ -330,7 +367,7 @@ mod tests {
 
         async {
             let db_pool = backend.create_database_pool().await.unwrap();
-            let conn_pools = join_all((0..NUM_DBS).map(|_| db_pool.pull())).await;
+            let conn_pools = join_all((0..NUM_DBS).map(|_| db_pool.pull_immutable())).await;
 
             // insert single row into each database
             join_all(
@@ -377,7 +414,7 @@ mod tests {
         async {
             let db_pool = backend.create_database_pool().await.unwrap();
 
-            let conn_pool = db_pool.pull().await;
+            let conn_pool = db_pool.pull_immutable().await;
             let conn = &mut conn_pool.acquire().await.unwrap();
 
             // DDL statements must fail
@@ -387,6 +424,33 @@ mod tests {
 
             // DML statements must succeed
             for stmt in DML_STATEMENTS {
+                assert!(conn.execute(stmt).await.is_ok());
+            }
+        }
+        .lock_read()
+        .await;
+    }
+
+    #[test(flavor = "multi_thread", shared)]
+    async fn pool_provides_unrestricted_databases() {
+        let backend = create_backend(true).drop_previous_databases(false);
+
+        async {
+            let db_pool = backend.create_database_pool().await.unwrap();
+
+            // DML statements must succeed
+            {
+                let conn_pool = db_pool.create_mutable().await.unwrap();
+                let conn = &mut conn_pool.acquire().await.unwrap();
+                for stmt in DML_STATEMENTS {
+                    assert!(conn.execute(stmt).await.is_ok());
+                }
+            }
+
+            // DDL statements must succeed
+            for stmt in DDL_STATEMENTS {
+                let conn_pool = db_pool.create_mutable().await.unwrap();
+                let conn = &mut conn_pool.acquire().await.unwrap();
                 assert!(conn.execute(stmt).await.is_ok());
             }
         }
@@ -405,7 +469,7 @@ mod tests {
 
             // fetch connection pools the first time
             {
-                let conn_pools = join_all((0..NUM_DBS).map(|_| db_pool.pull())).await;
+                let conn_pools = join_all((0..NUM_DBS).map(|_| db_pool.pull_immutable())).await;
 
                 // databases must be empty
                 join_all(conn_pools.iter().map(|conn_pool| async move {
@@ -433,7 +497,7 @@ mod tests {
 
             // fetch same connection pools a second time
             {
-                let conn_pools = join_all((0..NUM_DBS).map(|_| db_pool.pull())).await;
+                let conn_pools = join_all((0..NUM_DBS).map(|_| db_pool.pull_immutable())).await;
 
                 // databases must be empty
                 join_all(conn_pools.iter().map(|conn_pool| async move {
@@ -454,8 +518,14 @@ mod tests {
     }
 
     #[test(flavor = "multi_thread", shared)]
-    async fn pool_drops_created_databases() {
+    async fn pool_drops_created_restricted_databases() {
         let backend = create_backend(false);
-        test_pool_drops_created_databases(backend).await;
+        test_pool_drops_created_restricted_databases(backend).await;
+    }
+
+    #[test(flavor = "multi_thread", shared)]
+    async fn pool_drops_created_unrestricted_database() {
+        let backend = create_backend(false);
+        test_pool_drops_created_unrestricted_database(backend).await;
     }
 }

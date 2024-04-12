@@ -30,6 +30,7 @@ pub trait Backend: Sized + Send + Sync + 'static {
     async fn create(
         &self,
         db_id: Uuid,
+        restrict_privileges: bool,
     ) -> Result<
         Self::Pool,
         Error<Self::BuildError, Self::PoolError, Self::ConnectionError, Self::QueryError>,
@@ -45,5 +46,6 @@ pub trait Backend: Sized + Send + Sync + 'static {
     async fn drop(
         &self,
         db_id: Uuid,
+        is_restricted: bool,
     ) -> Result<(), Error<Self::BuildError, Self::PoolError, Self::ConnectionError, Self::QueryError>>;
 }

@@ -7,14 +7,12 @@ mod tests {
     use bb8::Pool;
     use db_pool::{
         r#async::{
-            // import connection pool
-            ConnectionPool,
             DatabasePool,
             DatabasePoolBuilderTrait,
             DieselAsyncPostgresBackend,
             DieselBb8,
-            // import reusable object wrapper
-            Reusable,
+            // import reusable connection pool
+            ReusableConnectionPool,
         },
         PrivilegedPostgresConfig,
     };
@@ -25,7 +23,7 @@ mod tests {
 
     // change return type
     async fn get_connection_pool(
-    ) -> Reusable<'static, ConnectionPool<DieselAsyncPostgresBackend<DieselBb8>>> {
+    ) -> ReusableConnectionPool<'static, DieselAsyncPostgresBackend<DieselBb8>> {
         static POOL: OnceCell<DatabasePool<DieselAsyncPostgresBackend<DieselBb8>>> =
             OnceCell::const_new();
 
@@ -60,6 +58,6 @@ mod tests {
             .await;
 
         // pull connection pool
-        db_pool.pull().await
+        db_pool.pull_immutable().await
     }
 }

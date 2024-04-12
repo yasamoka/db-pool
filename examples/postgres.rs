@@ -5,13 +5,13 @@ mod tests {
     use std::sync::OnceLock;
 
     use db_pool::{
-        sync::{ConnectionPool, DatabasePool, DatabasePoolBuilderTrait, PostgresBackend, Reusable},
+        sync::{DatabasePool, DatabasePoolBuilderTrait, PostgresBackend, ReusableConnectionPool},
         PrivilegedPostgresConfig,
     };
     use dotenvy::dotenv;
     use r2d2::Pool;
 
-    fn get_connection_pool() -> Reusable<'static, ConnectionPool<PostgresBackend>> {
+    fn get_connection_pool() -> ReusableConnectionPool<'static, PostgresBackend> {
         static POOL: OnceLock<DatabasePool<PostgresBackend>> = OnceLock::new();
 
         let db_pool = POOL.get_or_init(|| {
@@ -36,7 +36,7 @@ mod tests {
             backend.create_database_pool().unwrap()
         });
 
-        db_pool.pull()
+        db_pool.pull_immutable()
     }
 
     fn test() {

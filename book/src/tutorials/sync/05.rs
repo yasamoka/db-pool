@@ -8,13 +8,11 @@ mod tests {
 
     use db_pool::{
         sync::{
-            // import connection pool
-            ConnectionPool,
             DatabasePool,
             DatabasePoolBuilderTrait,
             DieselPostgresBackend,
-            // import reusable object wrapper
-            Reusable,
+            // import reusable connection pool
+            ReusableConnectionPool,
         },
         PrivilegedPostgresConfig,
     };
@@ -23,7 +21,7 @@ mod tests {
     use r2d2::Pool;
 
     // change return type
-    fn get_connection_pool() -> Reusable<'static, ConnectionPool<DieselPostgresBackend>> {
+    fn get_connection_pool() -> ReusableConnectionPool<'static, DieselPostgresBackend> {
         static POOL: OnceLock<DatabasePool<DieselPostgresBackend>> = OnceLock::new();
 
         let db_pool = POOL.get_or_init(|| {
@@ -47,6 +45,6 @@ mod tests {
         });
 
         // pull connection pool
-        db_pool.pull()
+        db_pool.pull_immutable()
     }
 }

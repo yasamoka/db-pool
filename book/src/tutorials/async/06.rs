@@ -6,8 +6,8 @@ mod tests {
 
     use db_pool::{
         r#async::{
-            ConnectionPool, DatabasePool, DatabasePoolBuilderTrait, DieselAsyncPostgresBackend,
-            DieselBb8, Reusable,
+            DatabasePool, DatabasePoolBuilderTrait, DieselAsyncPostgresBackend, DieselBb8,
+            ReusableConnectionPool,
         },
         PrivilegedPostgresConfig,
     };
@@ -19,7 +19,7 @@ mod tests {
     use tokio::sync::OnceCell;
 
     async fn get_connection_pool(
-    ) -> Reusable<'static, ConnectionPool<DieselAsyncPostgresBackend<DieselBb8>>> {
+    ) -> ReusableConnectionPool<'static, DieselAsyncPostgresBackend<DieselBb8>> {
         static POOL: OnceCell<DatabasePool<DieselAsyncPostgresBackend<DieselBb8>>> =
             OnceCell::const_new();
 
@@ -53,7 +53,7 @@ mod tests {
             })
             .await;
 
-        db_pool.pull().await
+        db_pool.pull_immutable().await
     }
 
     // add test case

@@ -8,7 +8,7 @@ mod tests {
 
     use db_pool::{
         sync::{
-            ConnectionPool, DatabasePool, DatabasePoolBuilderTrait, DieselPostgresBackend, Reusable,
+            DatabasePool, DatabasePoolBuilderTrait, DieselPostgresBackend, ReusableConnectionPool,
         },
         PrivilegedPostgresConfig,
     };
@@ -17,7 +17,7 @@ mod tests {
     use dotenvy::dotenv;
     use r2d2::Pool;
 
-    fn get_connection_pool() -> Reusable<'static, ConnectionPool<DieselPostgresBackend>> {
+    fn get_connection_pool() -> ReusableConnectionPool<'static, DieselPostgresBackend> {
         static POOL: OnceLock<DatabasePool<DieselPostgresBackend>> = OnceLock::new();
 
         let db_pool = POOL.get_or_init(|| {
@@ -40,7 +40,7 @@ mod tests {
             backend.create_database_pool().unwrap()
         });
 
-        db_pool.pull()
+        db_pool.pull_immutable()
     }
 
     // add test case

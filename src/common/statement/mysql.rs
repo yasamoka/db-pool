@@ -1,11 +1,11 @@
-pub const USE_DEFAULT_DATABASE: &str = "USE information_schema";
-
 #[allow(dead_code)]
 pub const GET_DATABASE_NAMES: &str =
     "SELECT schema_name FROM information_schema.schemata WHERE schema_name LIKE 'db_pool_%';";
 
 pub const TURN_OFF_FOREIGN_KEY_CHECKS: &str = "SET FOREIGN_KEY_CHECKS = 0";
 pub const TURN_ON_FOREIGN_KEY_CHECKS: &str = "SET FOREIGN_KEY_CHECKS = 1";
+
+pub const USE_DEFAULT_DATABASE: &str = "USE information_schema";
 
 pub fn create_database(db_name: &str) -> String {
     format!("CREATE DATABASE {db_name}")
@@ -19,7 +19,11 @@ pub fn use_database(db_name: &str) -> String {
     format!("USE {db_name}")
 }
 
-pub fn grant_privileges(db_name: &str, host: &str) -> String {
+pub fn grant_all_privileges(db_name: &str, host: &str) -> String {
+    format!("GRANT ALL PRIVILEGES ON {db_name}.* TO {db_name}@{host}")
+}
+
+pub fn grant_restricted_privileges(db_name: &str, host: &str) -> String {
     format!("GRANT SELECT, INSERT, UPDATE, DELETE ON {db_name}.* TO {db_name}@{host}")
 }
 

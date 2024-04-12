@@ -6,7 +6,7 @@ mod tests {
 
     use db_pool::{
         r#async::{
-            ConnectionPool, DatabasePool, DatabasePoolBuilderTrait, Reusable, SqlxMySQLBackend,
+            DatabasePool, DatabasePoolBuilderTrait, ReusableConnectionPool, SqlxMySQLBackend,
         },
         PrivilegedMySQLConfig,
     };
@@ -15,7 +15,7 @@ mod tests {
     use tokio::sync::OnceCell;
     use tokio_shared_rt::test;
 
-    async fn get_connection_pool() -> Reusable<'static, ConnectionPool<SqlxMySQLBackend>> {
+    async fn get_connection_pool() -> ReusableConnectionPool<'static, SqlxMySQLBackend> {
         static POOL: OnceCell<DatabasePool<SqlxMySQLBackend>> = OnceCell::const_new();
 
         let db_pool = POOL
@@ -43,7 +43,7 @@ mod tests {
             })
             .await;
 
-        db_pool.pull().await
+        db_pool.pull_immutable().await
     }
 
     async fn test() {

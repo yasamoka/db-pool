@@ -13,11 +13,15 @@ pub fn create_role(name: &str) -> String {
     format!("CREATE ROLE {name} WITH LOGIN PASSWORD '{name}'")
 }
 
-pub fn grant_table_privileges(role_name: &str) -> String {
+pub fn grant_database_ownership(db_name: &str, role_name: &str) -> String {
+    format!("ALTER DATABASE {db_name} OWNER to {role_name}")
+}
+
+pub fn grant_restricted_table_privileges(role_name: &str) -> String {
     format!("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO {role_name}")
 }
 
-pub fn grant_sequence_privileges(role_name: &str) -> String {
+pub fn grant_restricted_sequence_privileges(role_name: &str) -> String {
     format!("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO {role_name}")
 }
 

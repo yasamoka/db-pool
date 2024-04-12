@@ -155,6 +155,7 @@ where
     pub(super) async fn create(
         &'backend self,
         db_id: uuid::Uuid,
+        restrict_privileges: bool,
     ) -> Result<B::Pool, BackendError<B::BuildError, B::PoolError, B::ConnectionError, B::QueryError>>
     {
         // Get database name based on UUID
@@ -171,7 +172,7 @@ where
             .await
             .map_err(Into::into)?;
 
-        // Create CRUD user
+        // Create user
         self.execute_query(mysql::create_user(db_name, host).as_str(), conn)
             .await
             .map_err(Into::into)?;
@@ -185,16 +186,27 @@ where
             .await
             .map_err(Into::into)?;
 
-        // Grant privileges to CRUD role
-        self.execute_query(mysql::grant_privileges(db_name, host).as_str(), conn)
+        if restrict_privileges {
+            // Grant privileges to restricted user
+            self.execute_query(
+                mysql::grant_restricted_privileges(db_name, host).as_str(),
+                conn,
+            )
             .await
             .map_err(Into::into)?;
+        } else {
+            // Grant all privileges to database-unrestricted user
+            self.execute_query(mysql::grant_all_privileges(db_name, host).as_str(), conn)
+                .await
+                .map_err(Into::into)?;
+        }
 
-        // Create connection pool with CRUD role
+        // Create connection pool with attached user
         let pool = self
             .create_connection_pool(db_id)
             .await
             .map_err(Into::into)?;
+
         Ok(pool)
     }
 
@@ -258,7 +270,7 @@ where
             .await
             .map_err(Into::into)?;
 
-        // Drop CRUD role
+        // Drop attached user
         self.execute_query(mysql::drop_user(db_name, host).as_str(), conn)
             .await
             .map_err(Into::into)?;
@@ -437,7 +449,7 @@ pub(super) mod tests {
 
                 // database must exist after creating through backend
                 backend.init().await.unwrap();
-                backend.create(db_id).await.unwrap();
+                backend.create(db_id, true).await.unwrap();
                 assert!(database_exists(db_name, conn).await);
             }
 
@@ -461,6 +473,54 @@ pub(super) mod tests {
         .await;
     }
 
+    pub async fn test_backend_creates_database_with_unrestricted_privileges(backend: impl Backend) {
+        async {
+            {
+                let db_id = Uuid::new_v4();
+                let db_name = get_db_name(db_id);
+                let db_name = db_name.as_str();
+
+                // privileged operations
+                {
+                    let conn_pool = get_privileged_connection_pool().await;
+                    let conn = &mut conn_pool.get().await.unwrap();
+
+                    // database must not exist
+                    assert!(!database_exists(db_name, conn).await);
+
+                    // database must exist after creating through backend
+                    backend.init().await.unwrap();
+                    backend.create(db_id, false).await.unwrap();
+                    assert!(database_exists(db_name, conn).await);
+                }
+
+                // DML statements must succeed
+                {
+                    let conn_pool = create_restricted_connection_pool(db_name).await;
+                    let conn = &mut conn_pool.get().await.unwrap();
+                    for stmt in DML_STATEMENTS {
+                        assert!(sql_query(stmt).execute(conn).await.is_ok());
+                    }
+                }
+            }
+
+            // DDL statements must succeed
+            for stmt in DDL_STATEMENTS {
+                let db_id = Uuid::new_v4();
+                let db_name = get_db_name(db_id);
+                let db_name = db_name.as_str();
+
+                backend.create(db_id, false).await.unwrap();
+                let conn_pool = create_restricted_connection_pool(db_name).await;
+                let conn = &mut conn_pool.get().await.unwrap();
+
+                assert!(sql_query(stmt).execute(conn).await.is_ok());
+            }
+        }
+        .lock_read()
+        .await;
+    }
+
     pub async fn test_backend_cleans_database_with_tables(backend: impl Backend) {
         const NUM_BOOKS: i64 = 3;
 
@@ -470,7 +530,7 @@ pub(super) mod tests {
 
         async {
             backend.init().await.unwrap();
-            backend.create(db_id).await.unwrap();
+            backend.create(db_id, true).await.unwrap();
 
             table! {
                 book (id) {
@@ -522,14 +582,14 @@ pub(super) mod tests {
 
         async {
             backend.init().await.unwrap();
-            backend.create(db_id).await.unwrap();
+            backend.create(db_id, true).await.unwrap();
             backend.clean(db_id).await.unwrap();
         }
         .lock_read()
         .await;
     }
 
-    pub async fn test_backend_drops_database(backend: impl Backend) {
+    pub async fn test_backend_drops_database(backend: impl Backend, restricted: bool) {
         let db_id = Uuid::new_v4();
         let db_name = get_db_name(db_id);
         let db_name = db_name.as_str();
@@ -540,11 +600,11 @@ pub(super) mod tests {
 
             // database must exist
             backend.init().await.unwrap();
-            backend.create(db_id).await.unwrap();
+            backend.create(db_id, restricted).await.unwrap();
             assert!(database_exists(db_name, conn).await);
 
             // database must not exist
-            backend.drop(db_id).await.unwrap();
+            backend.drop(db_id, true).await.unwrap();
             assert!(!database_exists(db_name, conn).await);
         }
         .lock_read()
@@ -576,7 +636,7 @@ pub(super) mod tests {
         .await;
     }
 
-    pub async fn test_pool_drops_created_databases(backend: impl Backend) {
+    pub async fn test_pool_drops_created_restricted_databases(backend: impl Backend) {
         const NUM_DBS: i64 = 3;
 
         let conn_pool = get_privileged_connection_pool().await;
@@ -589,7 +649,7 @@ pub(super) mod tests {
             assert_eq!(count_all_databases(conn).await, 0);
 
             // fetch connection pools
-            let conn_pools = join_all((0..NUM_DBS).map(|_| db_pool.pull())).await;
+            let conn_pools = join_all((0..NUM_DBS).map(|_| db_pool.pull_immutable())).await;
 
             // there must be databases
             assert_eq!(count_all_databases(conn).await, NUM_DBS);
@@ -601,6 +661,37 @@ pub(super) mod tests {
             assert_eq!(count_all_databases(conn).await, NUM_DBS);
 
             // must drop databases
+            drop(db_pool);
+
+            // there must be no databases
+            assert_eq!(count_all_databases(conn).await, 0);
+        }
+        .lock_drop()
+        .await;
+    }
+
+    pub async fn test_pool_drops_created_unrestricted_database(backend: impl Backend) {
+        let conn_pool = get_privileged_connection_pool().await;
+        let conn = &mut conn_pool.get().await.unwrap();
+
+        async {
+            let db_pool = backend.create_database_pool().await.unwrap();
+
+            // there must be no databases
+            assert_eq!(count_all_databases(conn).await, 0);
+
+            // fetch connection pool
+            let conn_pool = db_pool.create_mutable().await.unwrap();
+
+            // there must be a database
+            assert_eq!(count_all_databases(conn).await, 1);
+
+            // must drop database
+            drop(conn_pool);
+
+            // there must be no databases
+            assert_eq!(count_all_databases(conn).await, 0);
+
             drop(db_pool);
 
             // there must be no databases

@@ -6,7 +6,7 @@ mod tests {
 
     use db_pool::{
         r#async::{
-            ConnectionPool, DatabasePool, DatabasePoolBuilderTrait, Reusable, SeaORMPostgresBackend,
+            DatabasePool, DatabasePoolBuilderTrait, ReusableConnectionPool, SeaORMPostgresBackend,
         },
         PrivilegedPostgresConfig,
     };
@@ -15,7 +15,7 @@ mod tests {
     use tokio::sync::OnceCell;
     use tokio_shared_rt::test;
 
-    async fn get_connection_pool() -> Reusable<'static, ConnectionPool<SeaORMPostgresBackend>> {
+    async fn get_connection_pool() -> ReusableConnectionPool<'static, SeaORMPostgresBackend> {
         static POOL: OnceCell<DatabasePool<SeaORMPostgresBackend>> = OnceCell::const_new();
 
         let db_pool = POOL
@@ -49,7 +49,7 @@ mod tests {
             })
             .await;
 
-        db_pool.pull().await
+        db_pool.pull_immutable().await
     }
 
     async fn test() {
