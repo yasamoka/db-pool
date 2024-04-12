@@ -9,7 +9,7 @@ use super::{
 };
 
 /// Database pool
-pub struct DatabasePool<B: Backend>(Arc<ObjectPool<ConnectionPool<B>>>);
+pub struct DatabasePool<B: Backend>(ObjectPool<ConnectionPool<B>>);
 
 impl<B: Backend> DatabasePool<B> {
     /// Pulls a reusable connection pool
@@ -55,12 +55,6 @@ impl<B: Backend> DatabasePool<B> {
     #[must_use]
     pub async fn pull(&self) -> Reusable<ConnectionPool<B>> {
         self.0.pull().await
-    }
-}
-
-impl<B: Backend> Clone for DatabasePool<B> {
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
     }
 }
 
@@ -114,7 +108,7 @@ pub trait DatabasePoolBuilder: Backend {
     > {
         self.init().await?;
         let backend = Arc::new(self);
-        let object_pool = Arc::new(ObjectPool::new(
+        let object_pool = ObjectPool::new(
             move || {
                 let backend = backend.clone();
                 Box::pin(async {
@@ -132,7 +126,7 @@ pub trait DatabasePoolBuilder: Backend {
                     conn_pool
                 })
             },
-        ));
+        );
         Ok(DatabasePool(object_pool))
     }
 }

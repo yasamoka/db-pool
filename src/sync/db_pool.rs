@@ -7,7 +7,7 @@ use super::{
 };
 
 /// Database pool
-pub struct DatabasePool<B: Backend>(Arc<ObjectPool<ConnectionPool<B>>>);
+pub struct DatabasePool<B: Backend>(ObjectPool<ConnectionPool<B>>);
 
 impl<B: Backend> DatabasePool<B> {
     /// Pulls a reusable connection pool
@@ -43,12 +43,6 @@ impl<B: Backend> DatabasePool<B> {
     #[must_use]
     pub fn pull(&self) -> Reusable<ConnectionPool<B>> {
         self.0.pull()
-    }
-}
-
-impl<B: Backend> Clone for DatabasePool<B> {
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
     }
 }
 
@@ -88,7 +82,7 @@ pub trait DatabasePoolBuilder: Backend {
     ) -> Result<DatabasePool<Self>, Error<Self::ConnectionError, Self::QueryError>> {
         self.init()?;
         let backend = Arc::new(self);
-        let object_pool = Arc::new(ObjectPool::new(
+        let object_pool = ObjectPool::new(
             move || {
                 let backend = backend.clone();
                 ConnectionPool::new(backend).expect("connection pool creation must succeed")
@@ -98,7 +92,7 @@ pub trait DatabasePoolBuilder: Backend {
                     .clean()
                     .expect("connection pool cleaning must succeed");
             },
-        ));
+        );
         Ok(DatabasePool(object_pool))
     }
 }
