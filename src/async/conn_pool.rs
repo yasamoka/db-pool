@@ -8,7 +8,7 @@ struct ConnectionPool<B: Backend> {
     backend: Arc<B>,
     db_id: Uuid,
     conn_pool: Option<B::Pool>,
-    is_restricted: bool
+    is_restricted: bool,
 }
 
 impl<B: Backend> Deref for ConnectionPool<B> {
@@ -50,7 +50,7 @@ impl<B: Backend> ReusableConnectionPool<B> {
             backend,
             db_id,
             conn_pool: Some(conn_pool),
-            is_restricted: true
+            is_restricted: true,
         }))
     }
 
@@ -82,12 +82,11 @@ impl<B: Backend> SingleUseConnectionPool<B> {
         let conn_pool = backend.create(db_id, false).await?;
 
         Ok(Self(ConnectionPool {
-                backend,
-                db_id,
-                conn_pool: Some(conn_pool),
-                is_restricted: false
-            },
-        ))
+            backend,
+            db_id,
+            conn_pool: Some(conn_pool),
+            is_restricted: false,
+        }))
     }
 }
 
