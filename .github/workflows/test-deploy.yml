@@ -39,7 +39,9 @@ jobs:
           echo "MYSQL_PASSWORD=root" > .env
           echo "MYSQL_HOST=127.0.0.1" >> .env
           echo "POSTGRES_PASSWORD=postgres" >> .env
-          cargo test --all-features
+          cargo test --all-features --lib -- --test-threads 1
+          cargo test --all-features --doc -- --test-threads 1
+          cargo test --all-features --examples
       - name: Install latest mdBook
         run: |
           tag=$(curl 'https://api.github.com/repos/rust-lang/mdbook/releases/latest' | jq -r '.tag_name')

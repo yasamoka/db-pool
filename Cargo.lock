@@ -804,9 +804,8 @@ dependencies = [
 
 [[package]]
 name = "diesel_async_migrations"
-version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a700d6b83a17973b94d3065970fd2b36f1036c3fe08adcbdce1c9beb8fb25553"
+version = "0.11.0"
+source = "git+https://github.com/yasamoka/diesel_async_migrations#ede3f9c36df9d23a6ec6802f627b4ee3a571f727"
 dependencies = [
  "diesel",
  "diesel-async",
@@ -817,9 +816,8 @@ dependencies = [
 
 [[package]]
 name = "diesel_async_migrations_macros"
-version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05de210f31e6ac18162501b03c37f839af9f9fd6dd6de2bb4031ae6691c47679"
+version = "0.11.0"
+source = "git+https://github.com/yasamoka/diesel_async_migrations#ede3f9c36df9d23a6ec6802f627b4ee3a571f727"
 dependencies = [
  "proc-macro2",
  "quote",
