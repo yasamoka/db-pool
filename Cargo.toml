@@ -57,9 +57,9 @@ tokio = { version = "1.36.0", features = ["macros", "rt-multi-thread"] }
 tokio-shared-rt = "0.1.0"
 tokio-test = "0.4.4"
 
-async-graphql = "7.0.2"
-async-graphql-poem = "7.0.2"
-poem = "2.0.1"
+async-graphql = "7.0.9"
+async-graphql-poem = "7.0.9"
+poem = "3.0.4"
 serde = "1.0.197"
 serde_json = "1.0.114"
 tokio-postgres = "0.7.10"
