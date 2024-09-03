@@ -15,8 +15,8 @@ db-pool = { path = "..", package = "db-pool", features = [
     "diesel-async-postgres",
     "diesel-async-bb8",
 ] }
-diesel = { version = "2.1.4", features = ["mysql", "postgres", "r2d2"] }
-diesel-async = { version = "0.4.1", features = ["bb8", "mysql", "postgres"] }
+diesel = { version = "2.2.4", features = ["mysql", "postgres", "r2d2"] }
+diesel-async = { version = "0.5.0", features = ["bb8", "mysql", "postgres"] }
 dotenvy = "0.15.7"
 futures = "0.3.30"
 r2d2 = "0.8.10"

@@ -175,9 +175,19 @@ mod tests {
                     move |mut conn| {
                         Box::pin(async move {
                             MIGRATIONS
-                                .run_pending_migrations(&mut conn)
+                                .setup_migrations_table(&mut conn)
                                 .await
-                                .expect("Database migrations must succeed");
+                                .expect("Setup migrations table must succeed");
+                            for migration in MIGRATIONS
+                                .pending_migrations(&mut conn)
+                                .await
+                                .expect("Get pending migrations must succeed")
+                            {
+                                migration
+                                    .run(&mut conn)
+                                    .await
+                                    .expect("Run migration must succeed");
+                            }
                             conn
                         })
                     },
