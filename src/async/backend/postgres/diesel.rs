@@ -3,8 +3,8 @@ use std::{borrow::Cow, collections::HashMap, pin::Pin};
 use async_trait::async_trait;
 use diesel::{prelude::*, result::Error, sql_query, table, ConnectionError};
 use diesel_async::{
-    pooled_connection::AsyncDieselConnectionManager, AsyncConnection as _, AsyncPgConnection,
-    RunQueryDsl, SimpleAsyncConnection,
+    pooled_connection::{AsyncDieselConnectionManager, ManagerConfig},
+    AsyncConnection as _, AsyncPgConnection, RunQueryDsl, SimpleAsyncConnection,
 };
 use futures::Future;
 use parking_lot::Mutex;
@@ -45,7 +45,7 @@ impl<P: DieselPoolAssociation<AsyncPgConnection>> DieselAsyncPostgresBackend<P> 
     ///     PrivilegedPostgresConfig,
     /// };
     /// use diesel::sql_query;
-    /// use diesel_async::RunQueryDsl;
+    /// use diesel_async::{pooled_connection::ManagerConfig, RunQueryDsl};
     /// use dotenvy::dotenv;
     ///
     /// async fn f() {
@@ -55,6 +55,7 @@ impl<P: DieselPoolAssociation<AsyncPgConnection>> DieselAsyncPostgresBackend<P> 
     ///
     ///     let backend = DieselAsyncPostgresBackend::<DieselBb8>::new(
     ///         config,
+    ///         ManagerConfig::default(),
     ///         || Pool::builder().max_size(10),
     ///         || Pool::builder().max_size(2),
     ///         move |mut conn| {
@@ -75,6 +76,7 @@ impl<P: DieselPoolAssociation<AsyncPgConnection>> DieselAsyncPostgresBackend<P> 
     /// ```
     pub async fn new(
         privileged_config: PrivilegedPostgresConfig,
+        manager_config: ManagerConfig<AsyncPgConnection>,
         create_privileged_pool: impl Fn() -> P::Builder,
         create_restricted_pool: impl Fn() -> P::Builder + Send + Sync + 'static,
         create_entities: impl Fn(
@@ -84,7 +86,10 @@ impl<P: DieselPoolAssociation<AsyncPgConnection>> DieselAsyncPostgresBackend<P> 
             + Sync
             + 'static,
     ) -> Result<Self, P::BuildError> {
-        let manager = AsyncDieselConnectionManager::new(privileged_config.default_connection_url());
+        let manager = AsyncDieselConnectionManager::new_with_config(
+            privileged_config.default_connection_url(),
+            manager_config,
+        );
         let builder = create_privileged_pool();
         let default_pool = P::build_pool(builder, manager).await?;
 
@@ -288,7 +293,7 @@ mod tests {
 
     use bb8::Pool;
     use diesel::{insert_into, sql_query, table, Insertable, QueryDsl};
-    use diesel_async::{RunQueryDsl, SimpleAsyncConnection};
+    use diesel_async::{pooled_connection::ManagerConfig, RunQueryDsl, SimpleAsyncConnection};
     use dotenvy::dotenv;
     use futures::future::join_all;
     use tokio_shared_rt::test;
@@ -339,19 +344,25 @@ mod tests {
 
         let config = PrivilegedPostgresConfig::from_env().unwrap();
 
-        DieselAsyncPostgresBackend::new(config, Pool::builder, Pool::builder, {
-            move |mut conn| {
-                if with_table {
-                    Box::pin(async move {
-                        let query = CREATE_ENTITIES_STATEMENTS.join(";");
-                        conn.batch_execute(query.as_str()).await.unwrap();
-                        conn
-                    })
-                } else {
-                    Box::pin(async { conn })
+        DieselAsyncPostgresBackend::new(
+            config,
+            ManagerConfig::default(),
+            Pool::builder,
+            Pool::builder,
+            {
+                move |mut conn| {
+                    if with_table {
+                        Box::pin(async move {
+                            let query = CREATE_ENTITIES_STATEMENTS.join(";");
+                            conn.batch_execute(query.as_str()).await.unwrap();
+                            conn
+                        })
+                    } else {
+                        Box::pin(async { conn })
+                    }
                 }
-            }
-        })
+            },
+        )
         .await
         .unwrap()
     }

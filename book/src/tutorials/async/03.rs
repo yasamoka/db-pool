@@ -11,7 +11,7 @@ mod tests {
     };
     // import diesel-specific constructs
     use diesel::sql_query;
-    use diesel_async::RunQueryDsl;
+    use diesel_async::{pooled_connection::ManagerConfig, RunQueryDsl};
     use dotenvy::dotenv;
     // import connection pool
     use bb8::Pool;
@@ -28,6 +28,8 @@ mod tests {
                 // create backend for BB8 connection pools
                 let backend = DieselAsyncPostgresBackend::<DieselBb8>::new(
                     config,
+                    // create default manager config
+                    ManagerConfig::default(),
                     // create privileged connection pool with max 10 connections
                     || Pool::builder().max_size(10),
                     // create restricted connection pool with max 2 connections

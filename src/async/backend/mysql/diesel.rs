@@ -3,8 +3,8 @@ use std::{borrow::Cow, pin::Pin};
 use async_trait::async_trait;
 use diesel::{prelude::*, result::Error, sql_query, table};
 use diesel_async::{
-    pooled_connection::AsyncDieselConnectionManager, AsyncConnection, AsyncMysqlConnection,
-    RunQueryDsl, SimpleAsyncConnection,
+    pooled_connection::{AsyncDieselConnectionManager, ManagerConfig},
+    AsyncConnection, AsyncMysqlConnection, RunQueryDsl, SimpleAsyncConnection,
 };
 use futures::Future;
 use uuid::Uuid;
@@ -46,7 +46,7 @@ impl<P: DieselPoolAssociation<AsyncMysqlConnection>> DieselAsyncMySQLBackend<P> 
     ///     PrivilegedMySQLConfig,
     /// };
     /// use diesel::sql_query;
-    /// use diesel_async::RunQueryDsl;
+    /// use diesel_async::{pooled_connection::ManagerConfig, RunQueryDsl};
     /// use dotenvy::dotenv;
     ///
     /// async fn f() {
@@ -56,6 +56,7 @@ impl<P: DieselPoolAssociation<AsyncMysqlConnection>> DieselAsyncMySQLBackend<P> 
     ///
     ///     let backend = DieselAsyncMySQLBackend::<DieselBb8>::new(
     ///         config,
+    ///         ManagerConfig::default(),
     ///         || Pool::builder().max_size(10),
     ///         || Pool::builder().max_size(2),
     ///         move |mut conn| {
@@ -75,6 +76,7 @@ impl<P: DieselPoolAssociation<AsyncMysqlConnection>> DieselAsyncMySQLBackend<P> 
     /// ```
     pub async fn new(
         privileged_config: PrivilegedMySQLConfig,
+        manager_config: ManagerConfig<AsyncMysqlConnection>,
         create_privileged_pool: impl Fn() -> P::Builder,
         create_restricted_pool: impl Fn() -> P::Builder + Send + Sync + 'static,
         create_entities: impl Fn(AsyncMysqlConnection) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>>
@@ -82,7 +84,10 @@ impl<P: DieselPoolAssociation<AsyncMysqlConnection>> DieselAsyncMySQLBackend<P> 
             + Sync
             + 'static,
     ) -> Result<Self, P::BuildError> {
-        let manager = AsyncDieselConnectionManager::new(privileged_config.default_connection_url());
+        let manager = AsyncDieselConnectionManager::new_with_config(
+            privileged_config.default_connection_url(),
+            manager_config,
+        );
         let builder = create_privileged_pool();
         let default_pool = P::build_pool(builder, manager).await?;
 
@@ -256,7 +261,7 @@ mod tests {
 
     use bb8::Pool;
     use diesel::{insert_into, sql_query, table, Insertable, QueryDsl};
-    use diesel_async::{RunQueryDsl, SimpleAsyncConnection};
+    use diesel_async::{pooled_connection::ManagerConfig, RunQueryDsl, SimpleAsyncConnection};
     use futures::future::join_all;
     use tokio_shared_rt::test;
 
@@ -302,18 +307,24 @@ mod tests {
 
     async fn create_backend(with_table: bool) -> DieselAsyncMySQLBackend<DieselBb8> {
         let config = get_privileged_mysql_config().clone();
-        DieselAsyncMySQLBackend::new(config, Pool::builder, Pool::builder, {
-            move |mut conn| {
-                if with_table {
-                    Box::pin(async move {
-                        let query = CREATE_ENTITIES_STATEMENTS.join(";");
-                        conn.batch_execute(query.as_str()).await.unwrap();
-                    })
-                } else {
-                    Box::pin(async {})
+        DieselAsyncMySQLBackend::new(
+            config,
+            ManagerConfig::default(),
+            Pool::builder,
+            Pool::builder,
+            {
+                move |mut conn| {
+                    if with_table {
+                        Box::pin(async move {
+                            let query = CREATE_ENTITIES_STATEMENTS.join(";");
+                            conn.batch_execute(query.as_str()).await.unwrap();
+                        })
+                    } else {
+                        Box::pin(async {})
+                    }
                 }
-            }
-        })
+            },
+        )
         .await
         .unwrap()
     }
