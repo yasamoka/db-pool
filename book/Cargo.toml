@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 
 [dev-dependencies]
-bb8 = "0.8.3"
+bb8 = "0.8.5"
 bb8-postgres = "0.8.1"
 db-pool = { path = "..", package = "db-pool", features = [
     "diesel-postgres",
