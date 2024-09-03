@@ -700,7 +700,7 @@ checksum = "7e962a19be5cfc3f3bf6dd8f61eb50107f356ad6270fbb3ed41476571db78be5"
 
 [[package]]
 name = "db-pool"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "async-graphql",
  "async-graphql-poem",
