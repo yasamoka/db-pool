@@ -20,8 +20,8 @@ all-features = true
 
 
 [dependencies]
-parking_lot = "0.12.1"
-uuid = { version = "1.7.0", features = ["v4"] }
+parking_lot = "0.12.3"
+uuid = { version = "1.10.0", features = ["v4"] }
 
 async-trait = { version = "0.1.77", optional = true }
 bb8 = { version = "0.8.5", optional = true }
@@ -67,7 +67,7 @@ tokio-test = "0.4.4"
 async-graphql = "7.0.9"
 async-graphql-poem = "7.0.9"
 poem = "3.0.4"
-serde = "1.0.197"
+serde = "1.0.209"
 serde_json = "1.0.114"
 tokio-postgres = "0.7.10"
 diesel_async_migrations = { git = "https://github.com/yasamoka/diesel_async_migrations", rev = "d7a1187" }

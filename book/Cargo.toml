@@ -20,7 +20,7 @@ diesel-async = { version = "0.5.0", features = ["bb8", "mysql", "postgres"] }
 dotenvy = "0.15.7"
 futures = "0.3.30"
 r2d2 = "0.8.10"
-tokio = { version = "1.36.0", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.40.0", features = ["macros", "rt-multi-thread"] }
 tokio-shared-rt = "0.1.0"
 
 
