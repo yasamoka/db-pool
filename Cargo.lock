@@ -853,7 +853,7 @@ dependencies = [
 [[package]]
 name = "diesel_async_migrations"
 version = "0.13.0"
-source = "git+https://github.com/yasamoka/diesel_async_migrations?rev=d7a1187#d7a11870ae783a2a05c2cfb980b88e2b89bd4e9f"
+source = "git+https://github.com/yasamoka/diesel_async_migrations?rev=6bcf650#6bcf650901f5091e22ac65ea841bcc054b2c8e2b"
 dependencies = [
  "diesel",
  "diesel-async",
@@ -865,7 +865,7 @@ dependencies = [
 [[package]]
 name = "diesel_async_migrations_macros"
 version = "0.12.0"
-source = "git+https://github.com/yasamoka/diesel_async_migrations?rev=d7a1187#d7a11870ae783a2a05c2cfb980b88e2b89bd4e9f"
+source = "git+https://github.com/yasamoka/diesel_async_migrations?rev=6bcf650#6bcf650901f5091e22ac65ea841bcc054b2c8e2b"
 dependencies = [
  "proc-macro2",
  "quote",
