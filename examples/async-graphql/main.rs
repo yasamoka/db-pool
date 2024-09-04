@@ -145,7 +145,6 @@ mod tests {
         r#async::{DatabasePool, DatabasePoolBuilderTrait, DieselAsyncPostgresBackend, DieselBb8},
         PrivilegedPostgresConfig,
     };
-    use diesel_async::pooled_connection::ManagerConfig;
     use diesel_async_migrations::{embed_migrations, EmbeddedMigrations};
     use dotenvy::dotenv;
     use futures::future::join_all;
@@ -171,9 +170,9 @@ mod tests {
 
                 let backend = DieselAsyncPostgresBackend::new(
                     config,
-                    ManagerConfig::default(),
                     || Pool::builder().max_size(10),
                     || Pool::builder().max_size(1).test_on_check_out(true),
+                    None,
                     move |mut conn| {
                         Box::pin(async move {
                             MIGRATIONS

@@ -3,10 +3,10 @@ use std::{borrow::Cow, collections::HashMap, pin::Pin};
 use async_trait::async_trait;
 use diesel::{prelude::*, result::Error, sql_query, table, ConnectionError};
 use diesel_async::{
-    pooled_connection::{AsyncDieselConnectionManager, ManagerConfig},
-    AsyncConnection as _, AsyncPgConnection, RunQueryDsl, SimpleAsyncConnection,
+    pooled_connection::{AsyncDieselConnectionManager, ManagerConfig, SetupCallback},
+    AsyncConnection, AsyncPgConnection, RunQueryDsl, SimpleAsyncConnection,
 };
-use futures::Future;
+use futures::{future::FutureExt, Future};
 use parking_lot::Mutex;
 use uuid::Uuid;
 
@@ -31,6 +31,7 @@ pub struct DieselAsyncPostgresBackend<P: DieselPoolAssociation<AsyncPgConnection
     default_pool: P::Pool,
     db_conns: Mutex<HashMap<Uuid, AsyncPgConnection>>,
     create_restricted_pool: Box<dyn Fn() -> P::Builder + Send + Sync + 'static>,
+    create_connection: Box<dyn Fn() -> SetupCallback<AsyncPgConnection> + Send + Sync + 'static>,
     create_entities: Box<CreateEntities>,
     drop_previous_databases_flag: bool,
 }
@@ -45,7 +46,7 @@ impl<P: DieselPoolAssociation<AsyncPgConnection>> DieselAsyncPostgresBackend<P> 
     ///     PrivilegedPostgresConfig,
     /// };
     /// use diesel::sql_query;
-    /// use diesel_async::{pooled_connection::ManagerConfig, RunQueryDsl};
+    /// use diesel_async::RunQueryDsl;
     /// use dotenvy::dotenv;
     ///
     /// async fn f() {
@@ -55,9 +56,9 @@ impl<P: DieselPoolAssociation<AsyncPgConnection>> DieselAsyncPostgresBackend<P> 
     ///
     ///     let backend = DieselAsyncPostgresBackend::<DieselBb8>::new(
     ///         config,
-    ///         ManagerConfig::default(),
     ///         || Pool::builder().max_size(10),
     ///         || Pool::builder().max_size(2),
+    ///         None,
     ///         move |mut conn| {
     ///             Box::pin(async {
     ///                 sql_query("CREATE TABLE book(id SERIAL PRIMARY KEY, title TEXT NOT NULL)")
@@ -76,9 +77,11 @@ impl<P: DieselPoolAssociation<AsyncPgConnection>> DieselAsyncPostgresBackend<P> 
     /// ```
     pub async fn new(
         privileged_config: PrivilegedPostgresConfig,
-        manager_config: ManagerConfig<AsyncPgConnection>,
         create_privileged_pool: impl Fn() -> P::Builder,
         create_restricted_pool: impl Fn() -> P::Builder + Send + Sync + 'static,
+        custom_create_connection: Option<
+            Box<dyn Fn() -> SetupCallback<AsyncPgConnection> + Send + Sync + 'static>,
+        >,
         create_entities: impl Fn(
                 AsyncPgConnection,
             ) -> Pin<Box<dyn Future<Output = AsyncPgConnection> + Send + 'static>>
@@ -86,6 +89,17 @@ impl<P: DieselPoolAssociation<AsyncPgConnection>> DieselAsyncPostgresBackend<P> 
             + Sync
             + 'static,
     ) -> Result<Self, P::BuildError> {
+        let create_connection = custom_create_connection.unwrap_or_else(|| {
+            Box::new(|| {
+                Box::new(|connection_url| AsyncPgConnection::establish(connection_url).boxed())
+            })
+        });
+
+        let manager_config = {
+            let mut config = ManagerConfig::default();
+            config.custom_setup = Box::new(create_connection());
+            config
+        };
         let manager = AsyncDieselConnectionManager::new_with_config(
             privileged_config.default_connection_url(),
             manager_config,
@@ -98,6 +112,7 @@ impl<P: DieselPoolAssociation<AsyncPgConnection>> DieselAsyncPostgresBackend<P> 
             default_pool,
             db_conns: Mutex::new(HashMap::new()),
             create_restricted_pool: Box::new(create_restricted_pool),
+            create_connection,
             create_entities: Box::new(create_entities),
             drop_previous_databases_flag: true,
         })
@@ -158,7 +173,7 @@ impl<'pool, P: DieselPoolAssociation<AsyncPgConnection>> PostgresBackend<'pool>
         let database_url = self
             .privileged_config
             .privileged_database_connection_url(db_name.as_str());
-        AsyncPgConnection::establish(database_url.as_str()).await
+        (self.create_connection)()(database_url.as_str()).await
     }
 
     async fn establish_restricted_database_connection(
@@ -172,7 +187,7 @@ impl<'pool, P: DieselPoolAssociation<AsyncPgConnection>> PostgresBackend<'pool>
             Some(db_name),
             db_name,
         );
-        AsyncPgConnection::establish(database_url.as_str()).await
+        (self.create_connection)()(database_url.as_str()).await
     }
 
     fn put_database_connection(&self, db_id: Uuid, conn: AsyncPgConnection) {
@@ -293,7 +308,7 @@ mod tests {
 
     use bb8::Pool;
     use diesel::{insert_into, sql_query, table, Insertable, QueryDsl};
-    use diesel_async::{pooled_connection::ManagerConfig, RunQueryDsl, SimpleAsyncConnection};
+    use diesel_async::{RunQueryDsl, SimpleAsyncConnection};
     use dotenvy::dotenv;
     use futures::future::join_all;
     use tokio_shared_rt::test;
@@ -344,25 +359,19 @@ mod tests {
 
         let config = PrivilegedPostgresConfig::from_env().unwrap();
 
-        DieselAsyncPostgresBackend::new(
-            config,
-            ManagerConfig::default(),
-            Pool::builder,
-            Pool::builder,
-            {
-                move |mut conn| {
-                    if with_table {
-                        Box::pin(async move {
-                            let query = CREATE_ENTITIES_STATEMENTS.join(";");
-                            conn.batch_execute(query.as_str()).await.unwrap();
-                            conn
-                        })
-                    } else {
-                        Box::pin(async { conn })
-                    }
+        DieselAsyncPostgresBackend::new(config, Pool::builder, Pool::builder, None, {
+            move |mut conn| {
+                if with_table {
+                    Box::pin(async move {
+                        let query = CREATE_ENTITIES_STATEMENTS.join(";");
+                        conn.batch_execute(query.as_str()).await.unwrap();
+                        conn
+                    })
+                } else {
+                    Box::pin(async { conn })
                 }
-            },
-        )
+            }
+        })
         .await
         .unwrap()
     }

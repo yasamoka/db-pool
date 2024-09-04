@@ -24,7 +24,7 @@ type DieselManager<Connection> = AsyncDieselConnectionManager<Connection>;
 ///     PrivilegedPostgresConfig,
 /// };
 /// use diesel::sql_query;
-/// use diesel_async::{pooled_connection::ManagerConfig, RunQueryDsl};
+/// use diesel_async::RunQueryDsl;
 /// use dotenvy::dotenv;
 /// use mobc::Pool;
 ///
@@ -35,9 +35,9 @@ type DieselManager<Connection> = AsyncDieselConnectionManager<Connection>;
 ///
 ///     let backend = DieselAsyncPostgresBackend::<DieselMobc>::new(
 ///         config,
-///         ManagerConfig::default(),
 ///         || Pool::builder().max_open(10),
 ///         || Pool::builder().max_open(2),
+///         None,
 ///         move |mut conn| {
 ///             Box::pin(async {
 ///                 sql_query("CREATE TABLE book(id SERIAL PRIMARY KEY, title TEXT NOT NULL)")

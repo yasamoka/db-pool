@@ -4,6 +4,8 @@ fn main() {}
 mod tests {
     #![allow(dead_code, unused_variables)]
 
+    // import connection pool
+    use bb8::Pool;
     use db_pool::{
         // import backend
         r#async::{DieselAsyncPostgresBackend, DieselBb8},
@@ -11,10 +13,8 @@ mod tests {
     };
     // import diesel-specific constructs
     use diesel::sql_query;
-    use diesel_async::{pooled_connection::ManagerConfig, RunQueryDsl};
+    use diesel_async::RunQueryDsl;
     use dotenvy::dotenv;
-    // import connection pool
-    use bb8::Pool;
     use tokio::sync::OnceCell;
 
     async fn get_connection_pool() {
@@ -28,12 +28,12 @@ mod tests {
                 // create backend for BB8 connection pools
                 let backend = DieselAsyncPostgresBackend::<DieselBb8>::new(
                     config,
-                    // create default manager config
-                    ManagerConfig::default(),
                     // create privileged connection pool with max 10 connections
                     || Pool::builder().max_size(10),
                     // create restricted connection pool with max 2 connections
                     || Pool::builder().max_size(2),
+                    // no custom create connection
+                    None,
                     // create entities
                     move |mut conn| {
                         Box::pin(async {

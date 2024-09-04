@@ -17,7 +17,7 @@ mod tests {
         PrivilegedPostgresConfig,
     };
     use diesel::sql_query;
-    use diesel_async::{pooled_connection::ManagerConfig, RunQueryDsl};
+    use diesel_async::RunQueryDsl;
     use dotenvy::dotenv;
     use tokio::sync::OnceCell;
 
@@ -35,9 +35,9 @@ mod tests {
 
                 let backend = DieselAsyncPostgresBackend::new(
                     config,
-                    ManagerConfig::default(),
                     || Pool::builder().max_size(10),
                     || Pool::builder().max_size(2),
+                    None,
                     move |mut conn| {
                         Box::pin(async {
                             sql_query(
