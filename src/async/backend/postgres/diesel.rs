@@ -231,7 +231,15 @@ impl<'pool, P: DieselPoolAssociation<AsyncPgConnection>> PostgresBackend<'pool>
             Some(db_name),
             db_name,
         );
-        let manager = AsyncDieselConnectionManager::<AsyncPgConnection>::new(database_url.as_str());
+        let manager_config = {
+            let mut config = ManagerConfig::default();
+            config.custom_setup = Box::new((self.create_connection)());
+            config
+        };
+        let manager = AsyncDieselConnectionManager::<AsyncPgConnection>::new_with_config(
+            database_url.as_str(),
+            manager_config,
+        );
         let builder = (self.create_restricted_pool)();
         P::build_pool(builder, manager).await
     }
