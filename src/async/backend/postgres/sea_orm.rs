@@ -29,7 +29,7 @@ type CreateEntities = dyn Fn(DatabaseConnection) -> Pin<Box<dyn Future<Output = 
     + Sync
     + 'static;
 
-/// [`SeaORM Postgres`](https://docs.rs/sea-orm/0.12.15/sea_orm/type.DbBackend.html#variant.Postgres) backend
+/// [`SeaORM Postgres`](https://docs.rs/sea-orm/1.0.1/sea_orm/type.DbBackend.html#variant.Postgres) backend
 pub struct SeaORMPostgresBackend {
     privileged_config: PrivilegedPostgresConfig,
     default_pool: DatabaseConnection,
@@ -40,7 +40,7 @@ pub struct SeaORMPostgresBackend {
 }
 
 impl SeaORMPostgresBackend {
-    /// Creates a new [`SeaORM Postgres`](https://docs.rs/sea-orm/0.12.15/sea_orm/type.DbBackend.html#variant.Postgres) backend
+    /// Creates a new [`SeaORM Postgres`](https://docs.rs/sea-orm/1.0.1/sea_orm/type.DbBackend.html#variant.Postgres) backend
     /// # Example
     /// ```
     /// use bb8::Pool;

@@ -32,7 +32,7 @@ type CreateEntities = dyn Fn(DatabaseConnection) -> Pin<Box<dyn Future<Output = 
     + Sync
     + 'static;
 
-/// [`SeaORM MySQL`](https://docs.rs/sea-orm/0.12.15/sea_orm/type.DbBackend.html#variant.MySql) backend
+/// [`SeaORM MySQL`](https://docs.rs/sea-orm/1.0.1/sea_orm/type.DbBackend.html#variant.MySql) backend
 pub struct SeaORMMySQLBackend {
     privileged_config: PrivilegedMySQLConfig,
     default_pool: DatabaseConnection,
@@ -42,7 +42,7 @@ pub struct SeaORMMySQLBackend {
 }
 
 impl SeaORMMySQLBackend {
-    /// Creates a new [`SeaORM MySQL`](https://docs.rs/sea-orm/0.12.15/sea_orm/type.DbBackend.html#variant.MySql) backend
+    /// Creates a new [`SeaORM MySQL`](https://docs.rs/sea-orm/1.0.1/sea_orm/type.DbBackend.html#variant.MySql) backend
     /// # Example
     /// ```
     /// use db_pool::{r#async::SeaORMMySQLBackend, PrivilegedMySQLConfig};

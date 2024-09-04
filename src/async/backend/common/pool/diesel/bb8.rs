@@ -12,7 +12,7 @@ use crate::r#async::backend::error::Error as BackendError;
 
 use super::r#trait::DieselPoolAssociation;
 
-/// [`Diesel bb8`](https://docs.rs/diesel-async/0.4.1/diesel_async/pooled_connection/bb8/index.html) association
+/// [`Diesel bb8`](https://docs.rs/diesel-async/0.5.0/diesel_async/pooled_connection/bb8/index.html) association
 /// # Example
 /// ```
 /// use bb8::Pool;

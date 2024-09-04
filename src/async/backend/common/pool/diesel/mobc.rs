@@ -16,7 +16,7 @@ use super::r#trait::DieselPoolAssociation;
 
 type DieselManager<Connection> = AsyncDieselConnectionManager<Connection>;
 
-/// [`Diesel mobc`](https://docs.rs/diesel-async/0.4.1/diesel_async/pooled_connection/mobc/index.html) association
+/// [`Diesel mobc`](https://docs.rs/diesel-async/0.5.0/diesel_async/pooled_connection/mobc/index.html) association
 /// # Example
 /// ```
 /// use db_pool::{
