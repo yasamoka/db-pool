@@ -63,6 +63,22 @@ impl PrivilegedPostgresConfig {
         })
     }
 
+    /// Sets a new username
+    /// # Example
+    /// ```
+    /// # use db_pool::PrivilegedPostgresConfig;
+    /// #
+    /// let config =
+    ///     PrivilegedPostgresConfig::new().username("postgres".to_owned());
+    /// ```
+    #[must_use]
+    pub fn username(self, value: String) -> Self {
+        Self {
+            username: value,
+            ..self
+        }
+    }
+
     /// Sets a new password
     /// # Example
     /// ```
