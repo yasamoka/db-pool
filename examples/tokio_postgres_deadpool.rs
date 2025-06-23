@@ -4,21 +4,21 @@ fn main() {}
 mod tests {
     #![allow(clippy::needless_return)]
 
-    use bb8::Pool;
     use db_pool::{
+        PrivilegedPostgresConfig,
         r#async::{
             DatabasePool, DatabasePoolBuilderTrait, ReusableConnectionPool, TokioPostgresBackend,
-            TokioPostgresBb8,
+            TokioPostgresDeadpool,
         },
-        PrivilegedPostgresConfig,
     };
+    use deadpool::managed::Pool;
     use dotenvy::dotenv;
     use tokio::sync::OnceCell;
     use tokio_shared_rt::test;
 
-    async fn get_connection_pool(
-    ) -> ReusableConnectionPool<'static, TokioPostgresBackend<TokioPostgresBb8>> {
-        static POOL: OnceCell<DatabasePool<TokioPostgresBackend<TokioPostgresBb8>>> =
+    async fn get_connection_pool()
+    -> ReusableConnectionPool<'static, TokioPostgresBackend<TokioPostgresDeadpool>> {
+        static POOL: OnceCell<DatabasePool<TokioPostgresBackend<TokioPostgresDeadpool>>> =
             OnceCell::const_new();
 
         let db_pool = POOL
@@ -29,8 +29,8 @@ mod tests {
 
                 let backend = TokioPostgresBackend::new(
                     config.into(),
-                    || Pool::builder().max_size(10),
-                    || Pool::builder().max_size(2),
+                    |manager| Pool::builder(manager).max_size(10),
+                    |manager| Pool::builder(manager).max_size(2),
                     move |conn| {
                         Box::pin(async {
                             conn.execute(

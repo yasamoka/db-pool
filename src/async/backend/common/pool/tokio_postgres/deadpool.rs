@@ -22,20 +22,19 @@ impl TokioPostgresPoolAssociation for TokioPostgresDeadpool {
     type Builder = PoolBuilder<Manager>;
     type Pool = Pool<Manager>;
 
-    type BuildError = BuildError<Error>;
+    type BuildError = BuildError;
     type PoolError = PoolError<Error>;
 
     async fn build_pool(
         builder: PoolBuilder<Manager>,
-        // TODO: add builder wrapper
         _config: Config,
-    ) -> Result<Pool<Manager>, BuildError<Error>> {
-        builder.build().map_err(Into::into)
+    ) -> Result<Self::Pool, Self::BuildError> {
+        builder.build()
     }
 
     async fn get_connection<'pool>(
         pool: &'pool Pool<Manager>,
-    ) -> Result<PooledConnection, PoolError<Error>> {
+    ) -> Result<Self::PooledConnection<'pool>, Self::PoolError> {
         pool.get().await.map(Into::into)
     }
 }
@@ -62,16 +61,14 @@ impl DerefMut for PooledConnection {
     }
 }
 
-impl From<BuildError<Error>>
-    for BackendError<BuildError<Error>, PoolError<Error>, ConnectionError, QueryError>
-{
-    fn from(value: BuildError<Error>) -> Self {
+impl From<BuildError> for BackendError<BuildError, PoolError<Error>, ConnectionError, QueryError> {
+    fn from(value: BuildError) -> Self {
         Self::Build(value)
     }
 }
 
 impl From<PoolError<Error>>
-    for BackendError<BuildError<Error>, PoolError<Error>, ConnectionError, QueryError>
+    for BackendError<BuildError, PoolError<Error>, ConnectionError, QueryError>
 {
     fn from(value: PoolError<Error>) -> Self {
         Self::Pool(value)

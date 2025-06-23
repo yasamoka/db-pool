@@ -1,6 +1,7 @@
 use std::{borrow::Cow, collections::HashMap, convert::Into, pin::Pin};
 
 use async_trait::async_trait;
+use deadpool_postgres::Manager;
 use futures::Future;
 use parking_lot::Mutex;
 use tokio_postgres::{Client, Config, NoTls};
@@ -30,7 +31,7 @@ pub struct TokioPostgresBackend<P: TokioPostgresPoolAssociation> {
     privileged_config: Config,
     default_pool: P::Pool,
     db_conns: Mutex<HashMap<Uuid, Client>>,
-    create_restricted_pool: Box<dyn Fn() -> P::Builder + Send + Sync + 'static>,
+    create_restricted_pool: Box<dyn Fn(Manager) -> P::Builder + Send + Sync + 'static>,
     create_entities: Box<CreateEntities>,
     drop_previous_databases_flag: bool,
 }
@@ -53,8 +54,8 @@ impl<P: TokioPostgresPoolAssociation> TokioPostgresBackend<P> {
     ///     
     ///     let backend = TokioPostgresBackend::<TokioPostgresBb8>::new(
     ///         config.into(),
-    ///         || Pool::builder().max_size(10),
-    ///         || Pool::builder().max_size(2),
+    ///         |_| Pool::builder().max_size(10),
+    ///         |_| Pool::builder().max_size(2),
     ///         move |conn| {
     ///             Box::pin(async move {
     ///                 conn.execute(
@@ -75,14 +76,15 @@ impl<P: TokioPostgresPoolAssociation> TokioPostgresBackend<P> {
     /// ```
     pub async fn new(
         privileged_config: Config,
-        create_privileged_pool: impl Fn() -> P::Builder,
-        create_restricted_pool: impl Fn() -> P::Builder + Send + Sync + 'static,
+        create_privileged_pool: impl Fn(Manager) -> P::Builder,
+        create_restricted_pool: impl Fn(Manager) -> P::Builder + Send + Sync + 'static,
         create_entities: impl Fn(Client) -> Pin<Box<dyn Future<Output = Client> + Send + 'static>>
         + Send
         + Sync
         + 'static,
     ) -> Result<Self, P::BuildError> {
-        let builder = create_privileged_pool();
+        let manager = Manager::new(privileged_config.clone(), NoTls);
+        let builder = create_privileged_pool(manager);
         let default_pool = P::build_pool(builder, privileged_config.clone()).await?;
 
         Ok(Self {
@@ -194,7 +196,8 @@ impl<'pool, P: TokioPostgresPoolAssociation> PostgresBackend<'pool> for TokioPos
         config.dbname(db_name);
         config.user(db_name);
         config.password(db_name);
-        let builder = (self.create_restricted_pool)();
+        let manager = Manager::new(config.clone(), NoTls);
+        let builder = (self.create_restricted_pool)(manager);
         P::build_pool(builder, config).await
     }
 
@@ -297,7 +300,7 @@ mod tests {
             .host("localhost")
             .user("postgres")
             .password("postgres");
-        TokioPostgresBackend::new(config, Pool::builder, Pool::builder, {
+        TokioPostgresBackend::new(config, |_| Pool::builder(), |_| Pool::builder(), {
             move |conn| {
                 if with_table {
                     Box::pin(async move {

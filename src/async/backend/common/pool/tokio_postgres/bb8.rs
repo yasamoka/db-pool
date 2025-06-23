@@ -26,8 +26,8 @@ type Manager = PostgresConnectionManager<NoTls>;
 ///         "host=localhost user=postgres password=postgres"
 ///             .parse::<Config>()
 ///             .unwrap(),
-///         || Pool::builder().max_size(10),
-///         || Pool::builder().max_size(2),
+///         |_| Pool::builder().max_size(10),
+///         |_| Pool::builder().max_size(2),
 ///         move |conn| {
 ///             Box::pin(async move {
 ///                 conn.execute(

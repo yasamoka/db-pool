@@ -16,8 +16,8 @@ pub use common::pool::diesel::deadpool::DieselDeadpool;
 pub use common::pool::diesel::mobc::DieselMobc;
 #[cfg(feature = "tokio-postgres-bb8")]
 pub use common::pool::tokio_postgres::bb8::TokioPostgresBb8;
-// #[cfg(feature = "tokio-postgres-deadpool")]
-// pub use common::pool::tokio_postgres::deadpool::TokioPostgresDeadpool;
+#[cfg(feature = "tokio-postgres-deadpool")]
+pub use common::pool::tokio_postgres::deadpool::TokioPostgresDeadpool;
 #[cfg(feature = "tokio-postgres-mobc")]
 pub use common::pool::tokio_postgres::mobc::TokioPostgresMobc;
 #[cfg(feature = "diesel-async-mysql")]

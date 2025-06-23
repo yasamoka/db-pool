@@ -230,6 +230,11 @@ required-features = ["sqlx-postgres", "sqlx/runtime-tokio"]
 test = true
 
 [[example]]
-name = "tokio_postgres"
+name = "tokio_postgres_bb8"
 required-features = ["tokio-postgres", "tokio-postgres-bb8"]
+test = true
+
+[[example]]
+name = "tokio_postgres_deadpool"
+required-features = ["tokio-postgres", "tokio-postgres-deadpool"]
 test = true
