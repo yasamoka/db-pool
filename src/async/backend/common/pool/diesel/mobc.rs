@@ -35,8 +35,8 @@ type DieselManager<Connection> = AsyncDieselConnectionManager<Connection>;
 ///
 ///     let backend = DieselAsyncPostgresBackend::<DieselMobc>::new(
 ///         config,
-///         || Pool::builder().max_open(10),
-///         || Pool::builder().max_open(2),
+///         |_| Pool::builder().max_open(10),
+///         |_| Pool::builder().max_open(2),
 ///         None,
 ///         move |mut conn| {
 ///             Box::pin(async {
