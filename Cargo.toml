@@ -190,8 +190,13 @@ required-features = ["diesel-async-postgres", "diesel-async-bb8"]
 test = true
 
 [[example]]
-name = "diesel_async_mysql"
+name = "diesel_async_mysql_bb8"
 required-features = ["diesel-async-mysql", "diesel-async-bb8"]
+test = true
+
+[[example]]
+name = "diesel_async_mysql_deadpool"
+required-features = ["diesel-async-mysql", "diesel-async-deadpool"]
 test = true
 
 [[example]]

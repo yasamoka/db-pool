@@ -1,9 +1,14 @@
+use std::ops::DerefMut;
+
 use async_trait::async_trait;
-use deadpool::managed::{BuildError, Object, Pool, PoolBuilder, PoolError as DeadpoolPoolError};
+use deadpool::managed::{
+    BuildError, Manager as DeadpoolManager, Object, Pool, PoolBuilder,
+    PoolError as DeadpoolPoolError,
+};
 use diesel::{ConnectionError, result::Error as DieselError};
 use diesel_async::{
-    AsyncPgConnection,
-    pooled_connection::{AsyncDieselConnectionManager, PoolError},
+    AsyncConnection,
+    pooled_connection::{AsyncDieselConnectionManager, PoolError as DieselPoolError},
 };
 
 use crate::r#async::backend::error::Error as BackendError;
@@ -16,18 +21,25 @@ type DieselManager<Connection> = AsyncDieselConnectionManager<Connection>;
 pub struct DieselDeadpool;
 
 #[async_trait]
-impl DieselPoolAssociation<AsyncPgConnection> for DieselDeadpool {
-    type PooledConnection<'pool> = Object<DieselManager<AsyncPgConnection>>;
+impl<Connection> DieselPoolAssociation<Connection> for DieselDeadpool
+where
+    Connection: AsyncConnection + 'static,
+    DieselManager<Connection>: DeadpoolManager,
+    for<'pool> Object<DieselManager<Connection>>: DerefMut<Target = Connection>,
+    DeadpoolPoolError<<DieselManager<Connection> as DeadpoolManager>::Error>:
+        Into<DeadpoolPoolError<DieselPoolError>>,
+{
+    type PooledConnection<'pool> = Object<DieselManager<Connection>>;
 
-    type Builder = PoolBuilder<DieselManager<AsyncPgConnection>>;
-    type Pool = Pool<DieselManager<AsyncPgConnection>>;
+    type Builder = PoolBuilder<DieselManager<Connection>>;
+    type Pool = Pool<DieselManager<Connection>>;
 
     type BuildError = BuildError;
-    type PoolError = DeadpoolPoolError<PoolError>;
+    type PoolError = DeadpoolPoolError<DieselPoolError>;
 
     async fn build_pool(
         builder: Self::Builder,
-        _: DieselManager<AsyncPgConnection>,
+        _: DieselManager<Connection>,
     ) -> Result<Self::Pool, Self::BuildError> {
         builder.build()
     }
@@ -35,22 +47,22 @@ impl DieselPoolAssociation<AsyncPgConnection> for DieselDeadpool {
     async fn get_connection<'pool>(
         pool: &'pool Self::Pool,
     ) -> Result<Self::PooledConnection<'pool>, Self::PoolError> {
-        pool.get().await
+        pool.get().await.map_err(Into::into)
     }
 }
 
 impl From<BuildError>
-    for BackendError<BuildError, DeadpoolPoolError<PoolError>, ConnectionError, DieselError>
+    for BackendError<BuildError, DeadpoolPoolError<DieselPoolError>, ConnectionError, DieselError>
 {
     fn from(value: BuildError) -> Self {
         Self::Build(value)
     }
 }
 
-impl From<DeadpoolPoolError<PoolError>>
-    for BackendError<BuildError, DeadpoolPoolError<PoolError>, ConnectionError, DieselError>
+impl From<DeadpoolPoolError<DieselPoolError>>
+    for BackendError<BuildError, DeadpoolPoolError<DieselPoolError>, ConnectionError, DieselError>
 {
-    fn from(value: DeadpoolPoolError<PoolError>) -> Self {
+    fn from(value: DeadpoolPoolError<DieselPoolError>) -> Self {
         Self::Pool(value)
     }
 }

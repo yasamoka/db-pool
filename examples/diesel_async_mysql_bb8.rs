@@ -6,20 +6,20 @@ mod tests {
 
     use bb8::Pool;
     use db_pool::{
+        PrivilegedMySQLConfig,
         r#async::{
             DatabasePool, DatabasePoolBuilderTrait, DieselAsyncMySQLBackend, DieselBb8,
             ReusableConnectionPool,
         },
-        PrivilegedMySQLConfig,
     };
-    use diesel::{insert_into, sql_query, table, Insertable, QueryDsl};
+    use diesel::{Insertable, QueryDsl, insert_into, sql_query, table};
     use diesel_async::RunQueryDsl;
     use dotenvy::dotenv;
     use tokio::sync::OnceCell;
     use tokio_shared_rt::test;
 
-    async fn get_connection_pool(
-    ) -> ReusableConnectionPool<'static, DieselAsyncMySQLBackend<DieselBb8>> {
+    async fn get_connection_pool()
+    -> ReusableConnectionPool<'static, DieselAsyncMySQLBackend<DieselBb8>> {
         static POOL: OnceCell<DatabasePool<DieselAsyncMySQLBackend<DieselBb8>>> =
             OnceCell::const_new();
 
@@ -31,8 +31,8 @@ mod tests {
 
                 let backend = DieselAsyncMySQLBackend::new(
                     config,
-                    || Pool::builder().max_size(10),
-                    || Pool::builder().max_size(2),
+                    |_| Pool::builder().max_size(10),
+                    |_| Pool::builder().max_size(2),
                     None,
                     move |mut conn| {
                         Box::pin(async move {
