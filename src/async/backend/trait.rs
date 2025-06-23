@@ -24,7 +24,6 @@ pub trait Backend: Sized + Send + Sync + 'static {
     async fn init(
         &self,
     ) -> Result<(), Error<Self::BuildError, Self::PoolError, Self::ConnectionError, Self::QueryError>>;
-    #[allow(clippy::complexity)]
 
     /// Creates a database
     async fn create(

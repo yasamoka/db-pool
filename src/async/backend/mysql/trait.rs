@@ -96,7 +96,7 @@ impl<'backend, 'pool, B: MySQLBackend<'pool>> MySQLBackendWrapper<'backend, 'poo
     }
 }
 
-impl<'backend, 'pool, B: MySQLBackend<'pool>> Deref for MySQLBackendWrapper<'backend, 'pool, B> {
+impl<'pool, B: MySQLBackend<'pool>> Deref for MySQLBackendWrapper<'_, 'pool, B> {
     type Target = B;
 
     fn deref(&self) -> &Self::Target {

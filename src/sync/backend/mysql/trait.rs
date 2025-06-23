@@ -54,7 +54,7 @@ impl<'a, B: MySQLBackend> MySQLBackendWrapper<'a, B> {
     }
 }
 
-impl<'a, B: MySQLBackend> Deref for MySQLBackendWrapper<'a, B> {
+impl<B: MySQLBackend> Deref for MySQLBackendWrapper<'_, B> {
     type Target = B;
 
     fn deref(&self) -> &Self::Target {
@@ -62,7 +62,7 @@ impl<'a, B: MySQLBackend> Deref for MySQLBackendWrapper<'a, B> {
     }
 }
 
-impl<'a, B: MySQLBackend> MySQLBackendWrapper<'a, B> {
+impl<B: MySQLBackend> MySQLBackendWrapper<'_, B> {
     pub(super) fn init(&self) -> Result<(), BackendError<B::ConnectionError, B::QueryError>> {
         // Drop previous databases if needed
         if self.get_drop_previous_databases() {

@@ -104,9 +104,7 @@ impl<'backend, 'pool, B: PostgresBackend<'pool>> PostgresBackendWrapper<'backend
     }
 }
 
-impl<'backend, 'pool, B: PostgresBackend<'pool>> Deref
-    for PostgresBackendWrapper<'backend, 'pool, B>
-{
+impl<'pool, B: PostgresBackend<'pool>> Deref for PostgresBackendWrapper<'_, 'pool, B> {
     type Target = B;
 
     fn deref(&self) -> &Self::Target {
@@ -227,7 +225,7 @@ where
 
             // Create entities as database-unrestricted user
             let _ = self.create_entities(conn).await;
-        };
+        }
 
         // Create connection pool with attached role
         let pool = self

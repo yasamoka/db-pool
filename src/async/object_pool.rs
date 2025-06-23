@@ -61,7 +61,7 @@ impl<'a, T> Reusable<'a, T> {
 
 const DATA_MUST_CONTAIN_SOME: &str = "data must always contain a [Some] value";
 
-impl<'a, T> Deref for Reusable<'a, T> {
+impl<T> Deref for Reusable<'_, T> {
     type Target = T;
 
     #[inline]
@@ -70,14 +70,14 @@ impl<'a, T> Deref for Reusable<'a, T> {
     }
 }
 
-impl<'a, T> DerefMut for Reusable<'a, T> {
+impl<T> DerefMut for Reusable<'_, T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.data.as_mut().expect(DATA_MUST_CONTAIN_SOME)
     }
 }
 
-impl<'a, T> Drop for Reusable<'a, T> {
+impl<T> Drop for Reusable<'_, T> {
     #[inline]
     fn drop(&mut self) {
         self.pool

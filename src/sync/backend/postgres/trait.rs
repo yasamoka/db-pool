@@ -70,7 +70,7 @@ impl<'a, B: PostgresBackend> PostgresBackendWrapper<'a, B> {
     }
 }
 
-impl<'a, B: PostgresBackend> Deref for PostgresBackendWrapper<'a, B> {
+impl<B: PostgresBackend> Deref for PostgresBackendWrapper<'_, B> {
     type Target = B;
 
     fn deref(&self) -> &Self::Target {
@@ -78,7 +78,7 @@ impl<'a, B: PostgresBackend> Deref for PostgresBackendWrapper<'a, B> {
     }
 }
 
-impl<'a, B: PostgresBackend> PostgresBackendWrapper<'a, B> {
+impl<B: PostgresBackend> PostgresBackendWrapper<'_, B> {
     pub(super) fn init(&self) -> Result<(), BackendError<B::ConnectionError, B::QueryError>> {
         // Drop previous databases if needed
         if self.get_drop_previous_databases() {

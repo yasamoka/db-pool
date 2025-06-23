@@ -29,13 +29,13 @@ impl DieselPoolAssociation<AsyncPgConnection> for DieselDeadpool {
         builder: Self::Builder,
         _: DieselManager<AsyncPgConnection>,
     ) -> Result<Self::Pool, Self::BuildError> {
-        builder.build().map_err(Into::into)
+        builder.build()
     }
 
     async fn get_connection<'pool>(
         pool: &'pool Self::Pool,
     ) -> Result<Self::PooledConnection<'pool>, Self::PoolError> {
-        pool.get().await.map_err(Into::into)
+        pool.get().await
     }
 }
 
