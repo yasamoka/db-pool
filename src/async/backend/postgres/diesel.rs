@@ -98,10 +98,13 @@ impl<P: DieselPoolAssociation<AsyncPgConnection>> DieselAsyncPostgresBackend<P> 
         + Sync
         + 'static,
     ) -> Result<Self, P::BuildError> {
-        fn create_connection_manager(
-            privileged_config: &PrivilegedPostgresConfig,
-            create_connection: &(impl Fn() -> SetupCallback<AsyncPgConnection> + Send + Sync + 'static),
-        ) -> AsyncDieselConnectionManager<AsyncPgConnection> {
+        let create_connection = custom_create_connection.unwrap_or_else(|| {
+            Box::new(|| {
+                Box::new(|connection_url| AsyncPgConnection::establish(connection_url).boxed())
+            })
+        });
+
+        let manager = || {
             let manager_config = {
                 let mut config = ManagerConfig::default();
                 config.custom_setup = Box::new(create_connection());
@@ -111,26 +114,13 @@ impl<P: DieselPoolAssociation<AsyncPgConnection>> DieselAsyncPostgresBackend<P> 
                 privileged_config.default_connection_url(),
                 manager_config,
             )
-        }
-
-        let create_connection = custom_create_connection.unwrap_or_else(|| {
-            Box::new(|| {
-                Box::new(|connection_url| AsyncPgConnection::establish(connection_url).boxed())
-            })
-        });
+        };
 
         // Both create and build functions take manager value as a parameter,
         // but only one should actually use it (depends on the particular connection pool API)
-        let builder = create_privileged_pool(create_connection_manager(
-            &privileged_config,
-            &create_connection,
-        ));
+        let builder = create_privileged_pool(manager());
 
-        let default_pool = P::build_pool(
-            builder,
-            create_connection_manager(&privileged_config, &create_connection),
-        )
-        .await?;
+        let default_pool = P::build_pool(builder, manager()).await?;
 
         Ok(Self {
             privileged_config,
@@ -249,21 +239,6 @@ impl<'pool, P: DieselPoolAssociation<AsyncPgConnection>> PostgresBackend<'pool>
     }
 
     async fn create_connection_pool(&self, db_id: Uuid) -> Result<P::Pool, P::BuildError> {
-        fn create_connection_manager(
-            database_url: &str,
-            create_connection: &(impl Fn() -> SetupCallback<AsyncPgConnection> + Send + Sync + 'static),
-        ) -> AsyncDieselConnectionManager<AsyncPgConnection> {
-            let manager_config = {
-                let mut config = ManagerConfig::default();
-                config.custom_setup = Box::new((create_connection)());
-                config
-            };
-            AsyncDieselConnectionManager::<AsyncPgConnection>::new_with_config(
-                database_url,
-                manager_config,
-            )
-        }
-
         let db_name = get_db_name(db_id);
         let db_name = db_name.as_str();
         let database_url = self.privileged_config.restricted_database_connection_url(
@@ -272,18 +247,25 @@ impl<'pool, P: DieselPoolAssociation<AsyncPgConnection>> PostgresBackend<'pool>
             db_name,
         );
 
+        let manager = {
+            || {
+                let manager_config = {
+                    let mut config = ManagerConfig::default();
+                    config.custom_setup = Box::new((self.create_connection)());
+                    config
+                };
+                AsyncDieselConnectionManager::<AsyncPgConnection>::new_with_config(
+                    database_url.clone(),
+                    manager_config,
+                )
+            }
+        };
+
         // Both create and build functions take manager value as a parameter,
         // but only one should actually use it (depends on the particular connection pool API)
-        let builder = (self.create_restricted_pool)(create_connection_manager(
-            database_url.as_str(),
-            &self.create_connection,
-        ));
+        let builder = (self.create_restricted_pool)(manager());
 
-        P::build_pool(
-            builder,
-            create_connection_manager(database_url.as_str(), &self.create_connection),
-        )
-        .await
+        P::build_pool(builder, manager()).await
     }
 
     async fn get_table_names(
