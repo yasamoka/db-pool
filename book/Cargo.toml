@@ -8,19 +8,19 @@ edition = "2021"
 [dependencies]
 
 [dev-dependencies]
-bb8 = "0.8.5"
+bb8 = "0.8.6"
 bb8-postgres = "0.8.1"
 db-pool = { path = "..", package = "db-pool", features = [
     "diesel-postgres",
     "diesel-async-postgres",
     "diesel-async-bb8",
 ] }
-diesel = { version = "2.2.4", features = ["mysql", "postgres", "r2d2"] }
-diesel-async = { version = "0.5.0", features = ["bb8", "mysql", "postgres"] }
+diesel = { version = "2.2.11", features = ["mysql", "postgres", "r2d2"] }
+diesel-async = { version = "0.5.2", features = ["bb8", "mysql", "postgres"] }
 dotenvy = "0.15.7"
-futures = "0.3.30"
+futures = "0.3.31"
 r2d2 = "0.8.10"
-tokio = { version = "1.40.0", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.45.1", features = ["macros", "rt-multi-thread"] }
 tokio-shared-rt = "0.1.0"
 
 

@@ -20,53 +20,53 @@ all-features = true
 
 
 [dependencies]
-async-trait = { version = "0.1.77", optional = true }
-bb8 = { version = "0.8.5", optional = true }
+async-trait = { version = "0.1.88", optional = true }
+bb8 = { version = "0.8.6", optional = true }
 bb8-postgres = { version = "0.8.1", optional = true }
 deadpool = { version = "0.12.2", optional = true }
-deadpool-postgres = { version = "0.14.0", optional = true }
-diesel = { version = "2.2.4", optional = true }
-diesel-async = { version = "0.5.0", optional = true }
-futures = { version = "0.3.30", optional = true }
-mobc = { version = "0.8.4", optional = true }
+deadpool-postgres = { version = "0.14.1", optional = true }
+diesel = { version = "2.2.11", optional = true }
+diesel-async = { version = "0.5.2", optional = true }
+futures = { version = "0.3.31", optional = true }
+mobc = { version = "0.8.5", optional = true }
 mobc-postgres = { version = "0.8.0", optional = true }
-parking_lot = "0.12.3"
+parking_lot = "0.12.4"
 r2d2 = { version = "0.8.10", optional = true }
 r2d2_mysql = { version = "25.0.0", optional = true }
-r2d2_postgres = { version = "0.18.1", optional = true }
-sea-orm = { version = "1.0.1", features = ["runtime-tokio"], optional = true }
-sqlx = { version = "0.8.2", default-features = false, features = [
+r2d2_postgres = { version = "0.18.2", optional = true }
+sea-orm = { version = "1.1.12", features = ["runtime-tokio"], optional = true }
+sqlx = { version = "0.8.6", default-features = false, features = [
     "macros",
     "runtime-tokio",
 ], optional = true }
-tokio = { version = "1.36.0", optional = true }
-tokio-postgres = { version = "0.7.10", optional = true }
-uuid = { version = "1.10.0", features = ["v4"] }
+tokio = { version = "1.45.1", optional = true }
+tokio-postgres = { version = "0.7.13", optional = true }
+uuid = { version = "1.17.0", features = ["v4"] }
 
 
 [dev-dependencies]
-async-graphql = "7.0.9"
-async-graphql-poem = "7.0.9"
-bb8 = "0.8.3"
+async-graphql = "7.0.17"
+async-graphql-poem = "7.0.17"
+bb8 = "0.8.6"
 bb8-postgres = "0.8.1"
-diesel = { version = "2.2.4", features = ["mysql", "postgres", "r2d2"] }
-diesel-async = { version = "0.5.0", features = ["bb8", "mysql", "postgres"] }
+diesel = { version = "2.2.11", features = ["mysql", "postgres", "r2d2"] }
+diesel-async = { version = "0.5.2", features = ["bb8", "mysql", "postgres"] }
 diesel_async_migrations = "0.15.0"
 dotenvy = "0.15.7"
-futures = "0.3.30"
+futures = "0.3.31"
 mysql = "25.0.1"
-poem = "3.0.4"
-postgres = "0.19.8"
+poem = "3.1.11"
+postgres = "0.19.10"
 r2d2 = "0.8.10"
-serde = "1.0.209"
-serde_json = "1.0.128"
-sqlx = { version = "0.8.2", default-features = false, features = [
+serde = "1.0.219"
+serde_json = "1.0.140"
+sqlx = { version = "0.8.6", default-features = false, features = [
     "mysql",
     "postgres",
     "runtime-tokio",
 ] }
-tokio = { version = "1.36.0", features = ["macros", "rt-multi-thread"] }
-tokio-postgres = "0.7.10"
+tokio = { version = "1.45.1", features = ["macros", "rt-multi-thread"] }
+tokio-postgres = "0.7.13"
 tokio-shared-rt = "0.1.0"
 tokio-test = "0.4.4"
 
