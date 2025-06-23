@@ -10,8 +10,8 @@ pub(crate) use error::Error;
 
 #[cfg(feature = "diesel-async-bb8")]
 pub use common::pool::diesel::bb8::DieselBb8;
-// #[cfg(feature = "diesel-async-deadpool")]
-// pub use common::pool::diesel::deadpool::DieselDeadpool;
+#[cfg(feature = "diesel-async-deadpool")]
+pub use common::pool::diesel::deadpool::DieselDeadpool;
 #[cfg(feature = "diesel-async-mobc")]
 pub use common::pool::diesel::mobc::DieselMobc;
 #[cfg(feature = "tokio-postgres-bb8")]

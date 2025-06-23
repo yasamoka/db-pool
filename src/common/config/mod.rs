@@ -6,6 +6,7 @@
 ))]
 pub(crate) mod mysql;
 #[cfg(any(
+    test,
     feature = "diesel-postgres",
     feature = "diesel-async-postgres",
     feature = "sea-orm-postgres"

@@ -22,13 +22,12 @@ impl DieselPoolAssociation<AsyncPgConnection> for DieselDeadpool {
     type Builder = PoolBuilder<DieselManager<AsyncPgConnection>>;
     type Pool = Pool<DieselManager<AsyncPgConnection>>;
 
-    type BuildError = BuildError<PoolError>;
+    type BuildError = BuildError;
     type PoolError = DeadpoolPoolError<PoolError>;
 
     async fn build_pool(
         builder: Self::Builder,
-        // TODO: add builder wrapper
-        _manager: DieselManager<AsyncPgConnection>,
+        _: DieselManager<AsyncPgConnection>,
     ) -> Result<Self::Pool, Self::BuildError> {
         builder.build().map_err(Into::into)
     }
@@ -40,26 +39,16 @@ impl DieselPoolAssociation<AsyncPgConnection> for DieselDeadpool {
     }
 }
 
-impl From<BuildError<PoolError>>
-    for BackendError<
-        BuildError<PoolError>,
-        DeadpoolPoolError<PoolError>,
-        ConnectionError,
-        DieselError,
-    >
+impl From<BuildError>
+    for BackendError<BuildError, DeadpoolPoolError<PoolError>, ConnectionError, DieselError>
 {
-    fn from(value: BuildError<PoolError>) -> Self {
+    fn from(value: BuildError) -> Self {
         Self::Build(value)
     }
 }
 
 impl From<DeadpoolPoolError<PoolError>>
-    for BackendError<
-        BuildError<PoolError>,
-        DeadpoolPoolError<PoolError>,
-        ConnectionError,
-        DieselError,
-    >
+    for BackendError<BuildError, DeadpoolPoolError<PoolError>, ConnectionError, DieselError>
 {
     fn from(value: DeadpoolPoolError<PoolError>) -> Self {
         Self::Pool(value)

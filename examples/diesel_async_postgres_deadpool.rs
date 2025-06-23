@@ -4,14 +4,14 @@ fn main() {}
 mod tests {
     #![allow(clippy::needless_return)]
 
-    use bb8::Pool;
     use db_pool::{
         r#async::{
-            DatabasePool, DatabasePoolBuilderTrait, DieselAsyncPostgresBackend, DieselBb8,
+            DatabasePool, DatabasePoolBuilderTrait, DieselAsyncPostgresBackend, DieselDeadpool,
             ReusableConnectionPool,
         },
         PrivilegedPostgresConfig,
     };
+    use deadpool::managed::Pool;
     use diesel::{insert_into, sql_query, table, Insertable, QueryDsl};
     use diesel_async::RunQueryDsl;
     use dotenvy::dotenv;
@@ -19,8 +19,8 @@ mod tests {
     use tokio_shared_rt::test;
 
     async fn get_connection_pool(
-    ) -> ReusableConnectionPool<'static, DieselAsyncPostgresBackend<DieselBb8>> {
-        static POOL: OnceCell<DatabasePool<DieselAsyncPostgresBackend<DieselBb8>>> =
+    ) -> ReusableConnectionPool<'static, DieselAsyncPostgresBackend<DieselDeadpool>> {
+        static POOL: OnceCell<DatabasePool<DieselAsyncPostgresBackend<DieselDeadpool>>> =
             OnceCell::const_new();
 
         let db_pool = POOL
@@ -31,8 +31,8 @@ mod tests {
 
                 let backend = DieselAsyncPostgresBackend::new(
                     config,
-                    |_| Pool::builder().max_size(10),
-                    |_| Pool::builder().max_size(2),
+                    |manager| Pool::builder(manager).max_size(10),
+                    |manager| Pool::builder(manager).max_size(2),
                     None,
                     move |mut conn| {
                         Box::pin(async {

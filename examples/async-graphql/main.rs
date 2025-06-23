@@ -170,8 +170,8 @@ mod tests {
 
                 let backend = DieselAsyncPostgresBackend::new(
                     config,
-                    || Pool::builder().max_size(10),
-                    || Pool::builder().max_size(1).test_on_check_out(true),
+                    |_| Pool::builder().max_size(10),
+                    |_| Pool::builder().max_size(1).test_on_check_out(true),
                     None,
                     move |mut conn| {
                         Box::pin(async move {

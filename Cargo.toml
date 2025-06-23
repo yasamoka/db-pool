@@ -23,7 +23,7 @@ all-features = true
 async-trait = { version = "0.1.77", optional = true }
 bb8 = { version = "0.8.5", optional = true }
 bb8-postgres = { version = "0.8.1", optional = true }
-deadpool = { version = "0.9.5", optional = true }
+deadpool = { version = "0.12.2", optional = true }
 deadpool-postgres = { version = "0.14.0", optional = true }
 diesel = { version = "2.2.4", optional = true }
 diesel-async = { version = "0.5.0", optional = true }
@@ -197,6 +197,11 @@ test = true
 [[example]]
 name = "diesel_async_postgres"
 required-features = ["diesel-async-postgres", "diesel-async-bb8"]
+test = true
+
+[[example]]
+name = "diesel_async_postgres_deadpool"
+required-features = ["diesel-async-postgres", "diesel-async-deadpool"]
 test = true
 
 [[example]]

@@ -30,7 +30,12 @@ pub struct DieselAsyncPostgresBackend<P: DieselPoolAssociation<AsyncPgConnection
     privileged_config: PrivilegedPostgresConfig,
     default_pool: P::Pool,
     db_conns: Mutex<HashMap<Uuid, AsyncPgConnection>>,
-    create_restricted_pool: Box<dyn Fn() -> P::Builder + Send + Sync + 'static>,
+    create_restricted_pool: Box<
+        dyn Fn(AsyncDieselConnectionManager<AsyncPgConnection>) -> P::Builder
+            + Send
+            + Sync
+            + 'static,
+    >,
     create_connection: Box<dyn Fn() -> SetupCallback<AsyncPgConnection> + Send + Sync + 'static>,
     create_entities: Box<CreateEntities>,
     drop_previous_databases_flag: bool,
@@ -56,8 +61,8 @@ impl<P: DieselPoolAssociation<AsyncPgConnection>> DieselAsyncPostgresBackend<P> 
     ///
     ///     let backend = DieselAsyncPostgresBackend::<DieselBb8>::new(
     ///         config,
-    ///         || Pool::builder().max_size(10),
-    ///         || Pool::builder().max_size(2),
+    ///         |_| Pool::builder().max_size(10),
+    ///         |_| Pool::builder().max_size(2),
     ///         None,
     ///         move |mut conn| {
     ///             Box::pin(async {
@@ -77,8 +82,11 @@ impl<P: DieselPoolAssociation<AsyncPgConnection>> DieselAsyncPostgresBackend<P> 
     /// ```
     pub async fn new(
         privileged_config: PrivilegedPostgresConfig,
-        create_privileged_pool: impl Fn() -> P::Builder,
-        create_restricted_pool: impl Fn() -> P::Builder + Send + Sync + 'static,
+        create_privileged_pool: impl Fn(AsyncDieselConnectionManager<AsyncPgConnection>) -> P::Builder,
+        create_restricted_pool: impl Fn(AsyncDieselConnectionManager<AsyncPgConnection>) -> P::Builder
+            + Send
+            + Sync
+            + 'static,
         custom_create_connection: Option<
             Box<dyn Fn() -> SetupCallback<AsyncPgConnection> + Send + Sync + 'static>,
         >,
@@ -89,23 +97,39 @@ impl<P: DieselPoolAssociation<AsyncPgConnection>> DieselAsyncPostgresBackend<P> 
             + Sync
             + 'static,
     ) -> Result<Self, P::BuildError> {
+        fn create_connection_manager(
+            privileged_config: &PrivilegedPostgresConfig,
+            create_connection: &(impl Fn() -> SetupCallback<AsyncPgConnection> + Send + Sync + 'static),
+        ) -> AsyncDieselConnectionManager<AsyncPgConnection> {
+            let manager_config = {
+                let mut config = ManagerConfig::default();
+                config.custom_setup = Box::new(create_connection());
+                config
+            };
+            AsyncDieselConnectionManager::new_with_config(
+                privileged_config.default_connection_url(),
+                manager_config,
+            )
+        }
+
         let create_connection = custom_create_connection.unwrap_or_else(|| {
             Box::new(|| {
                 Box::new(|connection_url| AsyncPgConnection::establish(connection_url).boxed())
             })
         });
 
-        let manager_config = {
-            let mut config = ManagerConfig::default();
-            config.custom_setup = Box::new(create_connection());
-            config
-        };
-        let manager = AsyncDieselConnectionManager::new_with_config(
-            privileged_config.default_connection_url(),
-            manager_config,
-        );
-        let builder = create_privileged_pool();
-        let default_pool = P::build_pool(builder, manager).await?;
+        // Both create and build functions take manager value as a paramater,
+        // but only one should actually use it (depends on the particular connection pool API)
+        let builder = create_privileged_pool(create_connection_manager(
+            &privileged_config,
+            &create_connection,
+        ));
+
+        let default_pool = P::build_pool(
+            builder,
+            create_connection_manager(&privileged_config, &create_connection),
+        )
+        .await?;
 
         Ok(Self {
             privileged_config,
@@ -224,6 +248,21 @@ impl<'pool, P: DieselPoolAssociation<AsyncPgConnection>> PostgresBackend<'pool>
     }
 
     async fn create_connection_pool(&self, db_id: Uuid) -> Result<P::Pool, P::BuildError> {
+        fn create_connection_manager(
+            database_url: &str,
+            create_connection: &(impl Fn() -> SetupCallback<AsyncPgConnection> + Send + Sync + 'static),
+        ) -> AsyncDieselConnectionManager<AsyncPgConnection> {
+            let manager_config = {
+                let mut config = ManagerConfig::default();
+                config.custom_setup = Box::new((create_connection)());
+                config
+            };
+            AsyncDieselConnectionManager::<AsyncPgConnection>::new_with_config(
+                database_url,
+                manager_config,
+            )
+        }
+
         let db_name = get_db_name(db_id);
         let db_name = db_name.as_str();
         let database_url = self.privileged_config.restricted_database_connection_url(
@@ -231,17 +270,19 @@ impl<'pool, P: DieselPoolAssociation<AsyncPgConnection>> PostgresBackend<'pool>
             Some(db_name),
             db_name,
         );
-        let manager_config = {
-            let mut config = ManagerConfig::default();
-            config.custom_setup = Box::new((self.create_connection)());
-            config
-        };
-        let manager = AsyncDieselConnectionManager::<AsyncPgConnection>::new_with_config(
+
+        // Both create and build functions take manager value as a parameter,
+        // but only one should actually use it (depends on the particular connection pool API)
+        let builder = (self.create_restricted_pool)(create_connection_manager(
             database_url.as_str(),
-            manager_config,
-        );
-        let builder = (self.create_restricted_pool)();
-        P::build_pool(builder, manager).await
+            &self.create_connection,
+        ));
+
+        P::build_pool(
+            builder,
+            create_connection_manager(database_url.as_str(), &self.create_connection),
+        )
+        .await
     }
 
     async fn get_table_names(
@@ -367,7 +408,7 @@ mod tests {
 
         let config = PrivilegedPostgresConfig::from_env().unwrap();
 
-        DieselAsyncPostgresBackend::new(config, Pool::builder, Pool::builder, None, {
+        DieselAsyncPostgresBackend::new(config, |_| Pool::builder(), |_| Pool::builder(), None, {
             move |mut conn| {
                 if with_table {
                     Box::pin(async move {
