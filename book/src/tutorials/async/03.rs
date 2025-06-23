@@ -29,9 +29,9 @@ mod tests {
                 let backend = DieselAsyncPostgresBackend::<DieselBb8>::new(
                     config,
                     // create privileged connection pool with max 10 connections
-                    || Pool::builder().max_size(10),
+                    |_| Pool::builder().max_size(10),
                     // create restricted connection pool with max 2 connections
-                    || Pool::builder().max_size(2),
+                    |_| Pool::builder().max_size(2),
                     // no custom create connection
                     None,
                     // create entities
