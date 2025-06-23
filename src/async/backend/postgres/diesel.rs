@@ -118,7 +118,7 @@ impl<P: DieselPoolAssociation<AsyncPgConnection>> DieselAsyncPostgresBackend<P> 
             })
         });
 
-        // Both create and build functions take manager value as a paramater,
+        // Both create and build functions take manager value as a parameter,
         // but only one should actually use it (depends on the particular connection pool API)
         let builder = create_privileged_pool(create_connection_manager(
             &privileged_config,
