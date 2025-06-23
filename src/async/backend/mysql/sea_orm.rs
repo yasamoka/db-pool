@@ -32,7 +32,7 @@ type CreateEntities = dyn Fn(DatabaseConnection) -> Pin<Box<dyn Future<Output = 
     + Sync
     + 'static;
 
-/// [`SeaORM MySQL`](https://docs.rs/sea-orm/1.0.1/sea_orm/type.DbBackend.html#variant.MySql) backend
+/// [`SeaORM MySQL`](https://docs.rs/sea-orm/1.1.12/sea_orm/type.DbBackend.html#variant.MySql) backend
 pub struct SeaORMMySQLBackend {
     privileged_config: PrivilegedMySQLConfig,
     default_pool: DatabaseConnection,
@@ -42,7 +42,7 @@ pub struct SeaORMMySQLBackend {
 }
 
 impl SeaORMMySQLBackend {
-    /// Creates a new [`SeaORM MySQL`](https://docs.rs/sea-orm/1.0.1/sea_orm/type.DbBackend.html#variant.MySql) backend
+    /// Creates a new [`SeaORM MySQL`](https://docs.rs/sea-orm/1.1.12/sea_orm/type.DbBackend.html#variant.MySql) backend
     /// # Example
     /// ```
     /// use db_pool::{r#async::SeaORMMySQLBackend, PrivilegedMySQLConfig};
@@ -82,10 +82,12 @@ impl SeaORMMySQLBackend {
         privileged_config: PrivilegedMySQLConfig,
         create_privileged_pool: impl for<'tmp> Fn(&'tmp mut ConnectOptions),
         create_restricted_pool: impl for<'tmp> Fn(&'tmp mut ConnectOptions) + Send + Sync + 'static,
-        create_entities: impl Fn(DatabaseConnection) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>>
-            + Send
-            + Sync
-            + 'static,
+        create_entities: impl Fn(
+            DatabaseConnection,
+        ) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>>
+        + Send
+        + Sync
+        + 'static,
     ) -> Result<Self, DbErr> {
         let mut opts = ConnectOptions::new(privileged_config.default_connection_url());
         create_privileged_pool(&mut opts);
@@ -304,9 +306,6 @@ mod tests {
     use tokio_shared_rt::test;
 
     use crate::{
-        common::statement::mysql::tests::{
-            CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
-        },
         r#async::{
             backend::mysql::r#trait::tests::{
                 test_backend_creates_database_with_unrestricted_privileges,
@@ -315,15 +314,18 @@ mod tests {
             },
             db_pool::DatabasePoolBuilder,
         },
+        common::statement::mysql::tests::{
+            CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
+        },
         tests::get_privileged_mysql_config,
     };
 
     use super::{
         super::r#trait::tests::{
-            test_backend_cleans_database_with_tables, test_backend_cleans_database_without_tables,
+            MySQLDropLock, test_backend_cleans_database_with_tables,
+            test_backend_cleans_database_without_tables,
             test_backend_creates_database_with_restricted_privileges, test_backend_drops_database,
             test_backend_drops_previous_databases, test_pool_drops_previous_databases,
-            MySQLDropLock,
         },
         SeaORMMySQLBackend,
     };

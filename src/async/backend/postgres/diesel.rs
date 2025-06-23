@@ -1,12 +1,12 @@
 use std::{borrow::Cow, collections::HashMap, pin::Pin};
 
 use async_trait::async_trait;
-use diesel::{prelude::*, result::Error, sql_query, table, ConnectionError};
+use diesel::{ConnectionError, prelude::*, result::Error, sql_query, table};
 use diesel_async::{
-    pooled_connection::{AsyncDieselConnectionManager, ManagerConfig, SetupCallback},
     AsyncConnection, AsyncPgConnection, RunQueryDsl, SimpleAsyncConnection,
+    pooled_connection::{AsyncDieselConnectionManager, ManagerConfig, SetupCallback},
 };
-use futures::{future::FutureExt, Future};
+use futures::{Future, future::FutureExt};
 use parking_lot::Mutex;
 use uuid::Uuid;
 
@@ -25,7 +25,7 @@ type CreateEntities = dyn Fn(AsyncPgConnection) -> Pin<Box<dyn Future<Output = A
     + Sync
     + 'static;
 
-/// [`Diesel async Postgres`](https://docs.rs/diesel-async/0.5.0/diesel_async/struct.AsyncPgConnection.html) backend
+/// [`Diesel async Postgres`](https://docs.rs/diesel-async/0.5.2/diesel_async/struct.AsyncPgConnection.html) backend
 pub struct DieselAsyncPostgresBackend<P: DieselPoolAssociation<AsyncPgConnection>> {
     privileged_config: PrivilegedPostgresConfig,
     default_pool: P::Pool,
@@ -42,7 +42,7 @@ pub struct DieselAsyncPostgresBackend<P: DieselPoolAssociation<AsyncPgConnection
 }
 
 impl<P: DieselPoolAssociation<AsyncPgConnection>> DieselAsyncPostgresBackend<P> {
-    /// Creates a new [`Diesel async Postgres`](https://docs.rs/diesel-async/0.5.0/diesel_async/struct.AsyncPgConnection.html) backend
+    /// Creates a new [`Diesel async Postgres`](https://docs.rs/diesel-async/0.5.2/diesel_async/struct.AsyncPgConnection.html) backend
     /// # Example
     /// ```
     /// use bb8::Pool;
@@ -84,18 +84,19 @@ impl<P: DieselPoolAssociation<AsyncPgConnection>> DieselAsyncPostgresBackend<P> 
         privileged_config: PrivilegedPostgresConfig,
         create_privileged_pool: impl Fn(AsyncDieselConnectionManager<AsyncPgConnection>) -> P::Builder,
         create_restricted_pool: impl Fn(AsyncDieselConnectionManager<AsyncPgConnection>) -> P::Builder
-            + Send
-            + Sync
-            + 'static,
+        + Send
+        + Sync
+        + 'static,
         custom_create_connection: Option<
             Box<dyn Fn() -> SetupCallback<AsyncPgConnection> + Send + Sync + 'static>,
         >,
         create_entities: impl Fn(
-                AsyncPgConnection,
-            ) -> Pin<Box<dyn Future<Output = AsyncPgConnection> + Send + 'static>>
-            + Send
-            + Sync
-            + 'static,
+            AsyncPgConnection,
+        )
+            -> Pin<Box<dyn Future<Output = AsyncPgConnection> + Send + 'static>>
+        + Send
+        + Sync
+        + 'static,
     ) -> Result<Self, P::BuildError> {
         fn create_connection_manager(
             privileged_config: &PrivilegedPostgresConfig,
@@ -356,19 +357,13 @@ mod tests {
     use std::borrow::Cow;
 
     use bb8::Pool;
-    use diesel::{insert_into, sql_query, table, Insertable, QueryDsl};
+    use diesel::{Insertable, QueryDsl, insert_into, sql_query, table};
     use diesel_async::{RunQueryDsl, SimpleAsyncConnection};
     use dotenvy::dotenv;
     use futures::future::join_all;
     use tokio_shared_rt::test;
 
     use crate::{
-        common::{
-            config::PrivilegedPostgresConfig,
-            statement::postgres::tests::{
-                CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
-            },
-        },
         r#async::{
             backend::{
                 common::pool::diesel::bb8::DieselBb8,
@@ -376,16 +371,22 @@ mod tests {
             },
             db_pool::DatabasePoolBuilder,
         },
+        common::{
+            config::PrivilegedPostgresConfig,
+            statement::postgres::tests::{
+                CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
+            },
+        },
     };
 
     use super::{
         super::r#trait::tests::{
-            test_backend_cleans_database_with_tables, test_backend_cleans_database_without_tables,
+            PgDropLock, test_backend_cleans_database_with_tables,
+            test_backend_cleans_database_without_tables,
             test_backend_creates_database_with_restricted_privileges,
             test_backend_creates_database_with_unrestricted_privileges,
             test_backend_drops_database, test_backend_drops_previous_databases,
             test_pool_drops_created_restricted_databases, test_pool_drops_previous_databases,
-            PgDropLock,
         },
         DieselAsyncPostgresBackend,
     };

@@ -1,9 +1,9 @@
 use async_trait::async_trait;
 use deadpool::managed::{BuildError, Object, Pool, PoolBuilder, PoolError as DeadpoolPoolError};
-use diesel::{result::Error as DieselError, ConnectionError};
+use diesel::{ConnectionError, result::Error as DieselError};
 use diesel_async::{
-    pooled_connection::{AsyncDieselConnectionManager, PoolError},
     AsyncPgConnection,
+    pooled_connection::{AsyncDieselConnectionManager, PoolError},
 };
 
 use crate::r#async::backend::error::Error as BackendError;
@@ -12,7 +12,7 @@ use super::r#trait::DieselPoolAssociation;
 
 type DieselManager<Connection> = AsyncDieselConnectionManager<Connection>;
 
-/// [`Diesel deadpool`](https://docs.rs/diesel-async/0.5.0/diesel_async/pooled_connection/deadpool/index.html) association
+/// [`Diesel deadpool`](https://docs.rs/diesel-async/0.5.2/diesel_async/pooled_connection/deadpool/index.html) association
 pub struct DieselDeadpool;
 
 #[async_trait]

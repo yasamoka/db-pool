@@ -3,9 +3,9 @@ use std::{borrow::Cow, pin::Pin};
 use async_trait::async_trait;
 use futures::Future;
 use sqlx::{
+    Connection, Executor, MySql, MySqlConnection, MySqlPool, Row,
     mysql::{MySqlConnectOptions, MySqlPoolOptions},
     pool::PoolConnection,
-    Connection, Executor, MySql, MySqlConnection, MySqlPool, Row,
 };
 use uuid::Uuid;
 
@@ -25,7 +25,7 @@ type CreateEntities = dyn Fn(MySqlConnection) -> Pin<Box<dyn Future<Output = ()>
     + Sync
     + 'static;
 
-/// [`sqlx MySQL`](https://docs.rs/sqlx/0.8.2/sqlx/struct.MySql.html) backend
+/// [`sqlx MySQL`](https://docs.rs/sqlx/0.8.6/sqlx/struct.MySql.html) backend
 pub struct SqlxMySQLBackend {
     privileged_opts: MySqlConnectOptions,
     default_pool: MySqlPool,
@@ -35,7 +35,7 @@ pub struct SqlxMySQLBackend {
 }
 
 impl SqlxMySQLBackend {
-    /// Creates a new [`sqlx MySQL`](https://docs.rs/sqlx/0.8.2/sqlx/struct.MySql.html) backend
+    /// Creates a new [`sqlx MySQL`](https://docs.rs/sqlx/0.8.6/sqlx/struct.MySql.html) backend
     /// # Example
     /// ```
     /// use db_pool::{r#async::SqlxMySQLBackend, PrivilegedMySQLConfig};
@@ -68,9 +68,9 @@ impl SqlxMySQLBackend {
         create_privileged_pool: impl Fn() -> MySqlPoolOptions,
         create_restricted_pool: impl Fn() -> MySqlPoolOptions + Send + Sync + 'static,
         create_entities: impl Fn(MySqlConnection) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>>
-            + Send
-            + Sync
-            + 'static,
+        + Send
+        + Sync
+        + 'static,
     ) -> Self {
         let pool_opts = create_privileged_pool();
         let default_pool = pool_opts.connect_lazy_with(privileged_options.clone());
@@ -224,31 +224,32 @@ impl Backend for SqlxMySQLBackend {
 mod tests {
     #![allow(clippy::unwrap_used, clippy::needless_return)]
 
-    use futures::{future::join_all, StreamExt};
+    use futures::{StreamExt, future::join_all};
     use sqlx::{
+        Executor, FromRow, Row,
         mysql::{MySqlConnectOptions, MySqlPoolOptions},
-        query, query_as, Executor, FromRow, Row,
+        query, query_as,
     };
     use tokio_shared_rt::test;
 
     use crate::{
-        common::statement::mysql::tests::{
-            CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
-        },
         r#async::{
             backend::mysql::r#trait::tests::test_backend_creates_database_with_unrestricted_privileges,
             db_pool::DatabasePoolBuilder,
+        },
+        common::statement::mysql::tests::{
+            CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
         },
         tests::get_privileged_mysql_config,
     };
 
     use super::{
         super::r#trait::tests::{
-            test_backend_cleans_database_with_tables, test_backend_cleans_database_without_tables,
+            MySQLDropLock, test_backend_cleans_database_with_tables,
+            test_backend_cleans_database_without_tables,
             test_backend_creates_database_with_restricted_privileges, test_backend_drops_database,
             test_backend_drops_previous_databases, test_pool_drops_created_restricted_databases,
             test_pool_drops_created_unrestricted_database, test_pool_drops_previous_databases,
-            MySQLDropLock,
         },
         SqlxMySQLBackend,
     };

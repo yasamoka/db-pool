@@ -1,10 +1,10 @@
 use std::ops::{Deref, DerefMut};
 
 use async_trait::async_trait;
-use diesel::{result::Error as DieselError, ConnectionError};
+use diesel::{ConnectionError, result::Error as DieselError};
 use diesel_async::{
-    pooled_connection::{AsyncDieselConnectionManager, PoolError as DieselPoolError},
     AsyncConnection,
+    pooled_connection::{AsyncDieselConnectionManager, PoolError as DieselPoolError},
 };
 use mobc::{
     Builder, Connection as MobcConnection, Error as MobcError, Manager as MobcManager, Pool,
@@ -16,7 +16,7 @@ use super::r#trait::DieselPoolAssociation;
 
 type DieselManager<Connection> = AsyncDieselConnectionManager<Connection>;
 
-/// [`Diesel mobc`](https://docs.rs/diesel-async/0.5.0/diesel_async/pooled_connection/mobc/index.html) association
+/// [`Diesel mobc`](https://docs.rs/diesel-async/0.5.2/diesel_async/pooled_connection/mobc/index.html) association
 /// # Example
 /// ```
 /// use db_pool::{

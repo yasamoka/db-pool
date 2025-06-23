@@ -3,10 +3,10 @@ use std::{borrow::Cow, pin::Pin};
 use async_trait::async_trait;
 use diesel::{prelude::*, result::Error, sql_query, table};
 use diesel_async::{
-    pooled_connection::{AsyncDieselConnectionManager, ManagerConfig, SetupCallback},
     AsyncConnection, AsyncMysqlConnection, RunQueryDsl, SimpleAsyncConnection,
+    pooled_connection::{AsyncDieselConnectionManager, ManagerConfig, SetupCallback},
 };
-use futures::{future::FutureExt, Future};
+use futures::{Future, future::FutureExt};
 use uuid::Uuid;
 
 use crate::{
@@ -27,7 +27,7 @@ type CreateEntities = dyn Fn(AsyncMysqlConnection) -> Pin<Box<dyn Future<Output 
     + Sync
     + 'static;
 
-/// [`Diesel async MySQL`](https://docs.rs/diesel-async/0.5.0/diesel_async/struct.AsyncMysqlConnection.html) backend
+/// [`Diesel async MySQL`](https://docs.rs/diesel-async/0.5.2/diesel_async/struct.AsyncMysqlConnection.html) backend
 pub struct DieselAsyncMySQLBackend<P: DieselPoolAssociation<AsyncMysqlConnection>> {
     privileged_config: PrivilegedMySQLConfig,
     default_pool: P::Pool,
@@ -38,7 +38,7 @@ pub struct DieselAsyncMySQLBackend<P: DieselPoolAssociation<AsyncMysqlConnection
 }
 
 impl<P: DieselPoolAssociation<AsyncMysqlConnection>> DieselAsyncMySQLBackend<P> {
-    /// Creates a new [`Diesel async MySQL`](https://docs.rs/diesel-async/0.5.0/diesel_async/struct.AsyncMysqlConnection.html) backend
+    /// Creates a new [`Diesel async MySQL`](https://docs.rs/diesel-async/0.5.2/diesel_async/struct.AsyncMysqlConnection.html) backend
     /// # Example
     /// ```
     /// use bb8::Pool;
@@ -82,10 +82,12 @@ impl<P: DieselPoolAssociation<AsyncMysqlConnection>> DieselAsyncMySQLBackend<P> 
         custom_create_connection: Option<
             Box<dyn Fn() -> SetupCallback<AsyncMysqlConnection> + Send + Sync + 'static>,
         >,
-        create_entities: impl Fn(AsyncMysqlConnection) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>>
-            + Send
-            + Sync
-            + 'static,
+        create_entities: impl Fn(
+            AsyncMysqlConnection,
+        ) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>>
+        + Send
+        + Sync
+        + 'static,
     ) -> Result<Self, P::BuildError> {
         let create_connection = custom_create_connection.unwrap_or_else(|| {
             Box::new(|| {
@@ -282,15 +284,12 @@ mod tests {
     use std::borrow::Cow;
 
     use bb8::Pool;
-    use diesel::{insert_into, sql_query, table, Insertable, QueryDsl};
+    use diesel::{Insertable, QueryDsl, insert_into, sql_query, table};
     use diesel_async::{RunQueryDsl, SimpleAsyncConnection};
     use futures::future::join_all;
     use tokio_shared_rt::test;
 
     use crate::{
-        common::statement::mysql::tests::{
-            CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
-        },
         r#async::{
             backend::{
                 common::pool::diesel::bb8::DieselBb8,
@@ -301,15 +300,19 @@ mod tests {
             },
             db_pool::DatabasePoolBuilder,
         },
+        common::statement::mysql::tests::{
+            CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
+        },
         tests::get_privileged_mysql_config,
     };
 
     use super::{
         super::r#trait::tests::{
-            test_backend_cleans_database_with_tables, test_backend_cleans_database_without_tables,
+            MySQLDropLock, test_backend_cleans_database_with_tables,
+            test_backend_cleans_database_without_tables,
             test_backend_creates_database_with_restricted_privileges, test_backend_drops_database,
             test_backend_drops_previous_databases, test_pool_drops_created_restricted_databases,
-            test_pool_drops_previous_databases, MySQLDropLock,
+            test_pool_drops_previous_databases,
         },
         DieselAsyncMySQLBackend,
     };

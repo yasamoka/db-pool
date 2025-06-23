@@ -1,8 +1,8 @@
 use std::{borrow::Cow, collections::HashMap};
 
 use diesel::{
-    connection::SimpleConnection, pg::PgConnection, prelude::*, r2d2::ConnectionManager,
-    result::Error, sql_query, QueryResult, RunQueryDsl,
+    QueryResult, RunQueryDsl, connection::SimpleConnection, pg::PgConnection, prelude::*,
+    r2d2::ConnectionManager, result::Error, sql_query,
 };
 use parking_lot::Mutex;
 use r2d2::{Builder, Pool, PooledConnection};
@@ -17,7 +17,7 @@ use super::{
 
 type Manager = ConnectionManager<PgConnection>;
 
-/// [`Diesel Postgres`](https://docs.rs/diesel/2.2.4/diesel/pg/struct.PgConnection.html) backend
+/// [`Diesel Postgres`](https://docs.rs/diesel/2.2.11/diesel/pg/struct.PgConnection.html) backend
 pub struct DieselPostgresBackend {
     privileged_config: PrivilegedPostgresConfig,
     default_pool: Pool<Manager>,
@@ -28,7 +28,7 @@ pub struct DieselPostgresBackend {
 }
 
 impl DieselPostgresBackend {
-    /// Creates a new [`Diesel Postgres`](https://docs.rs/diesel/2.2.4/diesel/pg/struct.PgConnection.html) backend
+    /// Creates a new [`Diesel Postgres`](https://docs.rs/diesel/2.2.11/diesel/pg/struct.PgConnection.html) backend
     /// # Example
     /// ```
     /// use db_pool::{sync::DieselPostgresBackend, PrivilegedPostgresConfig};
@@ -234,8 +234,8 @@ mod tests {
     use std::borrow::Cow;
 
     use diesel::{
-        connection::SimpleConnection, insert_into, sql_query, table, Insertable, QueryDsl,
-        RunQueryDsl,
+        Insertable, QueryDsl, RunQueryDsl, connection::SimpleConnection, insert_into, sql_query,
+        table,
     };
     use dotenvy::dotenv;
     use r2d2::Pool;

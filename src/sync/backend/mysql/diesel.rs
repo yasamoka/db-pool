@@ -23,7 +23,7 @@ use super::{
 
 type Manager = ConnectionManager<MysqlConnection>;
 
-/// [`Diesel MySQL`](https://docs.rs/diesel/2.2.4/diesel/mysql/struct.MysqlConnection.html) backend
+/// [`Diesel MySQL`](https://docs.rs/diesel/2.2.11/diesel/mysql/struct.MysqlConnection.html) backend
 pub struct DieselMySQLBackend {
     privileged_config: PrivilegedMySQLConfig,
     default_pool: Pool<Manager>,
@@ -33,7 +33,7 @@ pub struct DieselMySQLBackend {
 }
 
 impl DieselMySQLBackend {
-    /// Creates a new [`Diesel MySQL`](https://docs.rs/diesel/2.2.4/diesel/mysql/struct.MysqlConnection.html) backend
+    /// Creates a new [`Diesel MySQL`](https://docs.rs/diesel/2.2.11/diesel/mysql/struct.MysqlConnection.html) backend
     /// # Example
     /// ```
     /// use db_pool::{sync::DieselMySQLBackend, PrivilegedMySQLConfig};
@@ -215,8 +215,8 @@ mod tests {
     use std::borrow::Cow;
 
     use diesel::{
-        connection::SimpleConnection, insert_into, sql_query, table, Insertable, QueryDsl,
-        RunQueryDsl,
+        Insertable, QueryDsl, RunQueryDsl, connection::SimpleConnection, insert_into, sql_query,
+        table,
     };
     use r2d2::Pool;
 

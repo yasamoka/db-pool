@@ -25,7 +25,7 @@ type CreateEntities = dyn Fn(Client) -> Pin<Box<dyn Future<Output = Client> + Se
     + Sync
     + 'static;
 
-/// [`tokio-postgres`](https://docs.rs/tokio-postgres/0.7.10/tokio_postgres/) backend
+/// [`tokio-postgres`](https://docs.rs/tokio-postgres/0.7.13/tokio_postgres/) backend
 pub struct TokioPostgresBackend<P: TokioPostgresPoolAssociation> {
     privileged_config: Config,
     default_pool: P::Pool,
@@ -36,7 +36,7 @@ pub struct TokioPostgresBackend<P: TokioPostgresPoolAssociation> {
 }
 
 impl<P: TokioPostgresPoolAssociation> TokioPostgresBackend<P> {
-    /// Creates a new [`tokio-postgres`](https://docs.rs/tokio-postgres/0.7.10/tokio_postgres/) backend
+    /// Creates a new [`tokio-postgres`](https://docs.rs/tokio-postgres/0.7.13/tokio_postgres/) backend
     /// # Example
     /// ```
     /// use bb8::Pool;
@@ -78,9 +78,9 @@ impl<P: TokioPostgresPoolAssociation> TokioPostgresBackend<P> {
         create_privileged_pool: impl Fn() -> P::Builder,
         create_restricted_pool: impl Fn() -> P::Builder + Send + Sync + 'static,
         create_entities: impl Fn(Client) -> Pin<Box<dyn Future<Output = Client> + Send + 'static>>
-            + Send
-            + Sync
-            + 'static,
+        + Send
+        + Sync
+        + 'static,
     ) -> Result<Self, P::BuildError> {
         let builder = create_privileged_pool();
         let default_pool = P::build_pool(builder, privileged_config.clone()).await?;
@@ -265,9 +265,6 @@ mod tests {
     use tokio_shared_rt::test;
 
     use crate::{
-        common::statement::postgres::tests::{
-            CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
-        },
         r#async::{
             backend::{
                 common::pool::tokio_postgres::bb8::TokioPostgresBb8,
@@ -278,14 +275,18 @@ mod tests {
             },
             db_pool::DatabasePoolBuilder,
         },
+        common::statement::postgres::tests::{
+            CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
+        },
     };
 
     use super::{
         super::r#trait::tests::{
-            test_backend_cleans_database_with_tables, test_backend_cleans_database_without_tables,
+            PgDropLock, test_backend_cleans_database_with_tables,
+            test_backend_cleans_database_without_tables,
             test_backend_creates_database_with_restricted_privileges,
             test_backend_drops_previous_databases, test_pool_drops_created_restricted_databases,
-            test_pool_drops_previous_databases, PgDropLock,
+            test_pool_drops_previous_databases,
         },
         TokioPostgresBackend,
     };

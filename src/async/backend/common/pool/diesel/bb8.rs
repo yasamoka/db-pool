@@ -2,17 +2,17 @@ use std::ops::{Deref, DerefMut};
 
 use async_trait::async_trait;
 use bb8::{Builder, ManageConnection, Pool, PooledConnection, RunError};
-use diesel::{result::Error, ConnectionError};
+use diesel::{ConnectionError, result::Error};
 use diesel_async::{
-    pooled_connection::{AsyncDieselConnectionManager as Manager, PoolError as DieselPoolError},
     AsyncConnection,
+    pooled_connection::{AsyncDieselConnectionManager as Manager, PoolError as DieselPoolError},
 };
 
 use crate::r#async::backend::error::Error as BackendError;
 
 use super::r#trait::DieselPoolAssociation;
 
-/// [`Diesel bb8`](https://docs.rs/diesel-async/0.5.0/diesel_async/pooled_connection/bb8/index.html) association
+/// [`Diesel bb8`](https://docs.rs/diesel-async/0.5.2/diesel_async/pooled_connection/bb8/index.html) association
 /// # Example
 /// ```
 /// use bb8::Pool;

@@ -29,7 +29,7 @@ type CreateEntities = dyn Fn(DatabaseConnection) -> Pin<Box<dyn Future<Output = 
     + Sync
     + 'static;
 
-/// [`SeaORM Postgres`](https://docs.rs/sea-orm/1.0.1/sea_orm/type.DbBackend.html#variant.Postgres) backend
+/// [`SeaORM Postgres`](https://docs.rs/sea-orm/1.1.12/sea_orm/type.DbBackend.html#variant.Postgres) backend
 pub struct SeaORMPostgresBackend {
     privileged_config: PrivilegedPostgresConfig,
     default_pool: DatabaseConnection,
@@ -40,7 +40,7 @@ pub struct SeaORMPostgresBackend {
 }
 
 impl SeaORMPostgresBackend {
-    /// Creates a new [`SeaORM Postgres`](https://docs.rs/sea-orm/1.0.1/sea_orm/type.DbBackend.html#variant.Postgres) backend
+    /// Creates a new [`SeaORM Postgres`](https://docs.rs/sea-orm/1.1.12/sea_orm/type.DbBackend.html#variant.Postgres) backend
     /// # Example
     /// ```
     /// use bb8::Pool;
@@ -83,10 +83,12 @@ impl SeaORMPostgresBackend {
         privileged_config: PrivilegedPostgresConfig,
         create_privileged_pool: impl for<'tmp> Fn(&'tmp mut ConnectOptions),
         create_restricted_pool: impl for<'tmp> Fn(&'tmp mut ConnectOptions) + Send + Sync + 'static,
-        create_entities: impl Fn(DatabaseConnection) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>>
-            + Send
-            + Sync
-            + 'static,
+        create_entities: impl Fn(
+            DatabaseConnection,
+        ) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>>
+        + Send
+        + Sync
+        + 'static,
     ) -> Result<Self, DbErr> {
         let mut opts = ConnectOptions::new(privileged_config.default_connection_url());
         create_privileged_pool(&mut opts);
@@ -322,27 +324,28 @@ mod tests {
     use tokio_shared_rt::test;
 
     use crate::{
-        common::{
-            config::PrivilegedPostgresConfig,
-            statement::postgres::tests::{
-                CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
-            },
-        },
         r#async::{
             backend::postgres::r#trait::tests::{
                 test_backend_drops_database, test_pool_drops_created_unrestricted_database,
             },
             db_pool::DatabasePoolBuilder,
         },
+        common::{
+            config::PrivilegedPostgresConfig,
+            statement::postgres::tests::{
+                CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
+            },
+        },
     };
 
     use super::{
         super::r#trait::tests::{
-            test_backend_cleans_database_with_tables, test_backend_cleans_database_without_tables,
+            PgDropLock, test_backend_cleans_database_with_tables,
+            test_backend_cleans_database_without_tables,
             test_backend_creates_database_with_restricted_privileges,
             test_backend_creates_database_with_unrestricted_privileges,
             test_backend_drops_previous_databases, test_pool_drops_created_restricted_databases,
-            test_pool_drops_previous_databases, PgDropLock,
+            test_pool_drops_previous_databases,
         },
         SeaORMPostgresBackend,
     };

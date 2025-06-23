@@ -52,13 +52,13 @@ When switching to parallel execution of tests, even more difficulties arise:
 
 | Backend               | Pool                                                                                      | Features                                     |
 | --------------------- | ----------------------------------------------------------------------------------------- | -------------------------------------------- |
-| diesel-async/mysql    | [bb8](https://docs.rs/diesel-async/0.4.1/diesel_async/pooled_connection/bb8/index.html)   | `diesel-async-mysql`, `diesel-async-bb8`     |
-| diesel-async/mysql    | [mobc](https://docs.rs/diesel-async/0.4.1/diesel_async/pooled_connection/mobc/index.html) | `diesel-async-mysql`, `diesel-async-mobc`    |
-| diesel-async/postgres | [bb8](https://docs.rs/diesel-async/0.4.1/diesel_async/pooled_connection/bb8/index.html)   | `diesel-async-postgres`, `diesel-async-bb8`  |
-| diesel-async/postgres | [mobc](https://docs.rs/diesel-async/0.4.1/diesel_async/pooled_connection/mobc/index.html) | `diesel-async-postgres`, `diesel-async-mobc` |
-| sea-orm/sqlx-mysql    | [sqlx](https://docs.rs/sqlx/0.7.4/sqlx/struct.Pool.html)                                  | `sea-orm-mysql`                              |
-| sea-orm/sqlx-postgres | [sqlx](https://docs.rs/sqlx/0.7.4/sqlx/struct.Pool.html)                                  | `sea-orm-postgres`                           |
-| sqlx/mysql            | [sqlx](https://docs.rs/sqlx/0.7.4/sqlx/struct.Pool.html)                                  | `sqlx-mysql`                                 |
-| sqlx/postgres         | [sqlx](https://docs.rs/sqlx/0.7.4/sqlx/struct.Pool.html)                                  | `sqlx-postgres`                              |
+| diesel-async/mysql    | [bb8](https://docs.rs/diesel-async/0.5.2/diesel_async/pooled_connection/bb8/index.html)   | `diesel-async-mysql`, `diesel-async-bb8`     |
+| diesel-async/mysql    | [mobc](https://docs.rs/diesel-async/0.5.2/diesel_async/pooled_connection/mobc/index.html) | `diesel-async-mysql`, `diesel-async-mobc`    |
+| diesel-async/postgres | [bb8](https://docs.rs/diesel-async/0.5.2/diesel_async/pooled_connection/bb8/index.html)   | `diesel-async-postgres`, `diesel-async-bb8`  |
+| diesel-async/postgres | [mobc](https://docs.rs/diesel-async/0.5.2/diesel_async/pooled_connection/mobc/index.html) | `diesel-async-postgres`, `diesel-async-mobc` |
+| sea-orm/sqlx-mysql    | [sqlx](https://docs.rs/sqlx/0.8.6/sqlx/struct.Pool.html)                                  | `sea-orm-mysql`                              |
+| sea-orm/sqlx-postgres | [sqlx](https://docs.rs/sqlx/0.8.6/sqlx/struct.Pool.html)                                  | `sea-orm-postgres`                           |
+| sqlx/mysql            | [sqlx](https://docs.rs/sqlx/0.8.6/sqlx/struct.Pool.html)                                  | `sqlx-mysql`                                 |
+| sqlx/postgres         | [sqlx](https://docs.rs/sqlx/0.8.6/sqlx/struct.Pool.html)                                  | `sqlx-postgres`                              |
 | tokio-postgres        | [bb8](https://docs.rs/bb8-postgres/0.8.1/bb8_postgres/)                                   | `tokio-postgres`, `tokio-postgres-bb8`       |
 | tokio-postgres        | [mobc](https://docs.rs/mobc-postgres/0.8.0/mobc_postgres/)                                | `tokio-postgres`, `tokio-postgres-mobc`      |
