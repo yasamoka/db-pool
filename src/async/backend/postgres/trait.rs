@@ -63,7 +63,7 @@ pub(super) trait PostgresBackend<'pool>: Send + Sync + 'static {
     ) -> Result<(), Self::QueryError>;
 
     async fn get_default_connection(&'pool self)
-        -> Result<Self::PooledConnection, Self::PoolError>;
+    -> Result<Self::PooledConnection, Self::PoolError>;
     async fn establish_privileged_database_connection(
         &self,
         db_id: Uuid,
@@ -79,7 +79,7 @@ pub(super) trait PostgresBackend<'pool>: Send + Sync + 'static {
         &self,
         conn: &mut Self::Connection,
     ) -> Result<Vec<String>, Self::QueryError>;
-    async fn create_entities(&self, conn: Self::Connection) -> Self::Connection;
+    async fn create_entities(&self, conn: Self::Connection) -> Option<Self::Connection>;
     async fn create_connection_pool(&self, db_id: Uuid) -> Result<Self::Pool, Self::BuildError>;
 
     async fn get_table_names(
@@ -182,13 +182,19 @@ where
 
         if restrict_privileges {
             // Connect to database as privileged user
-            let conn = self
-                .establish_privileged_database_connection(db_id)
-                .await
-                .map_err(Into::into)?;
+            let establish_connection = || async {
+                self.establish_privileged_database_connection(db_id)
+                    .await
+                    .map_err(Into::into)
+            };
 
-            // Create entities as privileged user
-            let mut conn = self.create_entities(conn).await;
+            let conn = establish_connection().await?;
+
+            // Create entities as privileged user and get back connection if possible
+            let mut conn = match self.create_entities(conn).await {
+                None => establish_connection().await?,
+                Some(conn) => conn,
+            };
 
             // Grant table privileges to restricted role
             self.execute_query(
@@ -302,19 +308,19 @@ pub(super) mod tests {
     use bb8::Pool as Bb8Pool;
     use diesel::{dsl::exists, insert_into, prelude::*, select, sql_query, table};
     use diesel_async::{
-        pooled_connection::AsyncDieselConnectionManager, AsyncPgConnection, RunQueryDsl,
+        AsyncPgConnection, RunQueryDsl, pooled_connection::AsyncDieselConnectionManager,
     };
     use futures::{
-        future::{join_all, try_join_all},
         Future,
+        future::{join_all, try_join_all},
     };
     use tokio::sync::OnceCell;
     use uuid::Uuid;
 
     use crate::{
-        common::statement::postgres::tests::{DDL_STATEMENTS, DML_STATEMENTS},
         r#async::{backend::r#trait::Backend, db_pool::DatabasePoolBuilder},
-        tests::{get_privileged_postgres_config, PG_DROP_LOCK},
+        common::statement::postgres::tests::{DDL_STATEMENTS, DML_STATEMENTS},
+        tests::{PG_DROP_LOCK, get_privileged_postgres_config},
         util::get_db_name,
     };
 

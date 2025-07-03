@@ -40,7 +40,7 @@ use super::r#trait::DieselPoolAssociation;
 ///                     .execute(&mut conn)
 ///                     .await
 ///                     .unwrap();
-///                 conn
+///                 Some(conn)
 ///             })
 ///         },
 ///     )

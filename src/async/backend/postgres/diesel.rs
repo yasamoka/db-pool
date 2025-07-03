@@ -20,7 +20,9 @@ use super::{
     r#trait::{PostgresBackend, PostgresBackendWrapper},
 };
 
-type CreateEntities = dyn Fn(AsyncPgConnection) -> Pin<Box<dyn Future<Output = AsyncPgConnection> + Send + 'static>>
+type CreateEntities = dyn Fn(
+        AsyncPgConnection,
+    ) -> Pin<Box<dyn Future<Output = Option<AsyncPgConnection>> + Send + 'static>>
     + Send
     + Sync
     + 'static;
@@ -70,7 +72,7 @@ impl<P: DieselPoolAssociation<AsyncPgConnection>> DieselAsyncPostgresBackend<P> 
     ///                     .execute(&mut conn)
     ///                     .await
     ///                     .unwrap();
-    ///                 conn
+    ///                 Some(conn)
     ///             })
     ///         },
     ///     )
@@ -80,6 +82,9 @@ impl<P: DieselPoolAssociation<AsyncPgConnection>> DieselAsyncPostgresBackend<P> 
     ///
     /// tokio_test::block_on(f());
     /// ```
+    /// If, after running migrations, the connection has not been moved, it is preferable to return the connection with `Some(conn)`.
+    /// However, if after running migrations, the connection has been moved, `None` can be returned at the expense of the backend
+    /// having to establish the same connection again for some of its internal work.
     pub async fn new(
         privileged_config: PrivilegedPostgresConfig,
         create_privileged_pool: impl Fn(AsyncDieselConnectionManager<AsyncPgConnection>) -> P::Builder,
@@ -92,9 +97,9 @@ impl<P: DieselPoolAssociation<AsyncPgConnection>> DieselAsyncPostgresBackend<P> 
         >,
         create_entities: impl Fn(
             AsyncPgConnection,
-        )
-            -> Pin<Box<dyn Future<Output = AsyncPgConnection> + Send + 'static>>
-        + Send
+        ) -> Pin<
+            Box<dyn Future<Output = Option<AsyncPgConnection>> + Send + 'static>,
+        > + Send
         + Sync
         + 'static,
     ) -> Result<Self, P::BuildError> {
@@ -234,7 +239,7 @@ impl<'pool, P: DieselPoolAssociation<AsyncPgConnection>> PostgresBackend<'pool>
             .await
     }
 
-    async fn create_entities(&self, conn: AsyncPgConnection) -> AsyncPgConnection {
+    async fn create_entities(&self, conn: AsyncPgConnection) -> Option<AsyncPgConnection> {
         (self.create_entities)(conn).await
     }
 
@@ -397,10 +402,10 @@ mod tests {
                     Box::pin(async move {
                         let query = CREATE_ENTITIES_STATEMENTS.join(";");
                         conn.batch_execute(query.as_str()).await.unwrap();
-                        conn
+                        Some(conn)
                     })
                 } else {
-                    Box::pin(async { conn })
+                    Box::pin(async { Some(conn) })
                 }
             }
         })

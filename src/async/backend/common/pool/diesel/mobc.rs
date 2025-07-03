@@ -44,7 +44,7 @@ type DieselManager<Connection> = AsyncDieselConnectionManager<Connection>;
 ///                     .execute(&mut conn)
 ///                     .await
 ///                     .unwrap();
-///                 conn
+///                 Some(conn)
 ///             })
 ///         },
 ///     )

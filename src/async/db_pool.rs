@@ -3,7 +3,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use super::{
-    backend::{r#trait::Backend, Error},
+    backend::{Error, r#trait::Backend},
     conn_pool::{ReusableConnectionPool as ReusableConnectionPoolInner, SingleUseConnectionPool},
     object_pool::{ObjectPool, Reusable},
 };
@@ -48,7 +48,7 @@ impl<B: Backend> DatabasePool<B> {
     ///                     .execute(&mut conn)
     ///                     .await
     ///                     .unwrap();
-    ///                 conn
+    ///                 Some(conn)
     ///             })
     ///         },
     ///     )
@@ -96,7 +96,7 @@ impl<B: Backend> DatabasePool<B> {
     ///                     .execute(&mut conn)
     ///                     .await
     ///                     .unwrap();
-    ///                 conn
+    ///                 Some(conn)
     ///             })
     ///         },
     ///     )
@@ -150,7 +150,7 @@ pub trait DatabasePoolBuilder: Backend {
     ///                     .execute(&mut conn)
     ///                     .await
     ///                     .unwrap();
-    ///                 conn
+    ///                 Some(conn)
     ///             })
     ///         },
     ///     )

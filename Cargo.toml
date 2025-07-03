@@ -50,8 +50,13 @@ async-graphql-poem = "7.0.17"
 bb8 = "0.8.6"
 bb8-postgres = "0.8.1"
 diesel = { version = "2.2.11", features = ["mysql", "postgres", "r2d2"] }
-diesel-async = { version = "0.5.2", features = ["bb8", "mysql", "postgres"] }
-diesel_async_migrations = "0.15.0"
+diesel-async = { version = "0.5.2", features = [
+    "async-connection-wrapper",
+    "bb8",
+    "mysql",
+    "postgres",
+] }
+diesel_migrations = { version = "2.2.0", features = ["postgres"] }
 dotenvy = "0.15.7"
 futures = "0.3.31"
 mysql = "25.0.1"

@@ -185,8 +185,8 @@ impl<'pool, P: TokioPostgresPoolAssociation> PostgresBackend<'pool> for TokioPos
             .map_err(Into::into)
     }
 
-    async fn create_entities(&self, conn: Client) -> Client {
-        (self.create_entities)(conn).await
+    async fn create_entities(&self, conn: Client) -> Option<Client> {
+        Some((self.create_entities)(conn).await)
     }
 
     async fn create_connection_pool(&self, db_id: Uuid) -> Result<P::Pool, P::BuildError> {

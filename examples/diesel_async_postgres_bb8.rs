@@ -6,20 +6,20 @@ mod tests {
 
     use bb8::Pool;
     use db_pool::{
+        PrivilegedPostgresConfig,
         r#async::{
             DatabasePool, DatabasePoolBuilderTrait, DieselAsyncPostgresBackend, DieselBb8,
             ReusableConnectionPool,
         },
-        PrivilegedPostgresConfig,
     };
-    use diesel::{insert_into, sql_query, table, Insertable, QueryDsl};
+    use diesel::{Insertable, QueryDsl, insert_into, sql_query, table};
     use diesel_async::RunQueryDsl;
     use dotenvy::dotenv;
     use tokio::sync::OnceCell;
     use tokio_shared_rt::test;
 
-    async fn get_connection_pool(
-    ) -> ReusableConnectionPool<'static, DieselAsyncPostgresBackend<DieselBb8>> {
+    async fn get_connection_pool()
+    -> ReusableConnectionPool<'static, DieselAsyncPostgresBackend<DieselBb8>> {
         static POOL: OnceCell<DatabasePool<DieselAsyncPostgresBackend<DieselBb8>>> =
             OnceCell::const_new();
 
@@ -43,7 +43,7 @@ mod tests {
                             .await
                             .unwrap();
 
-                            conn
+                            Some(conn)
                         })
                     },
                 )

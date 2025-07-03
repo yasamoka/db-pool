@@ -1,15 +1,15 @@
 use std::env;
 
-use async_graphql::{http::GraphiQLSource, Context, EmptySubscription, Object, SimpleObject};
+use async_graphql::{Context, EmptySubscription, Object, SimpleObject, http::GraphiQLSource};
 use async_graphql_poem::GraphQL;
 use bb8::{Pool, PooledConnection};
 use db_pool::r#async::{DieselAsyncPostgresBackend, DieselBb8, PoolWrapper};
-use diesel::{insert_into, prelude::*, table, Insertable};
+use diesel::{Insertable, insert_into, prelude::*, table};
 use diesel_async::{
-    pooled_connection::AsyncDieselConnectionManager, AsyncPgConnection, RunQueryDsl,
+    AsyncPgConnection, RunQueryDsl, pooled_connection::AsyncDieselConnectionManager,
 };
 use dotenvy::dotenv;
-use poem::{handler, listener::TcpListener, post, web::Html, IntoResponse, Route, Server};
+use poem::{IntoResponse, Route, Server, handler, listener::TcpListener, post, web::Html};
 use serde::Deserialize;
 
 type Schema = async_graphql::Schema<Query, Mutation, EmptySubscription>;
@@ -142,21 +142,22 @@ mod tests {
     use async_graphql::{Request, Variables};
     use bb8::Pool;
     use db_pool::{
-        r#async::{DatabasePool, DatabasePoolBuilderTrait, DieselAsyncPostgresBackend, DieselBb8},
         PrivilegedPostgresConfig,
+        r#async::{DatabasePool, DatabasePoolBuilderTrait, DieselAsyncPostgresBackend, DieselBb8},
     };
-    use diesel_async_migrations::{embed_migrations, EmbeddedMigrations};
+    use diesel_async::{AsyncPgConnection, async_connection_wrapper::AsyncConnectionWrapper};
+    use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
     use dotenvy::dotenv;
     use futures::future::join_all;
     use serde::{Deserialize, Serialize};
-    use serde_json::{from_value, to_value, Value};
-    use tokio::sync::OnceCell;
+    use serde_json::{Value, from_value, to_value};
+    use tokio::{sync::OnceCell, task::spawn_blocking};
     use tokio_shared_rt::test;
 
-    use crate::{build_schema, Book, PoolWrapper};
+    use crate::{Book, PoolWrapper, build_schema};
 
     async fn get_connection_pool() -> PoolWrapper<DieselAsyncPostgresBackend<DieselBb8>> {
-        static MIGRATIONS: EmbeddedMigrations =
+        const MIGRATIONS: EmbeddedMigrations =
             embed_migrations!("examples/async-graphql/migrations");
 
         static DB_POOL: OnceCell<DatabasePool<DieselAsyncPostgresBackend<DieselBb8>>> =
@@ -173,23 +174,19 @@ mod tests {
                     |_| Pool::builder().max_size(10),
                     |_| Pool::builder().max_size(1).test_on_check_out(true),
                     None,
-                    move |mut conn| {
+                    move |conn| {
                         Box::pin(async move {
-                            MIGRATIONS
-                                .setup_migrations_table(&mut conn)
-                                .await
-                                .expect("Setup migrations table must succeed");
-                            for migration in MIGRATIONS
-                                .pending_migrations(&mut conn)
-                                .await
-                                .expect("Get pending migrations must succeed")
-                            {
-                                migration
-                                    .run(&mut conn)
-                                    .await
-                                    .expect("Run migration must succeed");
-                            }
-                            conn
+                            let mut async_wrapper: AsyncConnectionWrapper<AsyncPgConnection> =
+                                AsyncConnectionWrapper::from(conn);
+
+                            spawn_blocking(move || {
+                                async_wrapper.run_pending_migrations(MIGRATIONS).map(|_| ())
+                            })
+                            .await
+                            .expect("Spawn task must succeed")
+                            .expect("Run migrations must succeed");
+
+                            None
                         })
                     },
                 )

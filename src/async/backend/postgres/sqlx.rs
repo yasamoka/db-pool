@@ -177,8 +177,8 @@ impl<'pool> PostgresBackend<'pool> for SqlxPostgresBackend {
             .map_err(Into::into)
     }
 
-    async fn create_entities(&self, conn: PgConnection) -> PgConnection {
-        (self.create_entities)(conn).await
+    async fn create_entities(&self, conn: PgConnection) -> Option<PgConnection> {
+        Some((self.create_entities)(conn).await)
     }
 
     async fn create_connection_pool(&self, db_id: Uuid) -> Result<PgPool, BuildError> {

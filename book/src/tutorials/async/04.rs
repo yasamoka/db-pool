@@ -6,6 +6,7 @@ mod tests {
 
     use bb8::Pool;
     use db_pool::{
+        PrivilegedPostgresConfig,
         r#async::{
             // import database pool
             DatabasePool,
@@ -14,7 +15,6 @@ mod tests {
             DieselAsyncPostgresBackend,
             DieselBb8,
         },
-        PrivilegedPostgresConfig,
     };
     use diesel::sql_query;
     use diesel_async::RunQueryDsl;
@@ -44,7 +44,7 @@ mod tests {
                             .await
                             .unwrap();
 
-                        conn
+                        Some(conn)
                     })
                 },
             )

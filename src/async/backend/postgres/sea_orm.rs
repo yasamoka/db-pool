@@ -218,9 +218,9 @@ impl<'pool> PostgresBackend<'pool> for SeaORMPostgresBackend {
             .map_err(Into::into)
     }
 
-    async fn create_entities(&self, conn: DatabaseConnection) -> DatabaseConnection {
+    async fn create_entities(&self, conn: DatabaseConnection) -> Option<DatabaseConnection> {
         (self.create_entities)(conn.clone()).await;
-        conn
+        Some(conn)
     }
 
     async fn create_connection_pool(&self, db_id: Uuid) -> Result<DatabaseConnection, BuildError> {
