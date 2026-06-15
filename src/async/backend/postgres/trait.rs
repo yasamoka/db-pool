@@ -88,6 +88,7 @@ pub(super) trait PostgresBackend<'pool>: Send + Sync + 'static {
     ) -> Result<Vec<String>, Self::QueryError>;
 
     fn get_drop_previous_databases(&self) -> bool;
+    fn get_clean_tables(&self) -> bool;
 }
 
 pub(super) struct PostgresBackendWrapper<'backend, 'pool, B: PostgresBackend<'pool>> {
@@ -250,18 +251,20 @@ where
         // Get privileged connection to database
         let mut conn = self.get_database_connection(db_id);
 
-        // Get table names
-        let table_names = self.get_table_names(&mut conn).await.map_err(Into::into)?;
+        if self.get_clean_tables() {
+            // Get table names
+            let table_names = self.get_table_names(&mut conn).await.map_err(Into::into)?;
 
-        // Generate truncate statements
-        let stmts = table_names
-            .iter()
-            .map(|table_name| postgres::truncate_table(table_name.as_str()).into());
+            // Generate truncate statements
+            let stmts = table_names
+                .iter()
+                .map(|table_name| postgres::truncate_table(table_name.as_str()).into());
 
-        // Truncate tables
-        self.batch_execute_query(stmts, &mut conn)
-            .await
-            .map_err(Into::into)?;
+            // Truncate tables
+            self.batch_execute_query(stmts, &mut conn)
+                .await
+                .map_err(Into::into)?;
+        }
 
         // Store database connection back for reuse
         self.put_database_connection(db_id, conn);
