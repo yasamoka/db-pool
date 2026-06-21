@@ -62,7 +62,7 @@ impl<B: Backend> DatabasePool<B> {
     /// tokio_test::block_on(f());
     /// ```
     #[must_use]
-    pub async fn pull_immutable(&self) -> ReusableConnectionPool<B> {
+    pub async fn pull_immutable(&self) -> ReusableConnectionPool<'_, B> {
         self.object_pool.pull().await
     }
 

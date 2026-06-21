@@ -114,7 +114,7 @@ impl MySQLBackend for DieselMySQLBackend {
         }
     }
 
-    fn get_host(&self) -> Cow<str> {
+    fn get_host(&self) -> Cow<'_, str> {
         self.privileged_config.host.as_str().into()
     }
 

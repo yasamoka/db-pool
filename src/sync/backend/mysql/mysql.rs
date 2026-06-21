@@ -2,8 +2,8 @@ use std::borrow::Cow;
 
 use r2d2::{Builder, Pool, PooledConnection};
 use r2d2_mysql::{
-    mysql::{prelude::*, Conn, Error, Opts, OptsBuilder},
     MySqlConnectionManager,
+    mysql::{Conn, Error, Opts, OptsBuilder, prelude::*},
 };
 use uuid::Uuid;
 
@@ -106,7 +106,7 @@ impl MySQLBackendTrait for MySQLBackend {
         }
     }
 
-    fn get_host(&self) -> Cow<str> {
+    fn get_host(&self) -> Cow<'_, str> {
         self.opts.get_ip_or_hostname()
     }
 
@@ -185,11 +185,11 @@ mod tests {
             CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
         },
         sync::{
+            DatabasePoolBuilderTrait,
             backend::mysql::r#trait::tests::{
                 test_backend_creates_database_with_unrestricted_privileges,
                 test_pool_drops_created_unrestricted_database,
             },
-            DatabasePoolBuilderTrait,
         },
         tests::get_privileged_mysql_config,
     };

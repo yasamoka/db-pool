@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use super::{
-    backend::{r#trait::Backend, Error},
+    backend::{Error, r#trait::Backend},
     conn_pool::{ReusableConnectionPool as ReusableConnectionPoolInner, SingleUseConnectionPool},
     object_pool::{ObjectPool, Reusable},
 };
@@ -49,7 +49,7 @@ impl<B: Backend> DatabasePool<B> {
     /// let conn_pool = db_pool.pull_immutable();
     /// ```
     #[must_use]
-    pub fn pull_immutable(&self) -> Reusable<ReusableConnectionPoolInner<B>> {
+    pub fn pull_immutable(&self) -> Reusable<'_, ReusableConnectionPoolInner<B>> {
         self.object_pool.pull()
     }
 
