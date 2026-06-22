@@ -1,39 +1,22 @@
+use bon::Builder;
+
+const DEFAULT_USERNAME: &str = "postgres";
+const DEFAULT_HOST: &str = "localhost";
+const DEFAULT_PORT: u16 = 5432;
+
 /// Privileged Postgres configuration
+#[derive(Builder)]
 pub struct PrivilegedPostgresConfig {
+    #[builder(default = DEFAULT_USERNAME.to_owned())]
     pub(crate) username: String,
     pub(crate) password: Option<String>,
+    #[builder(default = DEFAULT_HOST.to_owned())]
     pub(crate) host: String,
+    #[builder(default = DEFAULT_PORT)]
     pub(crate) port: u16,
 }
 
 impl PrivilegedPostgresConfig {
-    const DEFAULT_USERNAME: &'static str = "postgres";
-    const DEFAULT_PASSWORD: Option<String> = None;
-    const DEFAULT_HOST: &'static str = "localhost";
-    const DEFAULT_PORT: u16 = 5432;
-
-    /// Creates a new privileged Postgres configuration with defaults
-    /// # Example
-    /// ```
-    /// # use db_pool::PrivilegedPostgresConfig;
-    /// #
-    /// let config = PrivilegedPostgresConfig::new();
-    /// ```
-    /// # Defaults
-    /// - Username: postgres
-    /// - Password: {blank}
-    /// - Host: localhost
-    /// - Port: 5432
-    #[must_use]
-    pub fn new() -> Self {
-        Self {
-            username: Self::DEFAULT_USERNAME.to_owned(),
-            password: Self::DEFAULT_PASSWORD,
-            host: Self::DEFAULT_HOST.to_owned(),
-            port: Self::DEFAULT_PORT,
-        }
-    }
-
     /// Creates a new privileged Postgres configuration from environment variables
     /// # Environment variables
     /// - `POSTGRES_USERNAME`
@@ -48,11 +31,11 @@ impl PrivilegedPostgresConfig {
     pub fn from_env() -> Result<Self, Error> {
         use std::env;
 
-        let username = env::var("POSTGRES_USERNAME").unwrap_or(Self::DEFAULT_USERNAME.to_owned());
+        let username = env::var("POSTGRES_USERNAME").unwrap_or(DEFAULT_USERNAME.to_owned());
         let password = env::var("POSTGRES_PASSWORD").ok();
-        let host = env::var("POSTGRES_HOST").unwrap_or(Self::DEFAULT_HOST.to_owned());
+        let host = env::var("POSTGRES_HOST").unwrap_or(DEFAULT_HOST.to_owned());
         let port = env::var("POSTGRES_PORT")
-            .map_or(Ok(Self::DEFAULT_PORT), |port| port.parse())
+            .map_or(Ok(DEFAULT_PORT), |port| port.parse())
             .map_err(Error::InvalidPort)?;
 
         Ok(Self {
@@ -61,68 +44,6 @@ impl PrivilegedPostgresConfig {
             host,
             port,
         })
-    }
-
-    /// Sets a new username
-    /// # Example
-    /// ```
-    /// # use db_pool::PrivilegedPostgresConfig;
-    /// #
-    /// let config =
-    ///     PrivilegedPostgresConfig::new().username("postgres".to_owned());
-    /// ```
-    #[must_use]
-    pub fn username(self, value: String) -> Self {
-        Self {
-            username: value,
-            ..self
-        }
-    }
-
-    /// Sets a new password
-    /// # Example
-    /// ```
-    /// # use db_pool::PrivilegedPostgresConfig;
-    /// #
-    /// let config =
-    ///     PrivilegedPostgresConfig::new().password(Some("postgres".to_owned()));
-    /// ```
-    #[must_use]
-    pub fn password(self, value: Option<String>) -> Self {
-        Self {
-            password: value,
-            ..self
-        }
-    }
-
-    /// Sets a new host
-    /// # Example
-    /// ```
-    /// # use db_pool::PrivilegedPostgresConfig;
-    /// #
-    /// let config = PrivilegedPostgresConfig::new().host("localhost".to_owned());
-    /// ```
-    #[must_use]
-    pub fn host(self, value: String) -> Self {
-        Self {
-            host: value,
-            ..self
-        }
-    }
-
-    /// Sets a new port
-    /// # Example
-    /// ```
-    /// # use db_pool::PrivilegedPostgresConfig;
-    /// #
-    /// let config = PrivilegedPostgresConfig::new().port(5432);
-    /// ```
-    #[must_use]
-    pub fn port(self, value: u16) -> Self {
-        Self {
-            port: value,
-            ..self
-        }
     }
 
     pub(crate) fn default_connection_url(&self) -> String {
@@ -175,7 +96,7 @@ pub enum Error {
 
 impl Default for PrivilegedPostgresConfig {
     fn default() -> Self {
-        Self::new()
+        Self::builder().build()
     }
 }
 
