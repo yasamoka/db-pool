@@ -41,6 +41,7 @@ pub struct DieselAsyncPostgresBackend<P: DieselPoolAssociation<AsyncPgConnection
     create_connection: Box<dyn Fn() -> SetupCallback<AsyncPgConnection> + Send + Sync + 'static>,
     create_entities: Box<CreateEntities>,
     drop_previous_databases_flag: bool,
+    clean_tables_flag: bool,
 }
 
 impl<P: DieselPoolAssociation<AsyncPgConnection>> DieselAsyncPostgresBackend<P> {
@@ -135,6 +136,7 @@ impl<P: DieselPoolAssociation<AsyncPgConnection>> DieselAsyncPostgresBackend<P> 
             create_connection,
             create_entities: Box::new(create_entities),
             drop_previous_databases_flag: true,
+            clean_tables_flag: true,
         })
     }
 
@@ -143,6 +145,19 @@ impl<P: DieselPoolAssociation<AsyncPgConnection>> DieselAsyncPostgresBackend<P> 
     pub fn drop_previous_databases(self, value: bool) -> Self {
         Self {
             drop_previous_databases_flag: value,
+            ..self
+        }
+    }
+
+    /// Whether to truncate tables when cleaning a database between test runs (default: `true`).
+    ///
+    /// Set to `false` when the test suite creates entities with unique identifiers and does not
+    /// need a fully clean state between tests. Disabling truncation also avoids issues with tables
+    /// that carry migration-seeded reference data which should not be emptied between runs.
+    #[must_use]
+    pub fn clean_tables(self, value: bool) -> Self {
+        Self {
+            clean_tables_flag: value,
             ..self
         }
     }
@@ -294,6 +309,10 @@ impl<'pool, P: DieselPoolAssociation<AsyncPgConnection>> PostgresBackend<'pool>
 
     fn get_drop_previous_databases(&self) -> bool {
         self.drop_previous_databases_flag
+    }
+
+    fn get_clean_tables(&self) -> bool {
+        self.clean_tables_flag
     }
 }
 

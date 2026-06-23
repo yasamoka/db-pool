@@ -215,6 +215,10 @@ impl<'pool, P: TokioPostgresPoolAssociation> PostgresBackend<'pool> for TokioPos
     fn get_drop_previous_databases(&self) -> bool {
         self.drop_previous_databases_flag
     }
+
+    fn get_clean_tables(&self) -> bool {
+        true
+    }
 }
 
 type BError<BuildError, PoolError> =
