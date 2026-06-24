@@ -1,4 +1,9 @@
-use std::{borrow::Cow, env::VarError, ffi::OsString, path::PathBuf};
+use std::{
+    borrow::Cow,
+    env::VarError,
+    ffi::OsString,
+    path::{PathBuf, absolute},
+};
 
 use bon::Builder;
 use urlencoding::encode;
@@ -230,12 +235,15 @@ impl TryFrom<PostgresHost> for PostgresHostInner {
     type Error = TryFromPostgresHostError;
 
     fn try_from(value: PostgresHost) -> Result<Self, Self::Error> {
+        use TryFromPostgresHostError as E;
+
         Ok(match value {
             PostgresHost::TcpIp { host, port } => PostgresHostInner::TcpIp { host, port },
             PostgresHost::UnixSocket(socket) => PostgresHostInner::UnixSocket(
-                socket
+                absolute(socket)
+                    .map_err(E::Path)?
                     .to_str()
-                    .ok_or(TryFromPostgresHostError::UnixSocketAddressIsNotUTF8)?
+                    .ok_or(E::UnixSocketAddressIsNotUTF8)?
                     .to_owned(),
             ),
         })
@@ -243,5 +251,6 @@ impl TryFrom<PostgresHost> for PostgresHostInner {
 }
 
 pub enum TryFromPostgresHostError {
+    Path(std::io::Error),
     UnixSocketAddressIsNotUTF8,
 }
