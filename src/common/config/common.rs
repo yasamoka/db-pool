@@ -116,8 +116,6 @@ pub trait DatabaseEngine: Debug {
     const PREFIX: &str;
 
     const DEFAULT_USERNAME: &str;
-    const DEFAULT_HOST: &str;
-    const DEFAULT_PORT: u16;
 
     const USERNAME_ENV_VAR: &str;
     const PASSWORD_ENV_VAR: &str;

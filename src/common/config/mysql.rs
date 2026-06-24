@@ -38,8 +38,6 @@ impl DatabaseEngine for MySQL {
     const PREFIX: &str = "mysql";
 
     const DEFAULT_USERNAME: &str = "root";
-    const DEFAULT_HOST: &str = "localhost";
-    const DEFAULT_PORT: u16 = 3306;
 
     const USERNAME_ENV_VAR: &str = USERNAME_ENV_VAR;
     const PASSWORD_ENV_VAR: &str = PASSWORD_ENV_VAR;
@@ -55,8 +53,9 @@ pub enum MySQLHostConfig {
     CustomUnixSocket(PathBuf),
 }
 
-#[derive(Clone, Debug, Display)]
+#[derive(Clone, Debug, Default, Display)]
 pub enum MySQLHostConfigInner {
+    #[default]
     #[display("localhost")]
     Localhost,
     #[display("{host}:{port}")]
@@ -70,15 +69,6 @@ impl MySQLHostConfigInner {
         match self {
             Self::Localhost | Self::CustomUnixSocket { .. } => "localhost",
             Self::TcpIp { host, port: _ } => host.as_str(),
-        }
-    }
-}
-
-impl Default for MySQLHostConfigInner {
-    fn default() -> Self {
-        Self::TcpIp {
-            host: MySQL::DEFAULT_HOST.to_owned(),
-            port: MySQL::DEFAULT_PORT,
         }
     }
 }

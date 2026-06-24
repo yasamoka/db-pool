@@ -40,8 +40,6 @@ impl DatabaseEngine for Postgres {
     const PREFIX: &str = "postgres";
 
     const DEFAULT_USERNAME: &str = "postgres";
-    const DEFAULT_HOST: &str = "localhost";
-    const DEFAULT_PORT: u16 = 5432;
 
     const USERNAME_ENV_VAR: &str = USERNAME_ENV_VAR;
     const PASSWORD_ENV_VAR: &str = PASSWORD_ENV_VAR;
@@ -67,8 +65,8 @@ pub enum PostgresHostConfigInner {
 impl Default for PostgresHostConfigInner {
     fn default() -> Self {
         Self::TcpIp {
-            host: Postgres::DEFAULT_HOST.to_owned(),
-            port: Postgres::DEFAULT_PORT,
+            host: "localhost".to_owned(),
+            port: 5432,
         }
     }
 }
