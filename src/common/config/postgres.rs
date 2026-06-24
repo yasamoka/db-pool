@@ -1,28 +1,22 @@
 use std::{
-    borrow::Cow,
-    env::VarError,
     ffi::OsString,
     path::{PathBuf, absolute},
+    str::FromStr,
 };
 
-use bon::Builder;
+use derive_more::Display;
 use urlencoding::encode;
 
-const DEFAULT_USERNAME: &str = "postgres";
-const DEFAULT_HOST: &str = "localhost";
-const DEFAULT_PORT: u16 = 5432;
+use crate::common::config::common::FromEnvError;
+
+use super::common::{DatabaseEngine, PrivilegedConfig};
+
+const USERNAME_ENV_VAR: &str = "POSTGRES_USERNAME";
+const PASSWORD_ENV_VAR: &str = "POSTGRES_PASSWORD";
+const HOST_ENV_VAR: &str = "POSTGRES_HOST";
 
 /// Privileged Postgres configuration
-#[derive(Builder)]
-pub struct PrivilegedPostgresConfig {
-    #[builder(default = DEFAULT_USERNAME.to_owned())]
-    username: String,
-    password: Option<String>,
-    #[builder(
-        default = PostgresHostInner::TcpIp { host: DEFAULT_HOST.to_owned(), port: DEFAULT_PORT },
-        with = |host: PostgresHost| -> Result<_, TryFromPostgresHostError> { PostgresHostInner::try_from(host) })]
-    host: PostgresHostInner,
-}
+pub type PrivilegedPostgresConfig = PrivilegedConfig<Postgres>;
 
 impl PrivilegedPostgresConfig {
     /// Creates a new privileged Postgres configuration from environment variables
@@ -34,107 +28,105 @@ impl PrivilegedPostgresConfig {
     /// - Username: postgres
     /// - Password: {blank}
     /// - Host: localhost:5432
-    pub fn from_env() -> Result<Self, Error> {
-        use std::env;
-
-        let username = env::var("POSTGRES_USERNAME").unwrap_or(DEFAULT_USERNAME.to_owned());
-        let password = env::var("POSTGRES_PASSWORD").ok();
-
-        let host = match env::var("POSTGRES_HOST") {
-            Ok(host) => {
-                if host.starts_with('/') || host.starts_with("./") {
-                    Ok(PostgresHostInner::UnixSocket(host))
-                } else if let Some((host, port)) = host.split_once(':') {
-                    port.parse()
-                        .map(|port| PostgresHostInner::TcpIp {
-                            host: host.to_owned(),
-                            port,
-                        })
-                        .map_err(Error::InvalidPort)
-                } else {
-                    Err(Error::InvalidHost(host))
-                }
-            }
-            Err(VarError::NotPresent) => Ok(PostgresHostInner::TcpIp {
-                host: DEFAULT_HOST.to_owned(),
-                port: DEFAULT_PORT,
-            }),
-            Err(VarError::NotUnicode(s)) => Err(Error::HostIsNotUnicode(s)),
-        }?;
-
-        Ok(Self {
-            username,
-            password,
-            host,
-        })
+    pub fn from_env() -> Result<Self, FromEnvError<Postgres>> {
+        Self::from_env_inner()
     }
+}
 
-    pub(crate) fn default_connection_url(&self) -> String {
-        let Self {
-            username, password, ..
-        } = self;
+#[derive(Debug)]
+pub struct Postgres;
 
-        format!(
-            "postgres://{}@{}",
-            Self::credentials(username, password.as_ref().map(String::as_str)),
-            self.host()
-        )
-    }
+impl DatabaseEngine for Postgres {
+    const PREFIX: &str = "postgres";
 
-    pub(crate) fn privileged_database_connection_url(&self, db_name: &str) -> String {
-        let Self {
-            username, password, ..
-        } = self;
+    const DEFAULT_USERNAME: &str = "postgres";
+    const DEFAULT_HOST: &str = "localhost";
+    const DEFAULT_PORT: u16 = 5432;
 
-        format!(
-            "postgres://{}@{}/{}",
-            Self::credentials(username, password.as_ref().map(String::as_str)),
-            self.host(),
-            db_name
-        )
-    }
+    const USERNAME_ENV_VAR: &str = USERNAME_ENV_VAR;
+    const PASSWORD_ENV_VAR: &str = PASSWORD_ENV_VAR;
+    const HOST_ENV_VAR: &str = HOST_ENV_VAR;
 
-    pub(crate) fn restricted_database_connection_url(
-        &self,
-        username: &str,
-        password: Option<&str>,
-        db_name: &str,
-    ) -> String {
-        format!(
-            "postgres://{}@{}/{}",
-            Self::credentials(username, password),
-            self.host(),
-            db_name
-        )
-    }
+    type HostConfig = PostgresHostConfig;
+    type HostConfigInner = PostgresHostConfigInner;
+}
 
-    fn credentials<'a>(username: &'a str, password: Option<&'a str>) -> Cow<'a, str> {
-        if let Some(password) = password {
-            Cow::Owned(format!("{username}:{password}"))
-        } else {
-            Cow::Borrowed(username)
+pub enum PostgresHostConfig {
+    TcpIp { host: String, port: u16 },
+    UnixSocket(PathBuf),
+}
+
+#[derive(Clone, Debug, Display)]
+pub enum PostgresHostConfigInner {
+    #[display("{host}:{port}")]
+    TcpIp { host: String, port: u16 },
+    #[display("{}", encode(socket))]
+    UnixSocket { socket: String },
+}
+
+impl Default for PostgresHostConfigInner {
+    fn default() -> Self {
+        Self::TcpIp {
+            host: Postgres::DEFAULT_HOST.to_owned(),
+            port: Postgres::DEFAULT_PORT,
         }
     }
+}
 
-    fn host(&self) -> Cow<'_, str> {
-        match &self.host {
-            PostgresHostInner::TcpIp { host, port } => Cow::Owned(format!("{host}:{port}")),
-            PostgresHostInner::UnixSocket(socket) => encode(socket),
+impl FromStr for PostgresHostConfigInner {
+    type Err = PostgresHostConfigFromStrError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        use PostgresHostConfigFromStrError as E;
+
+        if s.starts_with('/') || s.starts_with("./") {
+            Ok(Self::UnixSocket {
+                socket: s.to_owned(),
+            })
+        } else if let Some((host, port)) = s.split_once(':') {
+            port.parse()
+                .map(|port| Self::TcpIp {
+                    host: host.to_owned(),
+                    port,
+                })
+                .map_err(E::InvalidPort)
+        } else {
+            Err(E::InvalidHost(s.to_owned()))
         }
     }
 }
 
 #[derive(Debug)]
-pub enum Error {
+pub enum PostgresHostConfigFromStrError {
     HostIsNotUnicode(OsString),
     InvalidHost(String),
     InvalidPort(std::num::ParseIntError),
 }
 
-impl Default for PrivilegedPostgresConfig {
-    fn default() -> Self {
-        Self::builder().build()
+impl TryFrom<PostgresHostConfig> for PostgresHostConfigInner {
+    type Error = TryFromPostgresHostConfigError;
+
+    fn try_from(value: PostgresHostConfig) -> Result<Self, Self::Error> {
+        use TryFromPostgresHostConfigError as E;
+
+        Ok(match value {
+            PostgresHostConfig::TcpIp { host, port } => {
+                PostgresHostConfigInner::TcpIp { host, port }
+            }
+            PostgresHostConfig::UnixSocket(socket) => PostgresHostConfigInner::UnixSocket {
+                socket: absolute(socket)
+                    .map_err(E::Path)?
+                    .to_str()
+                    .ok_or(E::UnixSocketAddressIsNotUTF8)?
+                    .to_owned(),
+            },
+        })
     }
+}
+
+pub enum TryFromPostgresHostConfigError {
+    Path(std::io::Error),
+    UnixSocketAddressIsNotUTF8,
 }
 
 #[cfg(feature = "postgres")]
@@ -144,6 +136,7 @@ impl From<PrivilegedPostgresConfig> for r2d2_postgres::postgres::Config {
             username,
             password,
             host,
+            _marker: _,
         } = value;
 
         let mut config = Self::new();
@@ -151,10 +144,10 @@ impl From<PrivilegedPostgresConfig> for r2d2_postgres::postgres::Config {
         config.user(username.as_str());
 
         match host {
-            PostgresHostInner::TcpIp { host, port } => {
+            PostgresHostConfigInner::TcpIp { host, port } => {
                 config.host(host.as_str()).port(port);
             }
-            PostgresHostInner::UnixSocket(socket) => {
+            PostgresHostConfigInner::UnixSocket { socket } => {
                 config.host(&socket);
             }
         }
@@ -174,13 +167,14 @@ impl From<PrivilegedPostgresConfig> for sqlx::postgres::PgConnectOptions {
             username,
             password,
             host,
+            _marker,
         } = value;
 
         let opts = Self::new().username(username.as_str());
 
         let opts = match host {
-            PostgresHostInner::TcpIp { host, port } => opts.host(host.as_str()).port(port),
-            PostgresHostInner::UnixSocket(socket) => opts.host(&socket),
+            PostgresHostConfigInner::TcpIp { host, port } => opts.host(host.as_str()).port(port),
+            PostgresHostConfigInner::UnixSocket { socket } => opts.host(&socket),
         };
 
         if let Some(password) = password {
@@ -198,6 +192,7 @@ impl From<PrivilegedPostgresConfig> for tokio_postgres::Config {
             username,
             password,
             host,
+            _marker: _,
         } = value;
 
         let mut config = Self::new();
@@ -205,10 +200,10 @@ impl From<PrivilegedPostgresConfig> for tokio_postgres::Config {
         config.user(username.as_str());
 
         match host {
-            PostgresHostInner::TcpIp { host, port } => {
+            PostgresHostConfigInner::TcpIp { host, port } => {
                 config.host(host).port(port);
             }
-            PostgresHostInner::UnixSocket(socket) => {
+            PostgresHostConfigInner::UnixSocket { socket } => {
                 config.host(socket);
             }
         }
@@ -219,38 +214,4 @@ impl From<PrivilegedPostgresConfig> for tokio_postgres::Config {
 
         config
     }
-}
-
-pub enum PostgresHost {
-    TcpIp { host: String, port: u16 },
-    UnixSocket(PathBuf),
-}
-
-enum PostgresHostInner {
-    TcpIp { host: String, port: u16 },
-    UnixSocket(String),
-}
-
-impl TryFrom<PostgresHost> for PostgresHostInner {
-    type Error = TryFromPostgresHostError;
-
-    fn try_from(value: PostgresHost) -> Result<Self, Self::Error> {
-        use TryFromPostgresHostError as E;
-
-        Ok(match value {
-            PostgresHost::TcpIp { host, port } => PostgresHostInner::TcpIp { host, port },
-            PostgresHost::UnixSocket(socket) => PostgresHostInner::UnixSocket(
-                absolute(socket)
-                    .map_err(E::Path)?
-                    .to_str()
-                    .ok_or(E::UnixSocketAddressIsNotUTF8)?
-                    .to_owned(),
-            ),
-        })
-    }
-}
-
-pub enum TryFromPostgresHostError {
-    Path(std::io::Error),
-    UnixSocketAddressIsNotUTF8,
 }

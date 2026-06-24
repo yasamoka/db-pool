@@ -1,20 +1,20 @@
-use bon::Builder;
+use std::{
+    ffi::OsString,
+    path::{PathBuf, absolute},
+    str::FromStr,
+};
 
-const DEFAULT_USERNAME: &str = "root";
-const DEFAULT_HOST: &str = "localhost";
-const DEFAULT_PORT: u16 = 3306;
+use derive_more::Display;
+use urlencoding::encode;
+
+use super::common::{DatabaseEngine, FromEnvError, PrivilegedConfig};
+
+const USERNAME_ENV_VAR: &str = "MYSQL_USERNAME";
+const PASSWORD_ENV_VAR: &str = "MYSQL_PASSWORD";
+const HOST_ENV_VAR: &str = "MYSQL_HOST";
 
 /// Privileged MySQL configuration
-#[derive(Builder, Clone)]
-pub struct PrivilegedMySQLConfig {
-    #[builder(default = DEFAULT_USERNAME.to_owned())]
-    pub(crate) username: String,
-    pub(crate) password: Option<String>,
-    #[builder(default = DEFAULT_HOST.to_owned())]
-    pub(crate) host: String,
-    #[builder(default = DEFAULT_PORT)]
-    pub(crate) port: u16,
-}
+pub type PrivilegedMySQLConfig = PrivilegedConfig<MySQL>;
 
 impl PrivilegedMySQLConfig {
     /// Creates a new privileged MySQL configuration from environment variables
@@ -22,93 +22,145 @@ impl PrivilegedMySQLConfig {
     /// - `MYSQL_USERNAME`
     /// - `MYSQL_PASSWORD`
     /// - `MYSQL_HOST`
-    /// - `MYSQL_PORT`
     /// # Defaults
     /// - Username: root
     /// - Password: {blank}
     /// - Host: localhost
-    /// - Port: 3306
-    pub fn from_env() -> Result<Self, Error> {
-        use std::env;
-
-        let username = env::var("MYSQL_USERNAME").unwrap_or(DEFAULT_USERNAME.to_owned());
-        let password = env::var("MYSQL_PASSWORD").ok();
-        let host = env::var("MYSQL_HOST").unwrap_or(DEFAULT_HOST.to_owned());
-        let port = env::var("MYSQL_PORT")
-            .map_or(Ok(DEFAULT_PORT), |port| port.parse())
-            .map_err(Error::InvalidPort)?;
-
-        Ok(Self {
-            username,
-            password,
-            host,
-            port,
-        })
+    pub fn from_env() -> Result<Self, FromEnvError<MySQL>> {
+        Self::from_env_inner()
     }
+}
 
-    pub(crate) fn default_connection_url(&self) -> String {
-        let Self {
-            username,
-            password,
-            host,
-            port,
-        } = self;
-        if let Some(password) = password {
-            format!("mysql://{username}:{password}@{host}:{port}")
-        } else {
-            format!("mysql://{username}@{host}:{port}")
+#[derive(Clone, Debug)]
+pub struct MySQL;
+
+impl DatabaseEngine for MySQL {
+    const PREFIX: &str = "mysql";
+
+    const DEFAULT_USERNAME: &str = "root";
+    const DEFAULT_HOST: &str = "localhost";
+    const DEFAULT_PORT: u16 = 3306;
+
+    const USERNAME_ENV_VAR: &str = USERNAME_ENV_VAR;
+    const PASSWORD_ENV_VAR: &str = PASSWORD_ENV_VAR;
+    const HOST_ENV_VAR: &str = HOST_ENV_VAR;
+
+    type HostConfig = MySQLHostConfig;
+    type HostConfigInner = MySQLHostConfigInner;
+}
+
+pub enum MySQLHostConfig {
+    Localhost,
+    TcpIp { host: String, port: u16 },
+    CustomUnixSocket(PathBuf),
+}
+
+#[derive(Clone, Debug, Display)]
+pub enum MySQLHostConfigInner {
+    #[display("localhost")]
+    Localhost,
+    #[display("{host}:{port}")]
+    TcpIp { host: String, port: u16 },
+    #[display("{}", encode(socket))]
+    CustomUnixSocket { socket: String },
+}
+
+impl MySQLHostConfigInner {
+    pub(crate) fn host_name(&self) -> &str {
+        match self {
+            Self::Localhost | Self::CustomUnixSocket { .. } => "localhost",
+            Self::TcpIp { host, port: _ } => host.as_str(),
         }
     }
+}
 
-    pub(crate) fn privileged_database_connection_url(&self, db_name: &str) -> String {
-        let Self {
-            username,
-            password,
-            host,
-            port,
-            ..
-        } = self;
-        if let Some(password) = password {
-            format!("mysql://{username}:{password}@{host}:{port}/{db_name}")
-        } else {
-            format!("mysql://{username}@{host}:{port}/{db_name}")
+impl Default for MySQLHostConfigInner {
+    fn default() -> Self {
+        Self::TcpIp {
+            host: MySQL::DEFAULT_HOST.to_owned(),
+            port: MySQL::DEFAULT_PORT,
         }
     }
+}
 
-    pub(crate) fn restricted_database_connection_url(
-        &self,
-        username: &str,
-        password: Option<&str>,
-        db_name: &str,
-    ) -> String {
-        let Self { host, port, .. } = self;
-        if let Some(password) = password {
-            format!("mysql://{username}:{password}@{host}:{port}/{db_name}")
+impl FromStr for MySQLHostConfigInner {
+    type Err = MySQLHostConfigFromStrError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        use MySQLHostConfigFromStrError as E;
+
+        if s == "localhost" {
+            Ok(Self::Localhost)
+        } else if s.starts_with('/') || s.starts_with("./") {
+            Ok(Self::CustomUnixSocket {
+                socket: s.to_owned(),
+            })
+        } else if let Some((host, port)) = s.split_once(':') {
+            port.parse()
+                .map(|port| Self::TcpIp {
+                    host: host.to_owned(),
+                    port,
+                })
+                .map_err(E::InvalidPort)
         } else {
-            format!("mysql://{username}@{host}:{port}/{db_name}")
+            Err(E::InvalidHost(s.to_owned()))
         }
     }
 }
 
 #[derive(Debug)]
-pub enum Error {
+pub enum MySQLHostConfigFromStrError {
+    HostIsNotUnicode(OsString),
+    InvalidHost(String),
     InvalidPort(std::num::ParseIntError),
 }
 
-impl Default for PrivilegedMySQLConfig {
-    fn default() -> Self {
-        Self::builder().build()
+impl TryFrom<MySQLHostConfig> for MySQLHostConfigInner {
+    type Error = TryFromMySQLHostConfigError;
+
+    fn try_from(value: MySQLHostConfig) -> Result<Self, Self::Error> {
+        use TryFromMySQLHostConfigError as E;
+
+        Ok(match value {
+            MySQLHostConfig::Localhost => Self::Localhost,
+            MySQLHostConfig::TcpIp { host, port } => Self::TcpIp { host, port },
+            MySQLHostConfig::CustomUnixSocket(socket) => Self::CustomUnixSocket {
+                socket: absolute(socket)
+                    .map_err(E::Path)?
+                    .to_str()
+                    .ok_or(E::UnixSocketAddressIsNotUTF8)?
+                    .to_owned(),
+            },
+        })
     }
+}
+
+pub enum TryFromMySQLHostConfigError {
+    Path(std::io::Error),
+    UnixSocketAddressIsNotUTF8,
 }
 
 #[cfg(feature = "mysql")]
 impl From<PrivilegedMySQLConfig> for r2d2_mysql::mysql::OptsBuilder {
     fn from(value: PrivilegedMySQLConfig) -> Self {
-        Self::new()
-            .user(Some(value.username.clone()))
-            .pass(value.password.clone())
-            .ip_or_hostname(Some(value.host.clone()))
-            .tcp_port(value.port)
+        let PrivilegedMySQLConfig {
+            username,
+            password,
+            host,
+            _marker: _,
+        } = value;
+
+        let builder = Self::new()
+            .user(Some(username.clone()))
+            .pass(password.clone());
+
+        match host {
+            MySQLHostConfigInner::Localhost => builder.ip_or_hostname(Some("localhost")),
+            MySQLHostConfigInner::TcpIp { host, port } => {
+                builder.ip_or_hostname(Some(host)).tcp_port(port)
+            }
+            MySQLHostConfigInner::CustomUnixSocket { socket } => builder.socket(Some(socket)),
+        }
     }
 }
 
@@ -126,18 +178,19 @@ impl From<PrivilegedMySQLConfig> for sqlx::mysql::MySqlConnectOptions {
             username,
             password,
             host,
-            port,
+            _marker: _,
         } = value;
 
-        let opts = Self::new()
-            .username(username.as_str())
-            .host(host.as_str())
-            .port(port);
+        let mut opts = Self::new().username(username.as_str());
 
         if let Some(password) = password {
-            opts.password(password.as_str())
-        } else {
-            opts
+            opts = opts.password(password.as_str());
+        }
+
+        match host {
+            MySQLHostConfigInner::Localhost => opts.host("localhost"),
+            MySQLHostConfigInner::TcpIp { host, port } => opts.host(host.as_str()).port(port),
+            MySQLHostConfigInner::CustomUnixSocket { socket } => opts.socket(socket),
         }
     }
 }

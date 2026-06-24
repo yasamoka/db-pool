@@ -25,7 +25,7 @@ pub(super) trait MySQLBackend {
         conn: &mut <Self::ConnectionManager as ManageConnection>::Connection,
     ) -> Result<(), Self::QueryError>;
 
-    fn get_host(&self) -> Cow<'_, str>;
+    fn get_host_name(&self) -> Cow<'_, str>;
 
     fn get_previous_database_names(
         &self,
@@ -97,7 +97,7 @@ impl<B: MySQLBackend> MySQLBackendWrapper<'_, B> {
         let db_name = crate::util::get_db_name(db_id);
         let db_name = db_name.as_str();
 
-        let host = &self.get_host();
+        let host = &self.get_host_name();
 
         // Get privileged connection
         let conn = &mut self.get_connection()?;
@@ -177,7 +177,7 @@ impl<B: MySQLBackend> MySQLBackendWrapper<'_, B> {
         let db_name = crate::util::get_db_name(db_id);
         let db_name = db_name.as_str();
 
-        let host = &self.get_host();
+        let host = &self.get_host_name();
 
         // Get privileged connection
         let conn = &mut self.get_connection()?;

@@ -106,7 +106,7 @@ impl MySQLBackendTrait for MySQLBackend {
         }
     }
 
-    fn get_host(&self) -> Cow<'_, str> {
+    fn get_host_name(&self) -> Cow<'_, str> {
         self.opts.get_ip_or_hostname()
     }
 

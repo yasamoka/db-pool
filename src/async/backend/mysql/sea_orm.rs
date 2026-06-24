@@ -151,7 +151,7 @@ impl<'pool> MySQLBackend<'pool> for SeaORMMySQLBackend {
     }
 
     fn get_host(&self) -> &str {
-        self.privileged_config.host.as_str()
+        self.privileged_config.host.host_name()
     }
 
     async fn get_previous_database_names(

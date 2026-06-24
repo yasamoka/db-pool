@@ -26,6 +26,7 @@ bb8-postgres = { version = "0.8.1", optional = true }
 bon = "3.9.3"
 deadpool = { version = "0.12.2", optional = true }
 deadpool-postgres = { version = "0.14.1", optional = true }
+derive_more = { version = "2.1.1", features = ["display"], optional = true }
 diesel = { version = "2.2.11", optional = true }
 diesel-async = { version = "0.5.2", optional = true }
 futures = { version = "0.3.31", optional = true }
@@ -81,7 +82,7 @@ tokio-test = "0.4.4"
 [features]
 # DBMSes
 _mysql = []
-_postgres = ["dep:urlencoding"]
+_postgres = ["dep:derive_more", "dep:urlencoding"]
 
 # Sync
 _sync = ["dep:r2d2"]
@@ -164,6 +165,7 @@ tokio-postgres-deadpool = [
 tokio-postgres-mobc = ["tokio-postgres", "dep:mobc", "dep:mobc-postgres"]
 deadpool-postgres = ["dep:deadpool-postgres"]
 mobc-postgres = ["dep:mobc-postgres"]
+derive_more = ["dep:derive_more"]
 
 
 # Sync examples
