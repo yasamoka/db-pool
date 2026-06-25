@@ -1,24 +1,50 @@
 use std::{
+    env::{VarError, var},
     ffi::OsString,
     path::{PathBuf, absolute},
     str::FromStr,
 };
 
+use bon::bon;
 use derive_more::Display;
 use urlencoding::encode;
 
-use crate::common::config::common::FromEnvError;
+use super::credentials::Credentials;
 
-use super::common::{DatabaseEngine, PrivilegedConfig};
-
+const PREFIX: &str = "postgres";
+const DEFAULT_USERNAME: &str = "postgres";
 const USERNAME_ENV_VAR: &str = "POSTGRES_USERNAME";
 const PASSWORD_ENV_VAR: &str = "POSTGRES_PASSWORD";
 const HOST_ENV_VAR: &str = "POSTGRES_HOST";
 
 /// Privileged Postgres configuration
-pub type PrivilegedPostgresConfig = PrivilegedConfig<Postgres>;
+pub struct PrivilegedPostgresConfig {
+    pub(crate) credentials: Credentials<'static>,
+    pub(crate) host: PostgresHostConfigInner,
+}
 
+#[bon]
 impl PrivilegedPostgresConfig {
+    /// Build privileged Postgres configuration
+    #[builder]
+    pub fn new(
+        #[builder(default = DEFAULT_USERNAME.to_owned())] username: String,
+        password: Option<String>,
+        #[builder(
+        default = PostgresHostConfigInner::default(),
+        with = |host: PostgresHostConfig| -> Result<
+            _,
+            <PostgresHostConfigInner as TryFrom<PostgresHostConfig>>::Error,
+        > { PostgresHostConfigInner::try_from(host) }
+    )]
+        host: PostgresHostConfigInner,
+    ) -> Self {
+        Self {
+            credentials: Credentials::new(username, password),
+            host,
+        }
+    }
+
     /// Creates a new privileged Postgres configuration from environment variables
     /// # Environment variables
     /// - `POSTGRES_USERNAME`
@@ -28,25 +54,56 @@ impl PrivilegedPostgresConfig {
     /// - Username: postgres
     /// - Password: {blank}
     /// - Host: localhost:5432
-    pub fn from_env() -> Result<Self, FromEnvError<Postgres>> {
-        Self::from_env_inner()
+    pub fn from_env() -> Result<Self, FromEnvError> {
+        use FromEnvError as E;
+
+        let username = var(USERNAME_ENV_VAR).unwrap_or(DEFAULT_USERNAME.to_owned());
+        let password = var(PASSWORD_ENV_VAR).ok();
+
+        let host = match var(HOST_ENV_VAR) {
+            Ok(host) => host.parse().map_err(E::HostConfig),
+            Err(VarError::NotPresent) => Ok(PostgresHostConfigInner::default()),
+            Err(VarError::NotUnicode(s)) => Err(E::HostIsNotUnicode(s)),
+        }?;
+
+        Ok(Self {
+            credentials: Credentials::new(username, password),
+            host,
+        })
+    }
+
+    pub(crate) fn default_connection_url(&self) -> String {
+        let Self { credentials, host } = self;
+
+        format!("{PREFIX}://{credentials}@{host}")
+    }
+
+    pub(crate) fn privileged_database_connection_url(&self, db_name: &str) -> String {
+        let Self { credentials, host } = self;
+
+        format!("{PREFIX}://{credentials}@{host}/{db_name}")
+    }
+
+    pub(crate) fn restricted_database_connection_url(
+        &self,
+        username: &str,
+        password: Option<&str>,
+        db_name: &str,
+    ) -> String {
+        format!(
+            "{}://{}@{}/{}",
+            PREFIX,
+            Credentials::new(username, password),
+            self.host,
+            db_name
+        )
     }
 }
 
 #[derive(Debug)]
-pub struct Postgres;
-
-impl DatabaseEngine for Postgres {
-    const PREFIX: &str = "postgres";
-
-    const DEFAULT_USERNAME: &str = "postgres";
-
-    const USERNAME_ENV_VAR: &str = USERNAME_ENV_VAR;
-    const PASSWORD_ENV_VAR: &str = PASSWORD_ENV_VAR;
-    const HOST_ENV_VAR: &str = HOST_ENV_VAR;
-
-    type HostConfig = PostgresHostConfig;
-    type HostConfigInner = PostgresHostConfigInner;
+pub enum FromEnvError {
+    HostIsNotUnicode(OsString),
+    HostConfig(PostgresHostConfigFromStrError),
 }
 
 pub enum PostgresHostConfig {
@@ -130,16 +187,11 @@ pub enum TryFromPostgresHostConfigError {
 #[cfg(feature = "postgres")]
 impl From<PrivilegedPostgresConfig> for r2d2_postgres::postgres::Config {
     fn from(value: PrivilegedPostgresConfig) -> Self {
-        let PrivilegedPostgresConfig {
-            username,
-            password,
-            host,
-            _marker: _,
-        } = value;
+        let PrivilegedPostgresConfig { credentials, host } = value;
 
         let mut config = Self::new();
 
-        config.user(username.as_str());
+        config.user(credentials.username());
 
         match host {
             PostgresHostConfigInner::TcpIp { host, port } => {
@@ -150,8 +202,8 @@ impl From<PrivilegedPostgresConfig> for r2d2_postgres::postgres::Config {
             }
         }
 
-        if let Some(password) = password {
-            config.password(password.as_str());
+        if let Some(password) = credentials.password() {
+            config.password(password);
         }
 
         config
@@ -161,22 +213,17 @@ impl From<PrivilegedPostgresConfig> for r2d2_postgres::postgres::Config {
 #[cfg(feature = "sqlx-postgres")]
 impl From<PrivilegedPostgresConfig> for sqlx::postgres::PgConnectOptions {
     fn from(value: PrivilegedPostgresConfig) -> Self {
-        let PrivilegedPostgresConfig {
-            username,
-            password,
-            host,
-            _marker,
-        } = value;
+        let PrivilegedPostgresConfig { credentials, host } = value;
 
-        let opts = Self::new().username(username.as_str());
+        let opts = Self::new().username(credentials.username());
 
         let opts = match host {
             PostgresHostConfigInner::TcpIp { host, port } => opts.host(host.as_str()).port(port),
             PostgresHostConfigInner::UnixSocket { socket } => opts.host(&socket),
         };
 
-        if let Some(password) = password {
-            opts.password(password.as_str())
+        if let Some(password) = credentials.password() {
+            opts.password(password)
         } else {
             opts
         }
@@ -186,16 +233,11 @@ impl From<PrivilegedPostgresConfig> for sqlx::postgres::PgConnectOptions {
 #[cfg(feature = "tokio-postgres")]
 impl From<PrivilegedPostgresConfig> for tokio_postgres::Config {
     fn from(value: PrivilegedPostgresConfig) -> Self {
-        let PrivilegedPostgresConfig {
-            username,
-            password,
-            host,
-            _marker: _,
-        } = value;
+        let PrivilegedPostgresConfig { credentials, host } = value;
 
         let mut config = Self::new();
 
-        config.user(username.as_str());
+        config.user(credentials.username());
 
         match host {
             PostgresHostConfigInner::TcpIp { host, port } => {
@@ -206,8 +248,8 @@ impl From<PrivilegedPostgresConfig> for tokio_postgres::Config {
             }
         }
 
-        if let Some(password) = password {
-            config.password(password.as_str());
+        if let Some(password) = credentials.password() {
+            config.password(password);
         }
 
         config

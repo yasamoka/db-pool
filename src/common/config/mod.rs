@@ -1,4 +1,4 @@
-pub(crate) mod common;
+mod credentials;
 #[cfg(any(
     test,
     feature = "diesel-mysql",

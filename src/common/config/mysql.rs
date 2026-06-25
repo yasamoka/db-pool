@@ -1,22 +1,52 @@
 use std::{
+    borrow::Cow,
+    env::{VarError, var},
     ffi::OsString,
     path::{PathBuf, absolute},
     str::FromStr,
 };
 
+use bon::bon;
 use derive_more::Display;
 use urlencoding::encode;
 
-use super::common::{DatabaseEngine, FromEnvError, PrivilegedConfig};
-
+const PREFIX: &str = "mysql";
+const DEFAULT_USERNAME: &str = "root";
 const USERNAME_ENV_VAR: &str = "MYSQL_USERNAME";
 const PASSWORD_ENV_VAR: &str = "MYSQL_PASSWORD";
 const HOST_ENV_VAR: &str = "MYSQL_HOST";
 
 /// Privileged MySQL configuration
-pub type PrivilegedMySQLConfig = PrivilegedConfig<MySQL>;
+#[derive(Clone)]
+pub struct PrivilegedMySQLConfig {
+    pub(crate) username: String,
+    pub(crate) password: Option<String>,
+    pub(crate) host: MySQLHostConfigInner,
+}
 
+#[bon]
 impl PrivilegedMySQLConfig {
+    /// Build privileged MySQL configuration
+    #[builder]
+    pub fn new(
+        #[builder(default = DEFAULT_USERNAME.to_owned())] username: String,
+        password: Option<String>,
+        #[builder(
+        default = MySQLHostConfigInner::default(),
+            with = |host: MySQLHostConfig| -> Result<
+                _,
+                <MySQLHostConfigInner as TryFrom<MySQLHostConfig>>::Error,
+            > { MySQLHostConfigInner::try_from(host) }
+        )]
+        host: MySQLHostConfigInner,
+    ) -> Self {
+        Self {
+            username,
+            password,
+            host,
+        }
+    }
+
     /// Creates a new privileged MySQL configuration from environment variables
     /// # Environment variables
     /// - `MYSQL_USERNAME`
@@ -26,25 +56,80 @@ impl PrivilegedMySQLConfig {
     /// - Username: root
     /// - Password: {blank}
     /// - Host: localhost
-    pub fn from_env() -> Result<Self, FromEnvError<MySQL>> {
-        Self::from_env_inner()
+    pub fn from_env() -> Result<Self, FromEnvError> {
+        use FromEnvError as E;
+
+        let username = var(USERNAME_ENV_VAR).unwrap_or(DEFAULT_USERNAME.to_owned());
+        let password = var(PASSWORD_ENV_VAR).ok();
+
+        let host = match var(HOST_ENV_VAR) {
+            Ok(host) => host.parse().map_err(E::HostConfig),
+            Err(VarError::NotPresent) => Ok(MySQLHostConfigInner::default()),
+            Err(VarError::NotUnicode(s)) => Err(E::HostIsNotUnicode(s)),
+        }?;
+
+        Ok(Self {
+            username,
+            password,
+            host,
+        })
+    }
+
+    pub(crate) fn default_connection_url(&self) -> String {
+        let Self {
+            username, password, ..
+        } = self;
+
+        format!(
+            "{}://{}@{}",
+            PREFIX,
+            Self::credentials(username, password.as_ref().map(String::as_str)),
+            self.host
+        )
+    }
+
+    pub(crate) fn privileged_database_connection_url(&self, db_name: &str) -> String {
+        let Self {
+            username, password, ..
+        } = self;
+
+        format!(
+            "{}://{}@{}/{}",
+            PREFIX,
+            Self::credentials(username, password.as_ref().map(String::as_str)),
+            self.host,
+            db_name
+        )
+    }
+
+    pub(crate) fn restricted_database_connection_url(
+        &self,
+        username: &str,
+        password: Option<&str>,
+        db_name: &str,
+    ) -> String {
+        format!(
+            "{}://{}@{}/{}",
+            PREFIX,
+            Self::credentials(username, password),
+            self.host,
+            db_name
+        )
+    }
+
+    fn credentials<'a>(username: &'a str, password: Option<&'a str>) -> Cow<'a, str> {
+        if let Some(password) = password {
+            Cow::Owned(format!("{username}:{password}"))
+        } else {
+            Cow::Borrowed(username)
+        }
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct MySQL;
-
-impl DatabaseEngine for MySQL {
-    const PREFIX: &str = "mysql";
-
-    const DEFAULT_USERNAME: &str = "root";
-
-    const USERNAME_ENV_VAR: &str = USERNAME_ENV_VAR;
-    const PASSWORD_ENV_VAR: &str = PASSWORD_ENV_VAR;
-    const HOST_ENV_VAR: &str = HOST_ENV_VAR;
-
-    type HostConfig = MySQLHostConfig;
-    type HostConfigInner = MySQLHostConfigInner;
+#[derive(Debug)]
+pub enum FromEnvError {
+    HostIsNotUnicode(OsString),
+    HostConfig(MySQLHostConfigFromStrError),
 }
 
 pub enum MySQLHostConfig {
@@ -137,7 +222,6 @@ impl From<PrivilegedMySQLConfig> for r2d2_mysql::mysql::OptsBuilder {
             username,
             password,
             host,
-            _marker: _,
         } = value;
 
         let builder = Self::new()
@@ -168,7 +252,6 @@ impl From<PrivilegedMySQLConfig> for sqlx::mysql::MySqlConnectOptions {
             username,
             password,
             host,
-            _marker: _,
         } = value;
 
         let mut opts = Self::new().username(username.as_str());
