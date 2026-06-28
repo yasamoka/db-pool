@@ -339,7 +339,7 @@ impl<P: DieselPoolAssociation<AsyncPgConnection>> Backend for DieselAsyncPostgre
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::needless_return)]
+    #![allow(clippy::large_futures, clippy::needless_return, clippy::unwrap_used)]
 
     use std::borrow::Cow;
 
