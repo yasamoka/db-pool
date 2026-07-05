@@ -17,6 +17,7 @@ const DEFAULT_USERNAME: &str = "postgres";
 const USERNAME_ENV_VAR: &str = "POSTGRES_USERNAME";
 const PASSWORD_ENV_VAR: &str = "POSTGRES_PASSWORD";
 const HOST_ENV_VAR: &str = "POSTGRES_HOST";
+const PARAMS_ENV_VAR: &str = "POSTGRES_PARAMS";
 
 /// Privileged Postgres configuration
 pub struct PrivilegedPostgresConfig {
@@ -72,7 +73,7 @@ impl PrivilegedPostgresConfig {
             Err(VarError::NotUnicode(s)) => Err(E::VarIsNotUnicode(s)),
         }?;
 
-        let parameters = match var(USERNAME_ENV_VAR) {
+        let parameters = match var(PARAMS_ENV_VAR) {
             Ok(parameters) => parameters.parse().map_err(E::Parameters),
             Err(VarError::NotPresent) => Ok(Parameters::builder().build()),
             Err(VarError::NotUnicode(s)) => Err(E::VarIsNotUnicode(s)),
