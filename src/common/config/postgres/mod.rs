@@ -5,6 +5,12 @@ mod param;
 mod params;
 
 pub use config::PrivilegedPostgresConfig;
+pub use param::{
+    AllowStrictness, AuthMethod, ClientEncoding, GssLib, HttpsUrl, Key, LoadBalanceHosts,
+    NonEmptyString, OAuthScope, Options, ProtocolVersion, Replication, RequireStrictness,
+    SecretString, SslKey, SslMode, SslNegotiation, SslProtocolVersion, SslRootCert,
+    TargetSessionAttrs, UTF8Path,
+};
 
 #[cfg(test)]
 pub(super) mod tests {

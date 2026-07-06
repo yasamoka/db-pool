@@ -2,6 +2,7 @@ use std::{convert::Infallible, fmt::Display, str::FromStr};
 
 use secrecy::ExposeSecret;
 
+/// Secret string
 #[derive(Debug)]
 pub struct SecretString(secrecy::SecretString);
 

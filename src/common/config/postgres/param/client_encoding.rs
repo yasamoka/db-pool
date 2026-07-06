@@ -2,10 +2,13 @@ use std::{convert::Infallible, str::FromStr};
 
 use derive_more::Display;
 
+/// Client encoding
 #[derive(Debug, Display, Eq, PartialEq)]
 pub enum ClientEncoding {
+    /// Determine right encoding from current client locale
     #[display("auto")]
     Auto,
+    /// Specific encoding
     #[display("{_0}")]
     Specific(String),
 }

@@ -1,9 +1,11 @@
 use derive_more::{Display, FromStr};
 
+/// GSS library
 #[derive(Debug, Display, Eq, FromStr, PartialEq)]
 #[from_str(rename_all = "kebab-case")]
 #[display(rename_all = "kebab-case")]
 pub enum GssLib {
+    /// gssapi
     Gssapi,
 }
 

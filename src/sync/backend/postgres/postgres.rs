@@ -254,9 +254,11 @@ mod tests {
     use r2d2::Pool;
 
     use crate::{
-        PrivilegedPostgresConfig,
-        common::statement::postgres::tests::{
-            CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
+        common::{
+            config::postgres::PrivilegedPostgresConfig,
+            statement::postgres::tests::{
+                CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
+            },
         },
         sync::{
             backend::postgres::r#trait::tests::{

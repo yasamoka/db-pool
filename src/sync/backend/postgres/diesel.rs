@@ -31,7 +31,7 @@ impl DieselPostgresBackend {
     /// Creates a new [`Diesel Postgres`](https://docs.rs/diesel/2.2.11/diesel/pg/struct.PgConnection.html) backend
     /// # Example
     /// ```
-    /// use db_pool::{sync::DieselPostgresBackend, PrivilegedPostgresConfig};
+    /// use db_pool::{postgres::PrivilegedPostgresConfig, sync::DieselPostgresBackend};
     /// use diesel::{sql_query, RunQueryDsl};
     /// use dotenvy::dotenv;
     /// use r2d2::Pool;
@@ -242,7 +242,7 @@ mod tests {
 
     use crate::{
         common::{
-            config::PrivilegedPostgresConfig,
+            config::postgres::PrivilegedPostgresConfig,
             statement::postgres::tests::{
                 CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
             },

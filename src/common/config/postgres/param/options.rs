@@ -8,10 +8,12 @@ use std::{
 use derive_more::Into;
 use regex::Regex;
 
+/// Command-line options
 #[derive(Debug, Eq, Into, PartialEq)]
 pub struct Options(HashMap<Cow<'static, str>, Cow<'static, str>>);
 
 impl Options {
+    /// Create new command-line options
     pub fn new<K, V>(options: impl IntoIterator<Item = (K, V)>) -> Self
     where
         K: Into<Cow<'static, str>>,

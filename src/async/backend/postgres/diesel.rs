@@ -359,7 +359,7 @@ mod tests {
             db_pool::DatabasePoolBuilder,
         },
         common::{
-            config::PrivilegedPostgresConfig,
+            config::postgres::PrivilegedPostgresConfig,
             statement::postgres::tests::{
                 CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
             },

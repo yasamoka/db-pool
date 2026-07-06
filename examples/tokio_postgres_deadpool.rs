@@ -5,11 +5,11 @@ mod tests {
     #![allow(clippy::needless_return)]
 
     use db_pool::{
-        PrivilegedPostgresConfig,
         r#async::{
             DatabasePool, DatabasePoolBuilderTrait, ReusableConnectionPool, TokioPostgresBackend,
             TokioPostgresDeadpool,
         },
+        postgres::PrivilegedPostgresConfig,
     };
     use deadpool::managed::Pool;
     use dotenvy::dotenv;

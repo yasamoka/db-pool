@@ -5,10 +5,10 @@ mod tests {
     #![allow(clippy::needless_return)]
 
     use db_pool::{
-        PrivilegedPostgresConfig,
         r#async::{
             DatabasePool, DatabasePoolBuilderTrait, ReusableConnectionPool, SqlxPostgresBackend,
         },
+        postgres::PrivilegedPostgresConfig,
     };
     use dotenvy::dotenv;
     use sqlx::{Executor, Row, postgres::PgPoolOptions, query};

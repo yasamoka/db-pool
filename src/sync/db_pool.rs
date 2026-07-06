@@ -22,8 +22,8 @@ impl<B: Backend> DatabasePool<B> {
     /// # Example
     /// ```
     /// use db_pool::{
+    ///     postgres::PrivilegedPostgresConfig,
     ///     sync::{DatabasePoolBuilderTrait, DieselPostgresBackend},
-    ///     PrivilegedPostgresConfig,
     /// };
     /// use diesel::{sql_query, RunQueryDsl};
     /// use dotenvy::dotenv;
@@ -59,8 +59,8 @@ impl<B: Backend> DatabasePool<B> {
     /// # Example
     /// ```
     /// use db_pool::{
+    ///     postgres::PrivilegedPostgresConfig,
     ///     sync::{DatabasePoolBuilderTrait, DieselPostgresBackend},
-    ///     PrivilegedPostgresConfig,
     /// };
     /// use diesel::{sql_query, RunQueryDsl};
     /// use dotenvy::dotenv;
@@ -98,8 +98,8 @@ pub trait DatabasePoolBuilder: Backend {
     /// # Example
     /// ```
     /// use db_pool::{
+    ///     postgres::PrivilegedPostgresConfig,
     ///     sync::{DatabasePoolBuilderTrait, DieselPostgresBackend},
-    ///     PrivilegedPostgresConfig,
     /// };
     /// use diesel::{sql_query, RunQueryDsl};
     /// use dotenvy::dotenv;

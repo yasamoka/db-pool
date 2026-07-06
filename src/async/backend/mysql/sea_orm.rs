@@ -11,7 +11,7 @@ use sea_orm::{
 use uuid::Uuid;
 
 use crate::{
-    common::{config::PrivilegedMySQLConfig, statement::mysql},
+    common::{config::mysql::PrivilegedMySQLConfig, statement::mysql},
     util::get_db_name,
 };
 

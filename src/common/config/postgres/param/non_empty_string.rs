@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use derive_more::Display;
 
+/// Non-empty string
 #[derive(Debug, Display, Eq, PartialEq)]
 pub struct NonEmptyString(String);
 

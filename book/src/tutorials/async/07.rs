@@ -7,11 +7,11 @@ mod tests {
 
     use bb8::Pool;
     use db_pool::{
-        PrivilegedPostgresConfig,
         r#async::{
             DatabasePool, DatabasePoolBuilderTrait, DieselAsyncPostgresBackend, DieselBb8,
             ReusableConnectionPool,
         },
+        postgres::PrivilegedPostgresConfig,
     };
     use diesel::{Insertable, QueryDsl, insert_into, sql_query, table};
     use diesel_async::RunQueryDsl;

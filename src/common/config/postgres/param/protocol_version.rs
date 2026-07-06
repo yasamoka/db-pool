@@ -2,12 +2,16 @@ use std::str::FromStr;
 
 use derive_more::Display;
 
+/// PostgreSQL protocol version
 #[derive(Debug, Display, Eq, PartialEq)]
 pub enum ProtocolVersion {
+    /// 3.0
     #[display("3.0")]
     V3_0,
+    /// 3.2
     #[display("3.2")]
     V3_2,
+    /// Latest
     #[display("latest")]
     Latest,
 }

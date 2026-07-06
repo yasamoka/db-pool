@@ -2,17 +2,26 @@ use std::str::FromStr;
 
 use derive_more::Display;
 
+/// Authentication method
 #[derive(Debug, Display, Eq, PartialEq)]
 #[display(rename_all = "kebab-case")]
 pub enum AuthMethod {
+    /// Plaintext password authentication
     Password,
+    /// MD5 hashed password authentication
     #[display("md5")]
     Md5,
+    /// Kerberos handshake via GSSAPI or GSS-encrypted channel
     Gss,
+    /// Windows SSPI authentication
     Sspi,
+    /// SCRAM-SHA-256 authentication exchange
     #[display("scram-sha-256")]
     ScramSha256,
+    #[allow(clippy::doc_markdown)]
+    /// OAuth bearer token
     Oauth,
+    /// No prompt for authentication exchange
     None,
 }
 

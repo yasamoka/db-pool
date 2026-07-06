@@ -6,6 +6,7 @@ use std::{
 
 use derive_more::Display;
 
+/// Path encoded in UTF-8
 #[derive(Debug, Display, Eq, PartialEq)]
 pub struct UTF8Path(String);
 

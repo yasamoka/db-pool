@@ -2,6 +2,8 @@ use std::{convert::Infallible, str::FromStr};
 
 use derive_more::Display;
 
+#[allow(clippy::doc_markdown)]
+/// OAuth access request scope
 #[derive(Debug, Display, Eq, PartialEq)]
 #[display("{}", _0.join(" "))]
 pub struct OAuthScope(pub Vec<String>);

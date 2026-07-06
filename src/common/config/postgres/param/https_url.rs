@@ -3,6 +3,7 @@ use std::str::FromStr;
 use derive_more::Display;
 use url::{ParseError, Url};
 
+/// HTTPS URL
 #[derive(Debug, Display, Eq, PartialEq)]
 pub struct HttpsUrl(Url);
 

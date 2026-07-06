@@ -2,14 +2,20 @@ use std::str::FromStr;
 
 use derive_more::Display;
 
+/// SSL/TLS protocol version
 #[derive(Debug, Display, Eq, PartialEq)]
 pub enum SslProtocolVersion {
+    #[allow(clippy::doc_markdown)]
+    /// TLSv1
     #[display("TLSv1")]
     TLSv1,
+    /// TLSv1.1
     #[display("TLSv1.1")]
     TLSv1_1,
+    /// TLSv1.2
     #[display("TLSv1.2")]
     TLSv1_2,
+    /// TLSv1.3
     #[display("TLSv1.3")]
     TLSv1_3,
 }

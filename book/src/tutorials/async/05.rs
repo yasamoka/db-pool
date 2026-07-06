@@ -6,7 +6,6 @@ mod tests {
 
     use bb8::Pool;
     use db_pool::{
-        PrivilegedPostgresConfig,
         r#async::{
             DatabasePool,
             DatabasePoolBuilderTrait,
@@ -15,6 +14,7 @@ mod tests {
             // import reusable connection pool
             ReusableConnectionPool,
         },
+        postgres::PrivilegedPostgresConfig,
     };
     use diesel::sql_query;
     use diesel_async::RunQueryDsl;

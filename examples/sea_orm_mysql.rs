@@ -8,10 +8,10 @@ mod tests {
         r#async::{
             DatabasePool, DatabasePoolBuilderTrait, ReusableConnectionPool, SeaORMMySQLBackend,
         },
-        PrivilegedMySQLConfig,
+        mysql::PrivilegedMySQLConfig,
     };
     use dotenvy::dotenv;
-    use sea_orm::{prelude::*, Set};
+    use sea_orm::{Set, prelude::*};
     use tokio::sync::OnceCell;
     use tokio_shared_rt::test;
 

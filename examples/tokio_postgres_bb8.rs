@@ -6,11 +6,11 @@ mod tests {
 
     use bb8::Pool;
     use db_pool::{
-        PrivilegedPostgresConfig,
         r#async::{
             DatabasePool, DatabasePoolBuilderTrait, ReusableConnectionPool, TokioPostgresBackend,
             TokioPostgresBb8,
         },
+        postgres::PrivilegedPostgresConfig,
     };
     use dotenvy::dotenv;
     use tokio::sync::OnceCell;

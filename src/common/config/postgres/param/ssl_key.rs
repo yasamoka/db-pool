@@ -5,11 +5,14 @@ use std::{
 
 use derive_more::Display;
 
+/// SSL secret key
 #[derive(Debug, Display, Eq, PartialEq)]
 pub enum SslKey {
-    // ensure valid UTF-8
+    /// From path
+    // TODO: ensure valid UTF-8
     #[display("{}", _0.to_string_lossy())]
     Path(PathBuf),
+    /// Obtained from external engine
     #[display("{_0}")]
     ExternalEngine(ExternalEngine),
 }

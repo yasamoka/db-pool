@@ -10,7 +10,7 @@ use sea_orm::{
 };
 use uuid::Uuid;
 
-use crate::{common::config::PrivilegedPostgresConfig, util::get_db_name};
+use crate::{common::config::postgres::PrivilegedPostgresConfig, util::get_db_name};
 
 use super::{
     super::{
@@ -331,7 +331,7 @@ mod tests {
             db_pool::DatabasePoolBuilder,
         },
         common::{
-            config::PrivilegedPostgresConfig,
+            config::postgres::PrivilegedPostgresConfig,
             statement::postgres::tests::{
                 CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
             },

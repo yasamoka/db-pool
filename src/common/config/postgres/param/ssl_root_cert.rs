@@ -2,10 +2,13 @@ use std::{convert::Infallible, path::PathBuf, str::FromStr};
 
 use derive_more::Display;
 
+/// SSL certificate authority (CA) certificate
 #[derive(Debug, Display, Eq, PartialEq)]
 pub enum SslRootCert {
+    /// Trusted CA roots from the SSL implementation will be loaded
     #[display("system")]
     System,
+    /// Alternative path
     #[display("{}", _0.to_string_lossy())]
     Specific(PathBuf),
 }

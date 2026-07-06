@@ -5,7 +5,7 @@ mod tests {
     use std::sync::OnceLock;
 
     use db_pool::{
-        PrivilegedPostgresConfig,
+        postgres::PrivilegedPostgresConfig,
         sync::{DatabasePool, DatabasePoolBuilderTrait, PostgresBackend, ReusableConnectionPool},
     };
     use dotenvy::dotenv;
