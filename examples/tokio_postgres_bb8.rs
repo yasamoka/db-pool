@@ -28,7 +28,7 @@ mod tests {
                 let config = PrivilegedPostgresConfig::from_env().unwrap();
 
                 let backend = TokioPostgresBackend::new(
-                    config.into(),
+                    config.try_into().unwrap(),
                     |_| Pool::builder().max_size(10),
                     |_| Pool::builder().max_size(2),
                     move |conn| {

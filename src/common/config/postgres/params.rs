@@ -63,7 +63,7 @@ pub struct Parameters {
     pub(super) oauth_scope: Option<OAuthScope>,
 }
 
-#[derive(Debug, Display, FromStr)]
+#[derive(Debug, Display, Eq, FromStr, Hash, PartialEq)]
 #[from_str(rename_all = "snake_case")]
 #[display(rename_all = "snake_case")]
 pub enum ParameterKey {

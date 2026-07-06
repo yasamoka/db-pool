@@ -1,6 +1,14 @@
-use super::super::param::{
-    LoadBalanceHosts, RequireStrictness, SslMode, SslNegotiation, TargetSessionAttrs,
+use std::collections::HashSet;
+
+use super::super::{
+    param::{LoadBalanceHosts, RequireStrictness, SslMode, SslNegotiation, TargetSessionAttrs},
+    params::ParameterKey,
 };
+
+#[derive(Debug)]
+pub enum TryFromPrivilegedPostgresConfigError {
+    UnsupportedParams(HashSet<ParameterKey>),
+}
 
 impl From<RequireStrictness> for tokio_postgres::config::ChannelBinding {
     fn from(value: RequireStrictness) -> Self {

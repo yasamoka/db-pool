@@ -5,13 +5,13 @@ mod tests {
     #![allow(clippy::needless_return)]
 
     use db_pool::{
+        PrivilegedPostgresConfig,
         r#async::{
             DatabasePool, DatabasePoolBuilderTrait, ReusableConnectionPool, SqlxPostgresBackend,
         },
-        PrivilegedPostgresConfig,
     };
     use dotenvy::dotenv;
-    use sqlx::{postgres::PgPoolOptions, query, Executor, Row};
+    use sqlx::{Executor, Row, postgres::PgPoolOptions, query};
     use tokio::sync::OnceCell;
     use tokio_shared_rt::test;
 
@@ -25,7 +25,7 @@ mod tests {
                 let config = PrivilegedPostgresConfig::from_env().unwrap();
 
                 let backend = SqlxPostgresBackend::new(
-                    config.into(),
+                    config.try_into().unwrap(),
                     || PgPoolOptions::new().max_connections(10),
                     || PgPoolOptions::new().max_connections(2),
                     move |mut conn| {

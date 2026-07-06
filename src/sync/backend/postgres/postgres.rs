@@ -3,8 +3,8 @@ use std::{borrow::Cow, collections::HashMap, ops::Deref};
 use parking_lot::Mutex;
 use r2d2::{Builder, Pool, PooledConnection};
 use r2d2_postgres::{
-    postgres::{Client, Config, Error, NoTls},
     PostgresConnectionManager,
+    postgres::{Client, Config, Error, NoTls},
 };
 use uuid::Uuid;
 
@@ -254,6 +254,7 @@ mod tests {
     use r2d2::Pool;
 
     use crate::{
+        PrivilegedPostgresConfig,
         common::statement::postgres::tests::{
             CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
         },
@@ -264,7 +265,6 @@ mod tests {
             },
             db_pool::DatabasePoolBuilder,
         },
-        PrivilegedPostgresConfig,
     };
 
     use super::{
@@ -283,7 +283,7 @@ mod tests {
 
         let config = PrivilegedPostgresConfig::from_env().unwrap();
 
-        PostgresBackend::new(config.into(), Pool::builder, Pool::builder, {
+        PostgresBackend::new(config.try_into().unwrap(), Pool::builder, Pool::builder, {
             move |conn| {
                 if with_table {
                     conn.batch_execute(&CREATE_ENTITIES_STATEMENTS.join(";"))
