@@ -502,6 +502,11 @@ mod tests {
     }
 
     #[test]
+    fn empty() {
+        assert!(Parameters::builder().build().to_string().is_empty());
+    }
+
+    #[test]
     fn all_params() {
         const STR: &str = "passfile%3D%2F%26require_auth%3Dgss%26channel_binding%3Ddisable%26connect_timeout%3D0%26client_encoding%3Dauto%26options%3D-c%20geqo%3Doff%26application_name%3Dapp%26fallback_application_name%3Dfallback%26keepalives%3Dtrue%26keepalives_idle%3D0%26keepalives_interval%3D0%26keepalives_count%3D0%26tcp_user_timeout%3D0%26replication%3Ddatabase%26gssencmode%3Ddisable%26sslmode%3Dallow%26requiressl%3Dtrue%26sslnegotiation%3Ddirect%26sslcompression%3Dtrue%26sslcert%3D.%2Fcert%26sslkey%3D.%2Fkey%26sslkeylogfile%3D.%2Flog%26sslpassword%3Dpass%26sslcertmode%3Dallow%26sslrootcert%3D.%2Fcert%26sslcrl%3D.%2Fcrl%26sslcrldir%3D.%2Fdir%26sslsni%3Dtrue%26requirepeer%3Dpeer%26ssl_min_protocol_version%3DTLSv1%26ssl_max_protocol_version%3DTLSv1.1%26min_protocol_version%3D3.0%26max_protocol_version%3D3.2%26krbsrvname%3Dkrb%26gsslib%3Dgssapi%26gssdelegation%3Dtrue%26scram_client_key%3D%26scram_server_key%3D%26service%3Dservice%26target_session_attrs%3Dany%26load_balance_hosts%3Ddisable%26oauth_issuer%3Dhttps%3A%2F%2Fwww.wikipedia.org%2F%26oauth_client_id%3Did%26oauth_client_secret%3Dsecret%26oauth_scope%3Ds1%20s2";
 
