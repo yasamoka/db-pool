@@ -43,7 +43,7 @@ impl<P: TokioPostgresPoolAssociation> TokioPostgresBackend<P> {
     /// use bb8::Pool;
     /// use db_pool::{
     ///     r#async::{TokioPostgresBackend, TokioPostgresBb8},
-    ///     PrivilegedPostgresConfig,
+    ///     postgres::PrivilegedPostgresConfig,
     /// };
     /// use dotenvy::dotenv;
     ///
@@ -53,7 +53,7 @@ impl<P: TokioPostgresPoolAssociation> TokioPostgresBackend<P> {
     ///     let config = PrivilegedPostgresConfig::from_env().unwrap();
     ///     
     ///     let backend = TokioPostgresBackend::<TokioPostgresBb8>::new(
-    ///         config.into(),
+    ///         config.try_into().unwrap(),
     ///         |_| Pool::builder().max_size(10),
     ///         |_| Pool::builder().max_size(2),
     ///         move |conn| {

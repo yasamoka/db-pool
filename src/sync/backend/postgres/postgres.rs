@@ -31,7 +31,7 @@ impl PostgresBackend {
     /// Creates a new Postgres backend
     /// # Example
     /// ```
-    /// use db_pool::{sync::PostgresBackend, PrivilegedPostgresConfig};
+    /// use db_pool::{postgres::PrivilegedPostgresConfig, sync::PostgresBackend};
     /// use r2d2::Pool;
     /// use dotenvy::dotenv;
     ///
@@ -40,7 +40,7 @@ impl PostgresBackend {
     /// let config = PrivilegedPostgresConfig::from_env().unwrap();
     ///
     /// let backend = PostgresBackend::new(
-    ///     config.into(),
+    ///     config.try_into().unwrap(),
     ///     || Pool::builder().max_size(10),
     ///     || Pool::builder().max_size(2),
     ///     move |conn| {

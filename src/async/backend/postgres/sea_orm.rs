@@ -44,7 +44,7 @@ impl SeaORMPostgresBackend {
     /// # Example
     /// ```
     /// use bb8::Pool;
-    /// use db_pool::{r#async::SeaORMPostgresBackend, PrivilegedPostgresConfig};
+    /// use db_pool::{r#async::SeaORMPostgresBackend, postgres::PrivilegedPostgresConfig};
     /// use diesel::sql_query;
     /// use diesel_async::RunQueryDsl;
     /// use dotenvy::dotenv;

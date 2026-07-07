@@ -29,7 +29,7 @@ impl MySQLBackend {
     /// Creates a new MySQL backend
     /// # Example
     /// ```
-    /// use db_pool::{sync::MySQLBackend, PrivilegedMySQLConfig};
+    /// use db_pool::{mysql::PrivilegedMySQLConfig, sync::MySQLBackend};
     /// use dotenvy::dotenv;
     /// use r2d2::Pool;
     /// use r2d2_mysql::mysql::{prelude::Queryable, OptsBuilder};

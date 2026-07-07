@@ -45,7 +45,7 @@ impl SeaORMMySQLBackend {
     /// Creates a new [`SeaORM MySQL`](https://docs.rs/sea-orm/1.1.12/sea_orm/type.DbBackend.html#variant.MySql) backend
     /// # Example
     /// ```
-    /// use db_pool::{r#async::SeaORMMySQLBackend, PrivilegedMySQLConfig};
+    /// use db_pool::{r#async::SeaORMMySQLBackend, mysql::PrivilegedMySQLConfig};
     /// use dotenvy::dotenv;
     /// use sea_orm::ConnectionTrait;
     ///

@@ -38,7 +38,7 @@ impl SqlxMySQLBackend {
     /// Creates a new [`sqlx MySQL`](https://docs.rs/sqlx/0.8.6/sqlx/struct.MySql.html) backend
     /// # Example
     /// ```
-    /// use db_pool::{r#async::SqlxMySQLBackend, PrivilegedMySQLConfig};
+    /// use db_pool::{r#async::SqlxMySQLBackend, mysql::PrivilegedMySQLConfig};
     /// use dotenvy::dotenv;
     /// use sqlx::{mysql::MySqlPoolOptions, Executor};
     ///

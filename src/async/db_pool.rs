@@ -26,7 +26,7 @@ impl<B: Backend> DatabasePool<B> {
     /// use bb8::Pool;
     /// use db_pool::{
     ///     r#async::{DatabasePoolBuilderTrait, DieselAsyncPostgresBackend, DieselBb8},
-    ///     PrivilegedPostgresConfig,
+    ///     postgres::PrivilegedPostgresConfig,
     /// };
     /// use diesel::sql_query;
     /// use diesel_async::RunQueryDsl;
@@ -74,7 +74,7 @@ impl<B: Backend> DatabasePool<B> {
     /// use bb8::Pool;
     /// use db_pool::{
     ///     r#async::{DatabasePoolBuilderTrait, DieselAsyncPostgresBackend, DieselBb8},
-    ///     PrivilegedPostgresConfig,
+    ///     postgres::PrivilegedPostgresConfig,
     /// };
     /// use diesel::sql_query;
     /// use diesel_async::RunQueryDsl;
@@ -128,7 +128,7 @@ pub trait DatabasePoolBuilder: Backend {
     /// use bb8::Pool;
     /// use db_pool::{
     ///     r#async::{DatabasePoolBuilderTrait, DieselAsyncPostgresBackend, DieselBb8},
-    ///     PrivilegedPostgresConfig,
+    ///     postgres::PrivilegedPostgresConfig,
     /// };
     /// use diesel::sql_query;
     /// use diesel_async::RunQueryDsl;

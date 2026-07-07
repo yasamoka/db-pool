@@ -21,7 +21,7 @@ type DieselManager<Connection> = AsyncDieselConnectionManager<Connection>;
 /// ```
 /// use db_pool::{
 ///     r#async::{DieselAsyncPostgresBackend, DieselMobc},
-///     PrivilegedPostgresConfig,
+///     postgres::PrivilegedPostgresConfig,
 /// };
 /// use diesel::sql_query;
 /// use diesel_async::RunQueryDsl;

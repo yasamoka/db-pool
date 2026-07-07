@@ -36,7 +36,7 @@ impl DieselMySQLBackend {
     /// Creates a new [`Diesel MySQL`](https://docs.rs/diesel/2.2.11/diesel/mysql/struct.MysqlConnection.html) backend
     /// # Example
     /// ```
-    /// use db_pool::{sync::DieselMySQLBackend, PrivilegedMySQLConfig};
+    /// use db_pool::{mysql::PrivilegedMySQLConfig, sync::DieselMySQLBackend};
     /// use diesel::{sql_query, RunQueryDsl};
     /// use dotenvy::dotenv;
     /// use r2d2::Pool;

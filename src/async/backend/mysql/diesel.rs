@@ -49,7 +49,7 @@ impl<P: DieselPoolAssociation<AsyncMysqlConnection>> DieselAsyncMySQLBackend<P> 
     /// use bb8::Pool;
     /// use db_pool::{
     ///     r#async::{DieselAsyncMySQLBackend, DieselBb8},
-    ///     PrivilegedMySQLConfig,
+    ///     mysql::PrivilegedMySQLConfig,
     /// };
     /// use diesel::sql_query;
     /// use diesel_async::RunQueryDsl;

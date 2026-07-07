@@ -50,7 +50,7 @@ impl<P: DieselPoolAssociation<AsyncPgConnection>> DieselAsyncPostgresBackend<P> 
     /// use bb8::Pool;
     /// use db_pool::{
     ///     r#async::{DieselAsyncPostgresBackend, DieselBb8},
-    ///     PrivilegedPostgresConfig,
+    ///     postgres::PrivilegedPostgresConfig,
     /// };
     /// use diesel::sql_query;
     /// use diesel_async::RunQueryDsl;
