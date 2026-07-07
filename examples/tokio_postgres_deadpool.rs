@@ -11,7 +11,7 @@ mod tests {
         },
         postgres::PrivilegedPostgresConfig,
     };
-    use deadpool::managed::Pool;
+    use deadpool12::managed::Pool;
     use dotenvy::dotenv;
     use tokio::sync::OnceCell;
     use tokio_shared_rt::test;
