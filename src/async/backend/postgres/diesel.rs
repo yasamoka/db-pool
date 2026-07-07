@@ -27,7 +27,7 @@ type CreateEntities = dyn Fn(
     + Sync
     + 'static;
 
-/// [`Diesel async Postgres`](https://docs.rs/diesel-async/0.5.2/diesel_async/struct.AsyncPgConnection.html) backend
+/// [`Diesel async Postgres`](https://docs.rs/diesel-async/0.9.2/diesel_async/struct.AsyncPgConnection.html) backend
 pub struct DieselAsyncPostgresBackend<P: DieselPoolAssociation<AsyncPgConnection>> {
     privileged_config: PrivilegedPostgresConfig,
     default_pool: P::Pool,
@@ -44,7 +44,7 @@ pub struct DieselAsyncPostgresBackend<P: DieselPoolAssociation<AsyncPgConnection
 }
 
 impl<P: DieselPoolAssociation<AsyncPgConnection>> DieselAsyncPostgresBackend<P> {
-    /// Creates a new [`Diesel async Postgres`](https://docs.rs/diesel-async/0.5.2/diesel_async/struct.AsyncPgConnection.html) backend
+    /// Creates a new [`Diesel async Postgres`](https://docs.rs/diesel-async/0.9.2/diesel_async/struct.AsyncPgConnection.html) backend
     /// # Example
     /// ```
     /// use bb8::Pool;

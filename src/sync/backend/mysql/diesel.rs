@@ -23,7 +23,7 @@ use super::{
 
 type Manager = ConnectionManager<MysqlConnection>;
 
-/// [`Diesel MySQL`](https://docs.rs/diesel/2.2.11/diesel/mysql/struct.MysqlConnection.html) backend
+/// [`Diesel MySQL`](https://docs.rs/diesel/2.3.10/diesel/mysql/struct.MysqlConnection.html) backend
 pub struct DieselMySQLBackend {
     privileged_config: PrivilegedMySQLConfig,
     default_pool: Pool<Manager>,
@@ -33,7 +33,7 @@ pub struct DieselMySQLBackend {
 }
 
 impl DieselMySQLBackend {
-    /// Creates a new [`Diesel MySQL`](https://docs.rs/diesel/2.2.11/diesel/mysql/struct.MysqlConnection.html) backend
+    /// Creates a new [`Diesel MySQL`](https://docs.rs/diesel/2.3.10/diesel/mysql/struct.MysqlConnection.html) backend
     /// # Example
     /// ```
     /// use db_pool::{mysql::PrivilegedMySQLConfig, sync::DieselMySQLBackend};
