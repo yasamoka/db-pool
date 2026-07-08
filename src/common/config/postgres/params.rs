@@ -14,6 +14,7 @@ use super::param::{
     TargetSessionAttrs, UTF8Path,
 };
 
+/// Postgres parameters
 #[derive(Builder, Debug, Eq, PartialEq)]
 pub struct Parameters {
     pub(super) passfile: Option<UTF8Path>,
