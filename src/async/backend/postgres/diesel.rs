@@ -41,6 +41,8 @@ pub struct DieselAsyncPostgresBackend<P: DieselPoolAssociation<AsyncPgConnection
     create_connection: Box<dyn Fn() -> SetupCallback<AsyncPgConnection> + Send + Sync + 'static>,
     create_entities: Box<CreateEntities>,
     drop_previous_databases_flag: bool,
+    clean_tables_flag: bool,
+    excluded_tables: Vec<String>,
 }
 
 impl<P: DieselPoolAssociation<AsyncPgConnection>> DieselAsyncPostgresBackend<P> {
@@ -135,6 +137,8 @@ impl<P: DieselPoolAssociation<AsyncPgConnection>> DieselAsyncPostgresBackend<P> 
             create_connection,
             create_entities: Box::new(create_entities),
             drop_previous_databases_flag: true,
+            clean_tables_flag: true,
+            excluded_tables: Vec::new(),
         })
     }
 
@@ -143,6 +147,52 @@ impl<P: DieselPoolAssociation<AsyncPgConnection>> DieselAsyncPostgresBackend<P> 
     pub fn drop_previous_databases(self, value: bool) -> Self {
         Self {
             drop_previous_databases_flag: value,
+            ..self
+        }
+    }
+
+    /// Whether to truncate tables when cleaning a database between test runs (default: `true`,
+    /// no exclusions).
+    ///
+    /// Set `value` to `false` when the test suite creates entities with unique identifiers and
+    /// does not need a fully clean state between tests, disabling truncation entirely.
+    ///
+    /// When `value` is `true`, `excluded_tables` can be used to protect specific tables (e.g.
+    /// migration-seeded lookup/reference tables) from being truncated, while all other tables
+    /// are still cleaned normally between tests. Pass an empty array to exclude nothing.
+    /// # Example
+    /// ```no_run
+    /// use bb8::Pool;
+    /// use db_pool::{
+    ///     r#async::{DieselAsyncPostgresBackend, DieselBb8},
+    ///     postgres::PrivilegedPostgresConfig,
+    /// };
+    /// use dotenvy::dotenv;
+    ///
+    /// async fn f() {
+    ///     dotenv().ok();
+    ///
+    ///     let config = PrivilegedPostgresConfig::from_env().unwrap();
+    ///
+    ///     let backend = DieselAsyncPostgresBackend::<DieselBb8>::new(
+    ///         config,
+    ///         |_| Pool::builder().max_size(10),
+    ///         |_| Pool::builder().max_size(2),
+    ///         None,
+    ///         move |conn| Box::pin(async { Some(conn) }),
+    ///     )
+    ///     .await
+    ///     .unwrap()
+    ///     .clean_tables(true, ["__excluded_table", "__diesel_schema_migrations"]);
+    /// }
+    ///
+    /// tokio_test::block_on(f());
+    /// ```
+    #[must_use]
+    pub fn clean_tables<const N: usize>(self, value: bool, excluded_tables: [&str; N]) -> Self {
+        Self {
+            clean_tables_flag: value,
+            excluded_tables: excluded_tables.into_iter().map(str::to_owned).collect(),
             ..self
         }
     }
@@ -287,6 +337,7 @@ impl<'pool, P: DieselPoolAssociation<AsyncPgConnection>> PostgresBackend<'pool>
 
         pg_tables::table
             .filter(pg_tables::schema_name.ne_all(["pg_catalog", "information_schema"]))
+            .filter(pg_tables::tablename.ne_all(&self.excluded_tables))
             .select(pg_tables::tablename)
             .load(privileged_conn)
             .await
@@ -294,6 +345,10 @@ impl<'pool, P: DieselPoolAssociation<AsyncPgConnection>> PostgresBackend<'pool>
 
     fn get_drop_previous_databases(&self) -> bool {
         self.drop_previous_databases_flag
+    }
+
+    fn get_clean_tables(&self) -> bool {
+        self.clean_tables_flag
     }
 }
 
