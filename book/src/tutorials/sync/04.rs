@@ -7,6 +7,7 @@ mod tests {
     use std::sync::OnceLock;
 
     use db_pool::{
+        postgres::PrivilegedPostgresConfig,
         sync::{
             // import database pool
             DatabasePool,
@@ -14,9 +15,8 @@ mod tests {
             DatabasePoolBuilderTrait,
             DieselPostgresBackend,
         },
-        PrivilegedPostgresConfig,
     };
-    use diesel::{sql_query, RunQueryDsl};
+    use diesel::{RunQueryDsl, sql_query};
     use dotenvy::dotenv;
     use r2d2::Pool;
 

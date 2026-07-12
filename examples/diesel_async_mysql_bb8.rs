@@ -6,11 +6,11 @@ mod tests {
 
     use bb8::Pool;
     use db_pool::{
-        PrivilegedMySQLConfig,
         r#async::{
             DatabasePool, DatabasePoolBuilderTrait, DieselAsyncMySQLBackend, DieselBb8,
             ReusableConnectionPool,
         },
+        mysql::PrivilegedMySQLConfig,
     };
     use diesel::{Insertable, QueryDsl, insert_into, sql_query, table};
     use diesel_async::RunQueryDsl;

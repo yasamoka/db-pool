@@ -40,7 +40,7 @@ impl SqlxPostgresBackend {
     /// Creates a new [`sqlx Postgres`](https://docs.rs/sqlx/0.8.6/sqlx/struct.Postgres.html) backend
     /// # Example
     /// ```
-    /// use db_pool::{r#async::SqlxPostgresBackend, PrivilegedPostgresConfig};
+    /// use db_pool::{r#async::SqlxPostgresBackend, postgres::PrivilegedPostgresConfig};
     /// use dotenvy::dotenv;
     /// use sqlx::{postgres::PgPoolOptions, Executor};
     ///
@@ -50,7 +50,7 @@ impl SqlxPostgresBackend {
     ///     let config = PrivilegedPostgresConfig::from_env().unwrap();
     ///
     ///     let backend = SqlxPostgresBackend::new(
-    ///         config.into(),
+    ///         config.try_into().unwrap(),
     ///         || PgPoolOptions::new().max_connections(10),
     ///         || PgPoolOptions::new().max_connections(2),
     ///         move |mut conn| {

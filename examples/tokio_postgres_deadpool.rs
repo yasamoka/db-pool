@@ -5,13 +5,13 @@ mod tests {
     #![allow(clippy::needless_return)]
 
     use db_pool::{
-        PrivilegedPostgresConfig,
         r#async::{
             DatabasePool, DatabasePoolBuilderTrait, ReusableConnectionPool, TokioPostgresBackend,
             TokioPostgresDeadpool,
         },
+        postgres::PrivilegedPostgresConfig,
     };
-    use deadpool::managed::Pool;
+    use deadpool12::managed::Pool;
     use dotenvy::dotenv;
     use tokio::sync::OnceCell;
     use tokio_shared_rt::test;
@@ -28,7 +28,7 @@ mod tests {
                 let config = PrivilegedPostgresConfig::from_env().unwrap();
 
                 let backend = TokioPostgresBackend::new(
-                    config.into(),
+                    config.try_into().unwrap(),
                     |manager| Pool::builder(manager).max_size(10),
                     |manager| Pool::builder(manager).max_size(2),
                     move |conn| {

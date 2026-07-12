@@ -5,11 +5,11 @@ mod tests {
     #![allow(clippy::needless_return)]
 
     use db_pool::{
-        PrivilegedMySQLConfig,
         r#async::{
             DatabasePool, DatabasePoolBuilderTrait, DieselAsyncMySQLBackend, DieselDeadpool,
             ReusableConnectionPool,
         },
+        mysql::PrivilegedMySQLConfig,
     };
     use deadpool::managed::Pool;
     use diesel::{Insertable, QueryDsl, insert_into, sql_query, table};

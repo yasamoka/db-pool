@@ -27,7 +27,7 @@ type CreateEntities = dyn Fn(
     + Sync
     + 'static;
 
-/// [`Diesel async Postgres`](https://docs.rs/diesel-async/0.5.2/diesel_async/struct.AsyncPgConnection.html) backend
+/// [`Diesel async Postgres`](https://docs.rs/diesel-async/0.9.2/diesel_async/struct.AsyncPgConnection.html) backend
 pub struct DieselAsyncPostgresBackend<P: DieselPoolAssociation<AsyncPgConnection>> {
     privileged_config: PrivilegedPostgresConfig,
     default_pool: P::Pool,
@@ -44,13 +44,13 @@ pub struct DieselAsyncPostgresBackend<P: DieselPoolAssociation<AsyncPgConnection
 }
 
 impl<P: DieselPoolAssociation<AsyncPgConnection>> DieselAsyncPostgresBackend<P> {
-    /// Creates a new [`Diesel async Postgres`](https://docs.rs/diesel-async/0.5.2/diesel_async/struct.AsyncPgConnection.html) backend
+    /// Creates a new [`Diesel async Postgres`](https://docs.rs/diesel-async/0.9.2/diesel_async/struct.AsyncPgConnection.html) backend
     /// # Example
     /// ```
     /// use bb8::Pool;
     /// use db_pool::{
     ///     r#async::{DieselAsyncPostgresBackend, DieselBb8},
-    ///     PrivilegedPostgresConfig,
+    ///     postgres::PrivilegedPostgresConfig,
     /// };
     /// use diesel::sql_query;
     /// use diesel_async::RunQueryDsl;
@@ -339,7 +339,7 @@ impl<P: DieselPoolAssociation<AsyncPgConnection>> Backend for DieselAsyncPostgre
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::needless_return)]
+    #![allow(clippy::large_futures, clippy::needless_return, clippy::unwrap_used)]
 
     use std::borrow::Cow;
 
@@ -359,7 +359,7 @@ mod tests {
             db_pool::DatabasePoolBuilder,
         },
         common::{
-            config::PrivilegedPostgresConfig,
+            config::postgres::PrivilegedPostgresConfig,
             statement::postgres::tests::{
                 CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
             },

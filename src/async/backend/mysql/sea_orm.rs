@@ -11,7 +11,7 @@ use sea_orm::{
 use uuid::Uuid;
 
 use crate::{
-    common::{config::PrivilegedMySQLConfig, statement::mysql},
+    common::{config::mysql::PrivilegedMySQLConfig, statement::mysql},
     util::get_db_name,
 };
 
@@ -45,7 +45,7 @@ impl SeaORMMySQLBackend {
     /// Creates a new [`SeaORM MySQL`](https://docs.rs/sea-orm/1.1.12/sea_orm/type.DbBackend.html#variant.MySql) backend
     /// # Example
     /// ```
-    /// use db_pool::{r#async::SeaORMMySQLBackend, PrivilegedMySQLConfig};
+    /// use db_pool::{r#async::SeaORMMySQLBackend, mysql::PrivilegedMySQLConfig};
     /// use dotenvy::dotenv;
     /// use sea_orm::ConnectionTrait;
     ///
@@ -151,7 +151,7 @@ impl<'pool> MySQLBackend<'pool> for SeaORMMySQLBackend {
     }
 
     fn get_host(&self) -> &str {
-        self.privileged_config.host.as_str()
+        self.privileged_config.host.host_name()
     }
 
     async fn get_previous_database_names(

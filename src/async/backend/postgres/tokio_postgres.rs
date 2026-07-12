@@ -26,7 +26,7 @@ type CreateEntities = dyn Fn(Client) -> Pin<Box<dyn Future<Output = Client> + Se
     + Sync
     + 'static;
 
-/// [`tokio-postgres`](https://docs.rs/tokio-postgres/0.7.13/tokio_postgres/) backend
+/// [`tokio-postgres`](https://docs.rs/tokio-postgres/0.7.18/tokio_postgres/) backend
 pub struct TokioPostgresBackend<P: TokioPostgresPoolAssociation> {
     privileged_config: Config,
     default_pool: P::Pool,
@@ -37,13 +37,13 @@ pub struct TokioPostgresBackend<P: TokioPostgresPoolAssociation> {
 }
 
 impl<P: TokioPostgresPoolAssociation> TokioPostgresBackend<P> {
-    /// Creates a new [`tokio-postgres`](https://docs.rs/tokio-postgres/0.7.13/tokio_postgres/) backend
+    /// Creates a new [`tokio-postgres`](https://docs.rs/tokio-postgres/0.7.18/tokio_postgres/) backend
     /// # Example
     /// ```
     /// use bb8::Pool;
     /// use db_pool::{
     ///     r#async::{TokioPostgresBackend, TokioPostgresBb8},
-    ///     PrivilegedPostgresConfig,
+    ///     postgres::PrivilegedPostgresConfig,
     /// };
     /// use dotenvy::dotenv;
     ///
@@ -53,7 +53,7 @@ impl<P: TokioPostgresPoolAssociation> TokioPostgresBackend<P> {
     ///     let config = PrivilegedPostgresConfig::from_env().unwrap();
     ///     
     ///     let backend = TokioPostgresBackend::<TokioPostgresBb8>::new(
-    ///         config.into(),
+    ///         config.try_into().unwrap(),
     ///         |_| Pool::builder().max_size(10),
     ///         |_| Pool::builder().max_size(2),
     ///         move |conn| {

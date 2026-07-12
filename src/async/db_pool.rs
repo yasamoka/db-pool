@@ -26,7 +26,7 @@ impl<B: Backend> DatabasePool<B> {
     /// use bb8::Pool;
     /// use db_pool::{
     ///     r#async::{DatabasePoolBuilderTrait, DieselAsyncPostgresBackend, DieselBb8},
-    ///     PrivilegedPostgresConfig,
+    ///     postgres::PrivilegedPostgresConfig,
     /// };
     /// use diesel::sql_query;
     /// use diesel_async::RunQueryDsl;
@@ -62,7 +62,7 @@ impl<B: Backend> DatabasePool<B> {
     /// tokio_test::block_on(f());
     /// ```
     #[must_use]
-    pub async fn pull_immutable(&self) -> ReusableConnectionPool<B> {
+    pub async fn pull_immutable(&self) -> ReusableConnectionPool<'_, B> {
         self.object_pool.pull().await
     }
 
@@ -74,7 +74,7 @@ impl<B: Backend> DatabasePool<B> {
     /// use bb8::Pool;
     /// use db_pool::{
     ///     r#async::{DatabasePoolBuilderTrait, DieselAsyncPostgresBackend, DieselBb8},
-    ///     PrivilegedPostgresConfig,
+    ///     postgres::PrivilegedPostgresConfig,
     /// };
     /// use diesel::sql_query;
     /// use diesel_async::RunQueryDsl;
@@ -128,7 +128,7 @@ pub trait DatabasePoolBuilder: Backend {
     /// use bb8::Pool;
     /// use db_pool::{
     ///     r#async::{DatabasePoolBuilderTrait, DieselAsyncPostgresBackend, DieselBb8},
-    ///     PrivilegedPostgresConfig,
+    ///     postgres::PrivilegedPostgresConfig,
     /// };
     /// use diesel::sql_query;
     /// use diesel_async::RunQueryDsl;

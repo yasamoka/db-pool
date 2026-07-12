@@ -16,12 +16,12 @@ use super::r#trait::DieselPoolAssociation;
 
 type DieselManager<Connection> = AsyncDieselConnectionManager<Connection>;
 
-/// [`Diesel mobc`](https://docs.rs/diesel-async/0.5.2/diesel_async/pooled_connection/mobc/index.html) association
+/// [`Diesel mobc`](https://docs.rs/diesel-async/0.9.2/diesel_async/pooled_connection/mobc/index.html) association
 /// # Example
 /// ```
 /// use db_pool::{
 ///     r#async::{DieselAsyncPostgresBackend, DieselMobc},
-///     PrivilegedPostgresConfig,
+///     postgres::PrivilegedPostgresConfig,
 /// };
 /// use diesel::sql_query;
 /// use diesel_async::RunQueryDsl;

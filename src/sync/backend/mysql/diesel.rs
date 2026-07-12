@@ -23,7 +23,7 @@ use super::{
 
 type Manager = ConnectionManager<MysqlConnection>;
 
-/// [`Diesel MySQL`](https://docs.rs/diesel/2.2.11/diesel/mysql/struct.MysqlConnection.html) backend
+/// [`Diesel MySQL`](https://docs.rs/diesel/2.3.10/diesel/mysql/struct.MysqlConnection.html) backend
 pub struct DieselMySQLBackend {
     privileged_config: PrivilegedMySQLConfig,
     default_pool: Pool<Manager>,
@@ -33,10 +33,10 @@ pub struct DieselMySQLBackend {
 }
 
 impl DieselMySQLBackend {
-    /// Creates a new [`Diesel MySQL`](https://docs.rs/diesel/2.2.11/diesel/mysql/struct.MysqlConnection.html) backend
+    /// Creates a new [`Diesel MySQL`](https://docs.rs/diesel/2.3.10/diesel/mysql/struct.MysqlConnection.html) backend
     /// # Example
     /// ```
-    /// use db_pool::{sync::DieselMySQLBackend, PrivilegedMySQLConfig};
+    /// use db_pool::{mysql::PrivilegedMySQLConfig, sync::DieselMySQLBackend};
     /// use diesel::{sql_query, RunQueryDsl};
     /// use dotenvy::dotenv;
     /// use r2d2::Pool;
@@ -114,8 +114,8 @@ impl MySQLBackend for DieselMySQLBackend {
         }
     }
 
-    fn get_host(&self) -> Cow<str> {
-        self.privileged_config.host.as_str().into()
+    fn get_host_name(&self) -> Cow<'_, str> {
+        self.privileged_config.host.host_name().into()
     }
 
     fn get_previous_database_names(

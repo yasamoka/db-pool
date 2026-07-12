@@ -1,8 +1,8 @@
 use std::ops::{Deref, DerefMut};
 
 use async_trait::async_trait;
-use deadpool::managed::{BuildError, Object, Pool, PoolBuilder, PoolError};
 use deadpool_postgres::Manager;
+use deadpool12::managed::{BuildError, Object, Pool, PoolBuilder, PoolError};
 use tokio_postgres::{Client, Config, Error};
 
 use crate::r#async::backend::{

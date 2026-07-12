@@ -7,9 +7,9 @@ mod tests {
     // import connection pool
     use bb8::Pool;
     use db_pool::{
-        PrivilegedPostgresConfig,
         // import backend
         r#async::{DieselAsyncPostgresBackend, DieselBb8},
+        postgres::PrivilegedPostgresConfig,
     };
     // import diesel-specific constructs
     use diesel::sql_query;

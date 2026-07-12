@@ -10,7 +10,7 @@ use sea_orm::{
 };
 use uuid::Uuid;
 
-use crate::{common::config::PrivilegedPostgresConfig, util::get_db_name};
+use crate::{common::config::postgres::PrivilegedPostgresConfig, util::get_db_name};
 
 use super::{
     super::{
@@ -44,7 +44,7 @@ impl SeaORMPostgresBackend {
     /// # Example
     /// ```
     /// use bb8::Pool;
-    /// use db_pool::{r#async::SeaORMPostgresBackend, PrivilegedPostgresConfig};
+    /// use db_pool::{r#async::SeaORMPostgresBackend, postgres::PrivilegedPostgresConfig};
     /// use diesel::sql_query;
     /// use diesel_async::RunQueryDsl;
     /// use dotenvy::dotenv;
@@ -312,7 +312,7 @@ impl Backend for SeaORMPostgresBackend {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::needless_return)]
+    #![allow(clippy::large_futures, clippy::needless_return, clippy::unwrap_used)]
 
     use dotenvy::dotenv;
     use futures::future::join_all;
@@ -331,7 +331,7 @@ mod tests {
             db_pool::DatabasePoolBuilder,
         },
         common::{
-            config::PrivilegedPostgresConfig,
+            config::postgres::PrivilegedPostgresConfig,
             statement::postgres::tests::{
                 CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
             },

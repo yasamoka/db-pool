@@ -7,7 +7,7 @@ mod tests {
     use std::sync::OnceLock;
 
     // import privileged configuration
-    use db_pool::PrivilegedPostgresConfig;
+    use db_pool::postgres::PrivilegedPostgresConfig;
     // import dotenvy
     use dotenvy::dotenv;
 

@@ -27,7 +27,7 @@ type CreateEntities = dyn Fn(AsyncMysqlConnection) -> Pin<Box<dyn Future<Output 
     + Sync
     + 'static;
 
-/// [`Diesel async MySQL`](https://docs.rs/diesel-async/0.5.2/diesel_async/struct.AsyncMysqlConnection.html) backend
+/// [`Diesel async MySQL`](https://docs.rs/diesel-async/0.9.2/diesel_async/struct.AsyncMysqlConnection.html) backend
 pub struct DieselAsyncMySQLBackend<P: DieselPoolAssociation<AsyncMysqlConnection>> {
     privileged_config: PrivilegedMySQLConfig,
     default_pool: P::Pool,
@@ -43,13 +43,13 @@ pub struct DieselAsyncMySQLBackend<P: DieselPoolAssociation<AsyncMysqlConnection
 }
 
 impl<P: DieselPoolAssociation<AsyncMysqlConnection>> DieselAsyncMySQLBackend<P> {
-    /// Creates a new [`Diesel async MySQL`](https://docs.rs/diesel-async/0.5.2/diesel_async/struct.AsyncMysqlConnection.html) backend
+    /// Creates a new [`Diesel async MySQL`](https://docs.rs/diesel-async/0.9.2/diesel_async/struct.AsyncMysqlConnection.html) backend
     /// # Example
     /// ```
     /// use bb8::Pool;
     /// use db_pool::{
     ///     r#async::{DieselAsyncMySQLBackend, DieselBb8},
-    ///     PrivilegedMySQLConfig,
+    ///     mysql::PrivilegedMySQLConfig,
     /// };
     /// use diesel::sql_query;
     /// use diesel_async::RunQueryDsl;
@@ -177,7 +177,7 @@ impl<'pool, P: DieselPoolAssociation<AsyncMysqlConnection>> MySQLBackend<'pool>
     }
 
     fn get_host(&self) -> &str {
-        self.privileged_config.host.as_str()
+        self.privileged_config.host.host_name()
     }
 
     async fn get_previous_database_names(

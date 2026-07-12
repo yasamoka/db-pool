@@ -3,7 +3,7 @@ title = "db-pool"
 
 [output.html]
 git-repository-url = "https://github.com/yasamoka/db-pool"
-git-repository-icon = "fa-github"
+git-repository-icon = "fab-github"
 
 [output.html.playground]
 runnable = false

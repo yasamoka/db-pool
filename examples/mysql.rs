@@ -5,8 +5,8 @@ mod tests {
     use std::sync::OnceLock;
 
     use db_pool::{
+        mysql::PrivilegedMySQLConfig,
         sync::{DatabasePool, DatabasePoolBuilderTrait, MySQLBackend, ReusableConnectionPool},
-        PrivilegedMySQLConfig,
     };
     use dotenvy::dotenv;
     use mysql::{params, prelude::Queryable};

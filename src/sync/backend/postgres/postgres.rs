@@ -3,8 +3,8 @@ use std::{borrow::Cow, collections::HashMap, ops::Deref};
 use parking_lot::Mutex;
 use r2d2::{Builder, Pool, PooledConnection};
 use r2d2_postgres::{
-    postgres::{Client, Config, Error, NoTls},
     PostgresConnectionManager,
+    postgres::{Client, Config, Error, NoTls},
 };
 use uuid::Uuid;
 
@@ -31,7 +31,7 @@ impl PostgresBackend {
     /// Creates a new Postgres backend
     /// # Example
     /// ```
-    /// use db_pool::{sync::PostgresBackend, PrivilegedPostgresConfig};
+    /// use db_pool::{postgres::PrivilegedPostgresConfig, sync::PostgresBackend};
     /// use r2d2::Pool;
     /// use dotenvy::dotenv;
     ///
@@ -40,7 +40,7 @@ impl PostgresBackend {
     /// let config = PrivilegedPostgresConfig::from_env().unwrap();
     ///
     /// let backend = PostgresBackend::new(
-    ///     config.into(),
+    ///     config.try_into().unwrap(),
     ///     || Pool::builder().max_size(10),
     ///     || Pool::builder().max_size(2),
     ///     move |conn| {
@@ -254,8 +254,11 @@ mod tests {
     use r2d2::Pool;
 
     use crate::{
-        common::statement::postgres::tests::{
-            CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
+        common::{
+            config::postgres::PrivilegedPostgresConfig,
+            statement::postgres::tests::{
+                CREATE_ENTITIES_STATEMENTS, DDL_STATEMENTS, DML_STATEMENTS,
+            },
         },
         sync::{
             backend::postgres::r#trait::tests::{
@@ -264,7 +267,6 @@ mod tests {
             },
             db_pool::DatabasePoolBuilder,
         },
-        PrivilegedPostgresConfig,
     };
 
     use super::{
@@ -283,7 +285,7 @@ mod tests {
 
         let config = PrivilegedPostgresConfig::from_env().unwrap();
 
-        PostgresBackend::new(config.into(), Pool::builder, Pool::builder, {
+        PostgresBackend::new(config.try_into().unwrap(), Pool::builder, Pool::builder, {
             move |conn| {
                 if with_table {
                     conn.batch_execute(&CREATE_ENTITIES_STATEMENTS.join(";"))

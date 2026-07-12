@@ -29,7 +29,7 @@ impl<T> ObjectPool<T> {
         }
     }
 
-    pub(crate) async fn pull(&self) -> Reusable<T> {
+    pub(crate) async fn pull(&self) -> Reusable<'_, T> {
         let object = self.objects.lock().pop();
         let object = if let Some(object) = object {
             (self.reset)(object).await

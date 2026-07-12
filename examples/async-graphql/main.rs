@@ -142,8 +142,8 @@ mod tests {
     use async_graphql::{Request, Variables};
     use bb8::Pool;
     use db_pool::{
-        PrivilegedPostgresConfig,
         r#async::{DatabasePool, DatabasePoolBuilderTrait, DieselAsyncPostgresBackend, DieselBb8},
+        postgres::PrivilegedPostgresConfig,
     };
     use diesel_async::{AsyncPgConnection, async_connection_wrapper::AsyncConnectionWrapper};
     use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};

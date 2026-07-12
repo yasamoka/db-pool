@@ -25,7 +25,7 @@ pub(super) trait MySQLBackend {
         conn: &mut <Self::ConnectionManager as ManageConnection>::Connection,
     ) -> Result<(), Self::QueryError>;
 
-    fn get_host(&self) -> Cow<str>;
+    fn get_host_name(&self) -> Cow<'_, str>;
 
     fn get_previous_database_names(
         &self,
@@ -97,7 +97,7 @@ impl<B: MySQLBackend> MySQLBackendWrapper<'_, B> {
         let db_name = crate::util::get_db_name(db_id);
         let db_name = db_name.as_str();
 
-        let host = &self.get_host();
+        let host = &self.get_host_name();
 
         // Get privileged connection
         let conn = &mut self.get_connection()?;
@@ -177,7 +177,7 @@ impl<B: MySQLBackend> MySQLBackendWrapper<'_, B> {
         let db_name = crate::util::get_db_name(db_id);
         let db_name = db_name.as_str();
 
-        let host = &self.get_host();
+        let host = &self.get_host_name();
 
         // Get privileged connection
         let conn = &mut self.get_connection()?;
@@ -201,9 +201,9 @@ pub(super) mod tests {
     use std::sync::OnceLock;
 
     use diesel::{
-        dsl::exists, insert_into, r2d2::ConnectionManager, select, sql_query, table,
         ExpressionMethods, Insertable, MysqlConnection, QueryDsl, RunQueryDsl,
-        TextExpressionMethods,
+        TextExpressionMethods, dsl::exists, insert_into, r2d2::ConnectionManager, select,
+        sql_query, table,
     };
     use r2d2::Pool as R2d2Pool;
     use tokio::sync::{RwLockReadGuard, RwLockWriteGuard};
@@ -212,7 +212,7 @@ pub(super) mod tests {
     use crate::{
         common::statement::mysql::tests::{DDL_STATEMENTS, DML_STATEMENTS},
         r#sync::{backend::r#trait::Backend, db_pool::DatabasePoolBuilder},
-        tests::{get_privileged_mysql_config, MYSQL_DROP_LOCK},
+        tests::{MYSQL_DROP_LOCK, get_privileged_mysql_config},
         util::get_db_name,
     };
 

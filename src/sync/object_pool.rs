@@ -26,7 +26,7 @@ impl<T> ObjectPool<T> {
         }
     }
 
-    pub(crate) fn pull(&self) -> Reusable<T> {
+    pub(crate) fn pull(&self) -> Reusable<'_, T> {
         self.objects.lock().pop().map_or_else(
             || Reusable::new(self, (self.init)()),
             |mut data| {

@@ -8,10 +8,10 @@ mod tests {
         r#async::{
             DatabasePool, DatabasePoolBuilderTrait, ReusableConnectionPool, SqlxMySQLBackend,
         },
-        PrivilegedMySQLConfig,
+        mysql::PrivilegedMySQLConfig,
     };
     use dotenvy::dotenv;
-    use sqlx::{mysql::MySqlPoolOptions, query, Executor, Row};
+    use sqlx::{Executor, Row, mysql::MySqlPoolOptions, query};
     use tokio::sync::OnceCell;
     use tokio_shared_rt::test;
 
