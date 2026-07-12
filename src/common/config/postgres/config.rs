@@ -113,11 +113,12 @@ impl PrivilegedPostgresConfig {
         db_name: &str,
     ) -> String {
         format!(
-            "{}://{}@{}/{}",
+            "{}://{}@{}/{}{}",
             PREFIX,
             Credentials::new(username, password),
             self.host,
-            db_name
+            db_name,
+            self.parameters,
         )
     }
 }
@@ -127,4 +128,46 @@ pub enum FromEnvError {
     VarIsNotUnicode(OsString),
     HostConfig(PostgresHostConfigFromStrError),
     Parameters(<Parameters as FromStr>::Err),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::PrivilegedPostgresConfig;
+    use crate::common::config::postgres::Parameters;
+
+    fn config_with_parameters() -> PrivilegedPostgresConfig {
+        PrivilegedPostgresConfig::builder()
+            .username("user".to_owned())
+            .password("pass".to_owned())
+            .parameters(
+                Parameters::builder()
+                    .application_name("app".to_owned())
+                    .build(),
+            )
+            .build()
+    }
+
+    #[test]
+    fn connection_url_includes_parameters() {
+        let config = config_with_parameters();
+        assert!(
+            config
+                .default_connection_url()
+                .contains("application_name=app")
+        );
+        assert!(
+            config
+                .privileged_database_connection_url("db")
+                .contains("application_name=app")
+        );
+        assert!(
+            config
+                .restricted_database_connection_url(
+                    "restricted_user",
+                    Some("restricted_pass"),
+                    "db"
+                )
+                .contains("application_name=app")
+        );
+    }
 }
