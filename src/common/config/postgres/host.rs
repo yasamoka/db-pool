@@ -6,8 +6,16 @@ use std::{
 
 use derive_more::Display;
 
+/// Host configuration used when building a [`PrivilegedPostgresConfig`](super::PrivilegedPostgresConfig)
 pub enum PostgresHostConfig {
-    TcpIp { host: String, port: u16 },
+    /// Connect over TCP/IP
+    TcpIp {
+        /// Hostname or IP address
+        host: String,
+        /// Port number
+        port: u16,
+    },
+    /// Connect over a Unix domain socket at the given path
     UnixSocket(PathBuf),
 }
 
