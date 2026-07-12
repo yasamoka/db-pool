@@ -221,13 +221,15 @@ impl Display for Parameters {
             (K::OauthScope, v(oauth_scope)),
         ]
         .into_iter()
-        .filter_map(|(key, value)| value.map(|value| format!("{key}={value}")))
+        .filter_map(|(key, value)| {
+            value.map(|value| format!("{key}={}", urlencoding::encode(value.as_str())))
+        })
         .collect::<Vec<_>>()
         .join("&");
 
         if !data.is_empty() {
             f.write_char('?')?;
-            f.write_str(&urlencoding::encode(data.as_str()))?;
+            f.write_str(&data)?;
         }
 
         Ok(())
@@ -332,12 +334,14 @@ impl FromStr for Parameters {
 
         let mut p = Parameters::builder().build();
 
-        for pair in urlencoding::decode(s).map_err(E::Decode)?.split('&') {
+        for pair in s.split('&') {
             use ParameterKey as K;
 
             let Some((key, value)) = pair.split_once('=') else {
                 return Err(E::InvalidKeyValuePair(pair.to_owned()));
             };
+            let value = urlencoding::decode(value).map_err(E::Decode)?;
+            let value = value.as_ref();
 
             let key = key.parse().map_err(E::InvalidKey)?;
 
@@ -509,7 +513,7 @@ mod tests {
 
     #[test]
     fn all_params() {
-        const STR: &str = "passfile%3D%2F%26require_auth%3Dgss%26channel_binding%3Ddisable%26connect_timeout%3D0%26client_encoding%3Dauto%26options%3D-c%20geqo%3Doff%26application_name%3Dapp%26fallback_application_name%3Dfallback%26keepalives%3Dtrue%26keepalives_idle%3D0%26keepalives_interval%3D0%26keepalives_count%3D0%26tcp_user_timeout%3D0%26replication%3Ddatabase%26gssencmode%3Ddisable%26sslmode%3Dallow%26requiressl%3Dtrue%26sslnegotiation%3Ddirect%26sslcompression%3Dtrue%26sslcert%3D.%2Fcert%26sslkey%3D.%2Fkey%26sslkeylogfile%3D.%2Flog%26sslpassword%3Dpass%26sslcertmode%3Dallow%26sslrootcert%3D.%2Fcert%26sslcrl%3D.%2Fcrl%26sslcrldir%3D.%2Fdir%26sslsni%3Dtrue%26requirepeer%3Dpeer%26ssl_min_protocol_version%3DTLSv1%26ssl_max_protocol_version%3DTLSv1.1%26min_protocol_version%3D3.0%26max_protocol_version%3D3.2%26krbsrvname%3Dkrb%26gsslib%3Dgssapi%26gssdelegation%3Dtrue%26scram_client_key%3D%26scram_server_key%3D%26service%3Dservice%26target_session_attrs%3Dany%26load_balance_hosts%3Ddisable%26oauth_issuer%3Dhttps%3A%2F%2Fwww.wikipedia.org%2F%26oauth_client_id%3Did%26oauth_client_secret%3Dsecret%26oauth_scope%3Ds1%20s2";
+        const STR: &str = "passfile=%2F&require_auth=gss&channel_binding=disable&connect_timeout=0&client_encoding=auto&options=-c%20geqo%3Doff&application_name=app&fallback_application_name=fallback&keepalives=true&keepalives_idle=0&keepalives_interval=0&keepalives_count=0&tcp_user_timeout=0&replication=database&gssencmode=disable&sslmode=allow&requiressl=true&sslnegotiation=direct&sslcompression=true&sslcert=.%2Fcert&sslkey=.%2Fkey&sslkeylogfile=.%2Flog&sslpassword=pass&sslcertmode=allow&sslrootcert=.%2Fcert&sslcrl=.%2Fcrl&sslcrldir=.%2Fdir&sslsni=true&requirepeer=peer&ssl_min_protocol_version=TLSv1&ssl_max_protocol_version=TLSv1.1&min_protocol_version=3.0&max_protocol_version=3.2&krbsrvname=krb&gsslib=gssapi&gssdelegation=true&scram_client_key=&scram_server_key=&service=service&target_session_attrs=any&load_balance_hosts=disable&oauth_issuer=https%3A%2F%2Fwww.wikipedia.org%2F&oauth_client_id=id&oauth_client_secret=secret&oauth_scope=s1%20s2";
 
         let params = Parameters::builder()
             .passfile("/".parse().unwrap())
@@ -561,5 +565,20 @@ mod tests {
 
         assert_eq!(STR.parse::<Parameters>().unwrap(), params);
         assert_eq!(params.to_string(), format!("?{STR}"));
+    }
+
+    #[test]
+    fn display_only_encodes_values_not_structure() {
+        let params = Parameters::builder()
+            .options("-c geqo=off".parse().unwrap())
+            .application_name("app".to_owned())
+            .build();
+
+        let serialized = params.to_string();
+
+        assert_eq!(serialized, "?options=-c%20geqo%3Doff&application_name=app");
+
+        let reparsed: Parameters = serialized.trim_start_matches('?').parse().unwrap();
+        assert_eq!(reparsed, params);
     }
 }
