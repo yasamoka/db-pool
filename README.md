@@ -1,3 +1,5 @@
+
+
 <div align="center">
 <img src="./logo.svg" height="150" />
 </div>
@@ -73,3 +75,5 @@ When switching to parallel execution of tests, even more difficulties arise:
 | sqlx/postgres         | [sqlx](https://docs.rs/sqlx/0.8.6/sqlx/struct.Pool.html)                                  | `sqlx-postgres`                              |
 | tokio-postgres        | [bb8](https://docs.rs/bb8-postgres/0.9.0/bb8_postgres/)                                   | `tokio-postgres`, `tokio-postgres-bb8`       |
 | tokio-postgres        | [mobc](https://docs.rs/mobc-postgres/0.9.0/mobc_postgres/)                                | `tokio-postgres`, `tokio-postgres-mobc`      |
+
+The `diesel-async` and `tokio-postgres` backends also support [deadpool](https://docs.rs/deadpool/latest/deadpool/) via the `diesel-async-deadpool` and `tokio-postgres-deadpool` features.
