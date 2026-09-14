@@ -5,6 +5,7 @@ mod param;
 mod params;
 
 pub use config::{PrivilegedPostgresConfig, PrivilegedPostgresConfigBuilder};
+pub use host::PostgresHostConfig;
 pub use param::{
     AllowStrictness, AuthMethod, ClientEncoding, GssLib, HttpsUrl, Key, LoadBalanceHosts,
     NonEmptyString, OAuthScope, Options, ProtocolVersion, Replication, RequireStrictness,
