@@ -43,6 +43,7 @@ pub struct DieselAsyncPostgresBackend<P: DieselPoolAssociation<AsyncPgConnection
     drop_previous_databases_flag: bool,
     clean_tables_flag: bool,
     excluded_tables: Vec<String>,
+    create_superuser_role_flag: bool,
 }
 
 impl<P: DieselPoolAssociation<AsyncPgConnection>> DieselAsyncPostgresBackend<P> {
@@ -139,6 +140,7 @@ impl<P: DieselPoolAssociation<AsyncPgConnection>> DieselAsyncPostgresBackend<P> 
             drop_previous_databases_flag: true,
             clean_tables_flag: true,
             excluded_tables: Vec::new(),
+            create_superuser_role_flag: false,
         })
     }
 
@@ -193,6 +195,16 @@ impl<P: DieselPoolAssociation<AsyncPgConnection>> DieselAsyncPostgresBackend<P> 
         Self {
             clean_tables_flag: value,
             excluded_tables: excluded_tables.into_iter().map(str::to_owned).collect(),
+            ..self
+        }
+    }
+
+    /// Create the per-database role as a `SUPERUSER` so tests can access other schemas
+    /// (default: `false`)
+    #[must_use]
+    pub fn create_superuser_role(self, value: bool) -> Self {
+        Self {
+            create_superuser_role_flag: value,
             ..self
         }
     }
@@ -345,6 +357,10 @@ impl<'pool, P: DieselPoolAssociation<AsyncPgConnection>> PostgresBackend<'pool>
 
     fn get_drop_previous_databases(&self) -> bool {
         self.drop_previous_databases_flag
+    }
+
+    fn get_create_superuser_role(&self) -> bool {
+        self.create_superuser_role_flag
     }
 
     fn get_clean_tables(&self) -> bool {

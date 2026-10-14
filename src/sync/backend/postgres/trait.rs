@@ -60,6 +60,7 @@ pub(super) trait PostgresBackend {
     ) -> Result<Vec<String>, Self::QueryError>;
 
     fn get_drop_previous_databases(&self) -> bool;
+    fn get_create_superuser_role(&self) -> bool;
 }
 
 pub(super) struct PostgresBackendWrapper<'a, B: PostgresBackend>(&'a B);
@@ -117,8 +118,11 @@ impl<B: PostgresBackend> PostgresBackendWrapper<'_, B> {
                 .map_err(Into::into)?;
 
             // Create role
-            self.execute_query(postgres::create_role(db_name).as_str(), conn)
-                .map_err(Into::into)?;
+            self.execute_query(
+                postgres::create_role(db_name, self.get_create_superuser_role()).as_str(),
+                conn,
+            )
+            .map_err(Into::into)?;
         }
 
         {

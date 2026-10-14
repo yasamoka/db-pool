@@ -34,6 +34,7 @@ pub struct TokioPostgresBackend<P: TokioPostgresPoolAssociation> {
     create_restricted_pool: Box<dyn Fn(Manager) -> P::Builder + Send + Sync + 'static>,
     create_entities: Box<CreateEntities>,
     drop_previous_databases_flag: bool,
+    create_superuser_role_flag: bool,
 }
 
 impl<P: TokioPostgresPoolAssociation> TokioPostgresBackend<P> {
@@ -94,6 +95,7 @@ impl<P: TokioPostgresPoolAssociation> TokioPostgresBackend<P> {
             create_entities: Box::new(create_entities),
             create_restricted_pool: Box::new(create_restricted_pool),
             drop_previous_databases_flag: true,
+            create_superuser_role_flag: false,
         })
     }
 
@@ -102,6 +104,16 @@ impl<P: TokioPostgresPoolAssociation> TokioPostgresBackend<P> {
     pub fn drop_previous_databases(self, value: bool) -> Self {
         Self {
             drop_previous_databases_flag: value,
+            ..self
+        }
+    }
+
+    /// Create the per-database role as a `SUPERUSER` so tests can access other schemas
+    /// (default: `false`)
+    #[must_use]
+    pub fn create_superuser_role(self, value: bool) -> Self {
+        Self {
+            create_superuser_role_flag: value,
             ..self
         }
     }
@@ -214,6 +226,10 @@ impl<'pool, P: TokioPostgresPoolAssociation> PostgresBackend<'pool> for TokioPos
 
     fn get_drop_previous_databases(&self) -> bool {
         self.drop_previous_databases_flag
+    }
+
+    fn get_create_superuser_role(&self) -> bool {
+        self.create_superuser_role_flag
     }
 
     fn get_clean_tables(&self) -> bool {

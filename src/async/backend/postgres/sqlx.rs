@@ -34,6 +34,7 @@ pub struct SqlxPostgresBackend {
     create_restricted_pool: Box<dyn Fn() -> PgPoolOptions + Send + Sync + 'static>,
     create_entities: Box<CreateEntities>,
     drop_previous_databases_flag: bool,
+    create_superuser_role_flag: bool,
 }
 
 impl SqlxPostgresBackend {
@@ -88,6 +89,7 @@ impl SqlxPostgresBackend {
             create_restricted_pool: Box::new(create_restricted_pool),
             create_entities: Box::new(create_entities),
             drop_previous_databases_flag: true,
+            create_superuser_role_flag: false,
         }
     }
 
@@ -96,6 +98,16 @@ impl SqlxPostgresBackend {
     pub fn drop_previous_databases(self, value: bool) -> Self {
         Self {
             drop_previous_databases_flag: value,
+            ..self
+        }
+    }
+
+    /// Create the per-database role as a `SUPERUSER` so tests can access other schemas
+    /// (default: `false`)
+    #[must_use]
+    pub fn create_superuser_role(self, value: bool) -> Self {
+        Self {
+            create_superuser_role_flag: value,
             ..self
         }
     }
@@ -205,6 +217,10 @@ impl<'pool> PostgresBackend<'pool> for SqlxPostgresBackend {
 
     fn get_drop_previous_databases(&self) -> bool {
         self.drop_previous_databases_flag
+    }
+
+    fn get_create_superuser_role(&self) -> bool {
+        self.create_superuser_role_flag
     }
 
     fn get_clean_tables(&self) -> bool {

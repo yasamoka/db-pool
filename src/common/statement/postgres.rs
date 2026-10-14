@@ -9,8 +9,9 @@ pub fn create_database(db_name: &str) -> String {
     format!("CREATE DATABASE {db_name}")
 }
 
-pub fn create_role(name: &str) -> String {
-    format!("CREATE ROLE {name} WITH LOGIN PASSWORD '{name}'")
+pub fn create_role(name: &str, superuser: bool) -> String {
+    let superuser = if superuser { "SUPERUSER " } else { "" };
+    format!("CREATE ROLE {name} WITH {superuser}LOGIN PASSWORD '{name}'")
 }
 
 pub fn grant_database_ownership(db_name: &str, role_name: &str) -> String {

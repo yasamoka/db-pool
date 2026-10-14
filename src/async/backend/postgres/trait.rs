@@ -89,6 +89,7 @@ pub(super) trait PostgresBackend<'pool>: Send + Sync + 'static {
 
     fn get_drop_previous_databases(&self) -> bool;
     fn get_clean_tables(&self) -> bool;
+    fn get_create_superuser_role(&self) -> bool;
 }
 
 pub(super) struct PostgresBackendWrapper<'backend, 'pool, B: PostgresBackend<'pool>> {
@@ -177,9 +178,12 @@ where
             .map_err(Into::into)?;
 
         // Create role
-        self.execute_query(postgres::create_role(db_name).as_str(), default_conn)
-            .await
-            .map_err(Into::into)?;
+        self.execute_query(
+            postgres::create_role(db_name, self.get_create_superuser_role()).as_str(),
+            default_conn,
+        )
+        .await
+        .map_err(Into::into)?;
 
         if restrict_privileges {
             // Connect to database as privileged user
